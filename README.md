@@ -1,28 +1,12 @@
-# Application de Gestion du Personnel de Sécurité – React + Vite
+# React + Vite
 
-Cette application web permet la **gestion autonome du personnel de sécurité**. Elle est développée avec **React** pour le frontend et propulsée par **Vite** pour un développement rapide et moderne. Le projet est organisé en sprints fonctionnels suivant une approche Agile.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
----
+Currently, two official plugins are available:
 
-## Fonctionnalités principales
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-- Authentification sécurisée (JWT/OAuth2)
-- Gestion des rôles (Client, Admin, Agent)
-- Délimitation des zones à sécuriser (carte interactive)
-- Suivi GPS en temps réel des agents
-- Commande de services (packs ou unitaires)
-- Messagerie sécurisée et alertes
-- Paiement en ligne intégré
-- Tableau de bord admin et rapports automatisés
+## Expanding the ESLint configuration
 
----
-
-## Installation rapide
-
-```bash
-
-# Installer les dépendances
-npm install
-
-# Lancer le serveur de développement
-npm run dev
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.

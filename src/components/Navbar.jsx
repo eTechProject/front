@@ -70,9 +70,9 @@ const Navbar = () => {
                         <a href="#pricing" onClick={toggleMenu} className="text-black">Tarifs</a>
                     </li>
                     <li>
-                        <a href="#" onClick={toggleMenu} className=" bg-orange-400 text-white hover:bg-orange-500 px-4 py-2 rounded-md">
+                        <Link to="/auth" onClick={toggleMenu} className=" bg-orange-400 text-white hover:bg-orange-500 px-4 py-2 rounded-md">
                             Connexion
-                        </a>
+                        </Link>
                     </li>
                 </ul>
             </div>

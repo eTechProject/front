@@ -9,13 +9,12 @@ const InputField = ({
                         error,
                         required = false,
                         disabled = false,
-                        borderColor = 'border-gray-200',
                         className = '',
                         ...props
                     }) => {
     return (
         <div className={`w-full relative mb-6 ${className}`}>
-            <div className={`relative flex items-center border ${borderColor} rounded-lg px-4 py-3 transition-all duration-200 ${error ? 'border-red-500' : ''} ${disabled ? 'bg-gray-100' : 'bg-white'}`}>
+            <div className={`relative flex items-center   rounded-lg px-4 py-3 transition-all duration-200 ${error ? 'border-red-500' : ''} ${disabled ? 'bg-gray-100' : 'bg-white'}`}>
                 {required && (
                     <span className="text-red-500 mr-1">*</span>
                 )}
@@ -44,7 +43,7 @@ const InputField = ({
             {error && (
                 <small
                     id={`${name}-error`}
-                    className="text-red-500 text-xs mt-1 block"
+                    className="text-red-500 text-left ml-6 text-xs mt-1 block"
                     role="alert"
                 >
                     {error}

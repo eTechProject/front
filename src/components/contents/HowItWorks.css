@@ -1,0 +1,276 @@
+.animated-card {
+    @apply relative cursor-pointer overflow-hidden rounded-[15px];
+    background-color: rgba(255, 255, 255, 0.8);
+    box-shadow:
+            0 3px 6px rgba(0, 0, 0, 0.05),
+            0 8px 15px rgba(0, 0, 0, 0.1),
+            0 0 0 1px rgba(255, 140, 0, 0.1);
+    transition: box-shadow 0.25s, transform 0.25s;
+}
+
+.animated-card::before {
+    @apply absolute inset-0;
+    content: '';
+    border-radius: 15px;
+    background-color: rgba(255, 255, 255, 0.9);
+    z-index: 0;
+}
+
+.animated-card .card-content {
+    @apply relative z-[2];
+}
+
+.animated-card .icon-container {
+    @apply relative inline-flex p-2 mb-4;
+}
+
+.animated-card .icon-container::after {
+    @apply absolute;
+    content: '';
+    inset: 4px;
+    border-radius: 50%;
+    background-color: rgba(255, 140, 0, 0.08);
+    border: 1px solid rgba(255, 140, 0, 0.2);
+    backdrop-filter: blur(2px);
+    transition: background-color 0.25s, border-color 0.25s;
+}
+
+.animated-card .shine {
+    @apply absolute inset-0 z-[1] overflow-hidden opacity-0;
+    border-radius: inherit;
+    transition: opacity 0.5s;
+}
+
+.animated-card .shine::before {
+    @apply absolute left-1/2 bottom-[55%] filter blur-[35px] opacity-30;
+    content: '';
+    width: 150%;
+    padding-bottom: 150%;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    background-image: conic-gradient(
+            from 205deg at 50% 50%,
+            rgba(255, 140, 0, 0) 0deg,
+            #FF8C00 25deg,
+            rgba(255, 153, 51, 0.18) 295deg,
+            rgba(255, 140, 0, 0) 360deg
+    );
+}
+
+.animated-card .background {
+    @apply absolute inset-0 overflow-hidden;
+    border-radius: inherit;
+    -webkit-mask-image: radial-gradient(circle at 60% 5%, black 0%, black 15%, transparent 60%);
+    mask-image: radial-gradient(circle at 60% 5%, black 0%, black 15%, transparent 60%);
+}
+
+.animated-card .tiles {
+    @apply opacity-0;
+    transition: opacity 0.25s;
+}
+
+.animated-card .tile {
+    @apply absolute opacity-0;
+    background-color: rgba(255, 140, 0, 0.05);
+    animation-duration: 8s;
+    animation-iteration-count: infinite;
+}
+
+.animated-card .tile.tile-4,
+.animated-card .tile.tile-6,
+.animated-card .tile.tile-10 {
+    animation-delay: -2s;
+}
+
+.animated-card .tile.tile-3,
+.animated-card .tile.tile-5,
+.animated-card .tile.tile-8 {
+    animation-delay: -4s;
+}
+
+.animated-card .tile.tile-2,
+.animated-card .tile.tile-9 {
+    animation-delay: -6s;
+}
+
+.animated-card .tile.tile-1 {
+    @apply top-0 left-0;
+    height: 10%;
+    width: 22.5%;
+}
+
+.animated-card .tile.tile-2 {
+    @apply top-0 left-[22.5%];
+    height: 10%;
+    width: 27.5%;
+}
+
+.animated-card .tile.tile-3 {
+    @apply top-0 left-1/2;
+    height: 10%;
+    width: 27.5%;
+}
+
+.animated-card .tile.tile-4 {
+    @apply top-0 left-[77.5%];
+    height: 10%;
+    width: 22.5%;
+}
+
+.animated-card .tile.tile-5 {
+    @apply top-[10%] left-0;
+    height: 22.5%;
+    width: 22.5%;
+}
+
+.animated-card .tile.tile-6 {
+    @apply top-[10%] left-[22.5%];
+    height: 22.5%;
+    width: 27.5%;
+}
+
+.animated-card .tile.tile-7 {
+    @apply top-[10%] left-1/2;
+    height: 22.5%;
+    width: 27.5%;
+}
+
+.animated-card .tile.tile-8 {
+    @apply top-[10%] left-[77.5%];
+    height: 22.5%;
+    width: 22.5%;
+}
+
+.animated-card .tile.tile-9 {
+    @apply top-[32.5%] left-1/2;
+    height: 22.5%;
+    width: 27.5%;
+}
+
+.animated-card .tile.tile-10 {
+    @apply top-[32.5%] left-[77.5%];
+    height: 22.5%;
+    width: 22.5%;
+}
+
+@keyframes tile {
+    0%, 12.5%, 100% {
+        opacity: 1;
+    }
+    25%, 82.5% {
+        opacity: 0;
+    }
+}
+
+.animated-card .line {
+    @apply absolute inset-0 opacity-0;
+    transition: opacity 0.35s;
+}
+
+.animated-card .line::before,
+.animated-card .line::after {
+    @apply absolute;
+    content: '';
+    background-color: rgba(255, 140, 0, 0.2);
+    transition: transform 0.35s;
+}
+
+.animated-card .line::before {
+    @apply left-0 right-0 h-px;
+    transform-origin: 0 50%;
+    transform: scaleX(0);
+}
+
+.animated-card .line::after {
+    @apply top-0 bottom-0 w-px;
+    transform-origin: 50% 0;
+    transform: scaleY(0);
+}
+
+.animated-card .line.line-1::before {
+    @apply top-[10%];
+}
+
+.animated-card .line.line-1::after {
+    @apply left-[22.5%];
+}
+
+.animated-card .line.line-1::before,
+.animated-card .line.line-1::after {
+    transition-delay: 0.3s;
+}
+
+.animated-card .line.line-2::before {
+    @apply top-[32.5%];
+}
+
+.animated-card .line.line-2::after {
+    @apply left-1/2;
+}
+
+.animated-card .line.line-2::before,
+.animated-card .line.line-2::after {
+    transition-delay: 0.15s;
+}
+
+.animated-card .line.line-3::before {
+    @apply top-[55%];
+}
+
+.animated-card .line.line-3::after {
+    @apply right-[22.5%];
+}
+
+/* Hover States */
+.animated-card:hover {
+    transition: .5s all;
+    transform: translateY(-2px);
+}
+
+.animated-card:hover .icon-container::after {
+    background-color: rgba(255, 140, 0, 0.15);
+    border-color: rgba(255, 140, 0, 0.3);
+}
+
+.animated-card:hover .shine {
+    @apply opacity-100;
+    transition-duration: 0.5s;
+    transition-delay: 0s;
+}
+
+.animated-card:hover .tiles {
+    @apply opacity-100;
+    transition-delay: 0.25s;
+}
+
+.animated-card:hover .tile {
+    animation-name: tile;
+}
+
+.animated-card:hover .line {
+    @apply opacity-100;
+    transition-duration: 0.15s;
+}
+
+.animated-card:hover .line::before {
+    transform: scaleX(1);
+}
+
+.animated-card:hover .line::after {
+    transform: scaleY(1);
+}
+
+.animated-card:hover .line.line-1::before,
+.animated-card:hover .line.line-1::after {
+    transition-delay: 0s;
+}
+
+.animated-card:hover .line.line-2::before,
+.animated-card:hover .line.line-2::after {
+    transition-delay: 0.15s;
+}
+
+.animated-card:hover .line.line-3::before,
+.animated-card:hover .line.line-3::after {
+    transition-delay: 0.3s;
+}

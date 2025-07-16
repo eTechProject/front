@@ -266,7 +266,12 @@ const AuthPage = () => {
                                             />
                                             Se souvenir de moi
                                         </label>
-                                        <button type="button" className="text-sm text-orange-600 hover:text-orange-800 underline" disabled={isLoading}>
+                                        <button
+                                            type="button"
+                                            className="text-sm text-orange-600 hover:text-orange-800 underline"
+                                            disabled={isLoading}
+                                            onClick={() => navigate('/forgot-password')}
+                                        >
                                             Mot de passe oublié ?
                                         </button>
                                     </div>
@@ -405,7 +410,12 @@ const AuthPage = () => {
                                             />
                                             Se souvenir de moi
                                         </label>
-                                        <button type="button" className="text-sm text-orange-600 hover:text-orange-800 underline" disabled={isLoading}>
+                                        <button
+                                            type="button"
+                                            className="text-sm text-orange-600 hover:text-orange-800 underline"
+                                            disabled={isLoading}
+                                            onClick={() => navigate('/forgot-password')}
+                                        >
                                             Mot de passe oublié ?
                                         </button>
                                     </div>

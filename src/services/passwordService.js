@@ -4,7 +4,7 @@ export const passwordService = {
     // Demande de réinitialisation
     requestReset: async (email) => {
         try {
-            await apiClient.post('/request-reset-password', { email });
+            await apiClient.post('/public/request-reset-password', { email });
             return { success: true };
         } catch (error) {
             return {
@@ -16,7 +16,7 @@ export const passwordService = {
     // Réinitialisation effective
     resetPassword: async (token, newPassword) => {
         try {
-            await apiClient.post('/reset-password', { token, password: newPassword });
+            await apiClient.post('/public/reset-password', { token, password: newPassword });
             return { success: true };
         } catch (error) {
             return {

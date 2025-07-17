@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import InputField from "../shared/InputField.jsx";
-import logo from "../assets/logo128-U.png";
 import {usePasswordReset} from "../hooks/usePasswordReset.js";
+import {Key} from "lucide-react";
 
 const ResetPasswordPage = () => {
     const [searchParams] = useSearchParams();
@@ -34,7 +34,9 @@ const ResetPasswordPage = () => {
         <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
                 <div className="flex justify-center mb-6">
-                    <img src={logo} alt="Logo" className="w-16 h-16" />
+                    <div className={'w-16 h-16 bg-gray-100 rounded-full items-center flex justify-center'}>
+                        <Key className="w-8 h-8 text-orange-500"     />
+                    </div>
                 </div>
 
                 <h1 className="text-2xl font-bold text-center text-orange-800 mb-6">

@@ -1,9 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from "../assets/logo128-U.png";
 import BackButton from "../shared/BackButton.jsx";
 import InputField from "../shared/InputField.jsx";
 import { useAuth } from '../hooks/useAuth';
+import PasswordInputField from "../shared/PasswordInputField.jsx";
 
 // Constants for validation
 const VALIDATION_RULES = {
@@ -21,7 +22,6 @@ const VALIDATION_RULES = {
     password: {
         required: true,
         minLength: 8,
-        maxLength: 20,
         message: "Le mot de passe"
     },
     phone: {
@@ -29,6 +29,47 @@ const VALIDATION_RULES = {
         message: "Le numéro de téléphone"
     }
 };
+
+
+// Enhanced notification component
+const NotificationComponent = ({ notification, onClose }) => {
+    if (!notification.show) return null;
+
+    return (
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center animate-fade-in transition-all duration-300 ${
+            notification.type === 'error'
+                ? 'bg-red-100 border border-red-400 text-red-700'
+                : 'bg-green-100 border border-green-400 text-green-700'
+        }`}>
+            <div className="flex items-center">
+                {notification.type === 'error' ? (
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+                    </svg>
+                ) : (
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                    </svg>
+                )}
+                <span>{notification.message}</span>
+            </div>
+            <button
+                onClick={onClose}
+                className="ml-4 text-current hover:opacity-70 transition-opacity duration-200"
+                aria-label="Close notification"
+            >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                </svg>
+            </button>
+        </div>
+    );
+};
+
+// Loading spinner component
+const LoadingSpinner = () => (
+    <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+);
 
 const AuthPage = () => {
     const navigate = useNavigate();
@@ -77,14 +118,14 @@ const AuthPage = () => {
         };
     }, []);
 
-    const showNotification = (type, message) => {
+    const showNotification = useCallback((type, message) => {
         setNotification({ show: true, type, message });
         const timer = setTimeout(() => {
             setNotification(prev => ({ ...prev, show: false }));
-            clearError();
+            if (type === 'error') clearError();
         }, 5000);
         return () => clearTimeout(timer);
-    };
+    }, [clearError]);
 
     // Generic validation function
     const validateField = useCallback((name, value) => {
@@ -145,20 +186,25 @@ const AuthPage = () => {
         setRegisterErrors(errors);
         if (hasErrors) return;
 
-        const result = await register({
-            name: registerForm.username,
-            email: registerForm.email,
-            password: registerForm.password,
-            phone: registerForm.phone || null
-        });
+        try {
+            const result = await register({
+                name: registerForm.username,
+                email: registerForm.email,
+                password: registerForm.password,
+                phone: registerForm.phone || null
+            });
 
-        if (result.success) {
-            showNotification('success', `Inscription réussie pour ${registerForm.username}!`);
-            setTimeout(() => navigate('/dashboard'), 1500);
-        } else if (result.details) {
-            setRegisterErrors(prev => ({ ...prev, ...result.details }));
+            if (result.success) {
+                showNotification('success', `Inscription réussie pour ${registerForm.username}!`);
+                setTimeout(() => navigate('/dashboard'), 1500);
+            } else if (result.details) {
+                setRegisterErrors(prev => ({ ...prev, ...result.details }));
+            }
+            // eslint-disable-next-line no-unused-vars
+        } catch (err) {
+            showNotification('error', 'Une erreur est survenue lors de l\'inscription');
         }
-    }, [registerForm, register, navigate, validateField]);
+    }, [registerForm, register, navigate, validateField, showNotification]);
 
     const handleLoginSubmit = useCallback(async (e) => {
         e.preventDefault();
@@ -175,14 +221,19 @@ const AuthPage = () => {
         setLoginErrors(errors);
         if (hasErrors) return;
 
-        const result = await login(loginForm);
-        if (result.success) {
-            showNotification('success', `Connexion réussie avec ${loginForm.email}!`);
-            setTimeout(() => navigate('/dashboard'), 1500);
-        } else if (result.details) {
-            setLoginErrors(prev => ({ ...prev, ...result.details }));
+        try {
+            const result = await login(loginForm);
+            if (result.success) {
+                showNotification('success', `Connexion réussie avec ${loginForm.email}!`);
+                setTimeout(() => navigate('/dashboard'), 1500);
+            } else if (result.details) {
+                setLoginErrors(prev => ({ ...prev, ...result.details }));
+            }
+            // eslint-disable-next-line no-unused-vars
+        } catch (err) {
+            showNotification('error', 'Une erreur est survenue lors de la connexion');
         }
-    }, [loginForm, login, navigate, validateField]);
+    }, [loginForm, login, navigate, validateField, showNotification]);
 
     // Toggle between login/register on mobile
     const togglePanel = useCallback(() => {
@@ -192,40 +243,33 @@ const AuthPage = () => {
         clearError();
     }, [isRightPanelActive, clearError]);
 
-    // Common button props
-    const authButtonProps = {
-        className: "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 px-12 rounded-full font-bold text-sm uppercase tracking-wide transition-all duration-300 hover:from-orange-600 hover:to-orange-700 active:scale-95 mb-6 shadow-lg disabled:opacity-50 w-full max-w-xs",
+    // Memoized button props
+    const authButtonProps = useMemo(() => ({
+        className: "bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 px-12 rounded-full font-bold text-sm uppercase tracking-wide transition-all duration-300 hover:from-orange-600 hover:to-orange-700 active:scale-95 mb-6 shadow-lg disabled:opacity-50 w-full max-w-xs flex items-center justify-center",
         disabled: isLoading
-    };
+    }), [isLoading]);
 
-    // Common input props
-    const inputProps = {
+    // Memoized input props
+    const inputProps = useMemo(() => ({
         disabled: isLoading,
         required: true,
         onChange: isRightPanelActive ? handleRegisterChange : handleLoginChange
-    };
+    }), [isLoading, isRightPanelActive, handleRegisterChange, handleLoginChange]);
+
+    // Close notification handler
+    const handleCloseNotification = useCallback(() => {
+        setNotification(prev => ({ ...prev, show: false }));
+    }, []);
 
     return (
         <>
             <BackButton />
             <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center p-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                {/* Notification */}
-                {notification.show && (
-                    <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center animate-fade-in ${
-                        notification.type === 'error'
-                            ? 'bg-red-100 border border-red-400 text-red-700'
-                            : 'bg-green-100 border border-green-400 text-green-700'
-                    }`}>
-                        <span>{notification.message}</span>
-                        <button
-                            onClick={() => setNotification(prev => ({ ...prev, show: false }))}
-                            className="ml-4 text-current hover:opacity-70"
-                            aria-label="Close notification"
-                        >
-                            ×
-                        </button>
-                    </div>
-                )}
+                {/* Enhanced Notification */}
+                <NotificationComponent
+                    notification={notification}
+                    onClose={handleCloseNotification}
+                />
 
                 <div className={`relative overflow-hidden w-full max-w-5xl min-h-[34rem] bg-white rounded-3xl shadow-2xl transition-all duration-600 ${isRightPanelActive ? 'right-panel-active' : ''}`}>
                     {/* Desktop View - Two Panels */}
@@ -245,30 +289,30 @@ const AuthPage = () => {
                                         {...inputProps}
                                     />
 
-                                    <InputField
-                                        type="password"
+                                    <PasswordInputField
                                         name="password"
                                         value={loginForm.password}
                                         placeholder="Mot de passe"
                                         error={loginErrors.password}
-                                        {...inputProps}
+                                        disabled={isLoading}
+                                        onChange={handleLoginChange}
                                     />
 
                                     <div className="flex justify-between items-center w-full mb-8">
-                                        <label className="flex items-center text-sm text-gray-600">
+                                        <label className="flex items-center text-sm text-gray-600 cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 name="rememberMe"
                                                 checked={loginForm.rememberMe}
                                                 onChange={handleLoginChange}
-                                                className="mr-2"
+                                                className="mr-2 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                                                 disabled={isLoading}
                                             />
                                             Se souvenir de moi
                                         </label>
                                         <button
                                             type="button"
-                                            className="text-sm text-orange-600 hover:text-orange-800 underline"
+                                            className="text-sm text-orange-600 hover:text-orange-800 underline transition-colors duration-200"
                                             disabled={isLoading}
                                             onClick={() => navigate('/forgot-password')}
                                         >
@@ -280,10 +324,11 @@ const AuthPage = () => {
                                         type="submit"
                                         {...authButtonProps}
                                     >
+                                        {isLoading && <LoadingSpinner />}
                                         {isLoading ? 'Connexion...' : 'Se connecter'}
                                     </button>
 
-                                    <span className="text-sm text-orange-600">ou créez un nouveau compte</span>
+                                    <span className="text-sm text-gray-600">ou créez un nouveau compte</span>
                                 </form>
                             </div>
 
@@ -310,20 +355,20 @@ const AuthPage = () => {
                                         {...inputProps}
                                     />
 
-                                    <InputField
-                                        type="password"
+                                    <PasswordInputField
                                         name="password"
                                         value={registerForm.password}
                                         placeholder="Mot de passe"
                                         error={registerErrors.password}
-                                        {...inputProps}
+                                        disabled={isLoading}
+                                        onChange={handleRegisterChange}
                                     />
 
                                     <InputField
                                         type="tel"
                                         name="phone"
                                         value={registerForm.phone}
-                                        placeholder="Téléphone (optionnel)"
+                                        placeholder="  Téléphone"
                                         error={registerErrors.phone}
                                         required={false}
                                         disabled={isLoading}
@@ -334,20 +379,34 @@ const AuthPage = () => {
                                         type="submit"
                                         {...authButtonProps}
                                     >
+                                        {isLoading && <LoadingSpinner />}
                                         {isLoading ? 'Inscription...' : 'S\'inscrire'}
                                     </button>
 
-                                    <span className="text-sm text-orange-600">ou utilisez votre compte existant</span>
+                                    <span className="text-sm text-gray-600">ou utilisez votre compte existant</span>
                                 </form>
                             </div>
 
                             {/* Overlay Panel */}
-                            <div className={`absolute top-0 left-1/2 w-1/2 h-full overflow-hidden transition-transform duration-600 ease-in-out z-50 ${isRightPanelActive ? 'transform -translate-x-full' : ''}`}>
-                                <div className={`relative -left-full h-full w-[200%] transition-transform duration-600 ease-in-out ${isRightPanelActive ? 'transform translate-x-1/2' : 'transform translate-x-0'}`}
+                            <div className={`absolute overlay top-0 left-1/2 w-1/2 h-full overflow-hidden transition-transform duration-700 ease-in-out z-40 ${isRightPanelActive ? 'transform -translate-x-full' : ''}`}>
+                                <div className={`relative -left-full h-full w-[200%] transition-transform duration-700 ease-in-out ${isRightPanelActive ? 'transform translate-x-1/2' : 'transform translate-x-0'}`}
                                      style={{
-                                         background: 'linear-gradient(135deg, rgba(251, 146, 60, 0.9) 0%, rgba(249, 115, 22, 0.9) 100%)'
+                                         backgroundImage: "url('https://images.unsplash.com/photo-1621360841013-c7683c659ec6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1932&q=80')",
+                                         backgroundSize: 'cover',
+                                         backgroundPosition: 'center',
+                                         position: 'relative'
                                      }}
                                 >
+                                    {/* Overlay orange semi-transparent */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        background: 'linear-gradient(135deg, rgba(251, 146, 60, 0.9) 0%, rgba(249, 115, 22, 0.9) 100%)'
+                                    }}></div>
+
                                     <OverlayPanel
                                         isActive={!isRightPanelActive}
                                         title="Un dernier pas et c'est bon"
@@ -389,30 +448,30 @@ const AuthPage = () => {
                                         {...inputProps}
                                     />
 
-                                    <InputField
-                                        type="password"
+                                    <PasswordInputField
                                         name="password"
                                         value={loginForm.password}
                                         placeholder="Mot de passe"
                                         error={loginErrors.password}
-                                        {...inputProps}
+                                        disabled={isLoading}
+                                        onChange={handleLoginChange}
                                     />
 
                                     <div className="flex justify-between items-center w-full mb-6">
-                                        <label className="flex items-center text-sm text-gray-600">
+                                        <label className="flex items-center text-sm text-gray-600 cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 name="rememberMe"
                                                 checked={loginForm.rememberMe}
                                                 onChange={handleLoginChange}
-                                                className="mr-2"
+                                                className="mr-2 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                                                 disabled={isLoading}
                                             />
                                             Se souvenir de moi
                                         </label>
                                         <button
                                             type="button"
-                                            className="text-sm text-orange-600 hover:text-orange-800 underline"
+                                            className="text-sm text-orange-600 hover:text-orange-800 underline transition-colors duration-200"
                                             disabled={isLoading}
                                             onClick={() => navigate('/forgot-password')}
                                         >
@@ -424,6 +483,7 @@ const AuthPage = () => {
                                         type="submit"
                                         {...authButtonProps}
                                     >
+                                        {isLoading && <LoadingSpinner />}
                                         {isLoading ? 'Connexion...' : 'Se connecter'}
                                     </button>
 
@@ -431,6 +491,7 @@ const AuthPage = () => {
                                         type="button"
                                         onClick={togglePanel}
                                         className="text-sm text-orange-600 hover:text-orange-800 transition-colors duration-300 underline"
+                                        disabled={isLoading}
                                     >
                                         Pas de compte ? S'inscrire
                                     </button>
@@ -457,13 +518,13 @@ const AuthPage = () => {
                                         {...inputProps}
                                     />
 
-                                    <InputField
-                                        type="password"
+                                    <PasswordInputField
                                         name="password"
                                         value={registerForm.password}
                                         placeholder="Mot de passe"
                                         error={registerErrors.password}
-                                        {...inputProps}
+                                        disabled={isLoading}
+                                        onChange={handleRegisterChange}
                                     />
 
                                     <InputField
@@ -481,6 +542,7 @@ const AuthPage = () => {
                                         type="submit"
                                         {...authButtonProps}
                                     >
+                                        {isLoading && <LoadingSpinner />}
                                         {isLoading ? 'Inscription...' : 'S\'inscrire'}
                                     </button>
 
@@ -488,6 +550,7 @@ const AuthPage = () => {
                                         type="button"
                                         onClick={togglePanel}
                                         className="text-sm text-orange-600 hover:text-orange-800 transition-colors duration-300 underline"
+                                        disabled={isLoading}
                                     >
                                         Déjà un compte ? Se connecter
                                     </button>

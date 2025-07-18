@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from "../assets/logo128-U.png";
-import BackButton from "../shared/BackButton.jsx";
 import InputField from "../shared/InputField.jsx";
 import PasswordInputField from "../shared/PasswordInputField.jsx";
 import {useAuth} from "../context/AuthContext.jsx";
+import BackButtonHome from "../shared/BackHomeButton.jsx";
 
 // Constants for validation
 const VALIDATION_RULES = {
@@ -196,14 +196,16 @@ const AuthPage = () => {
 
             if (result.success) {
                 showNotification('success', `Inscription réussie pour ${registerForm.username}!`);
+                setTimeout(() => {
+                    setIsRightPanelActive(false);
+                }, 1000);
             } else if (result.details) {
                 setRegisterErrors(prev => ({ ...prev, ...result.details }));
             }
-            // eslint-disable-next-line no-unused-vars
         } catch (err) {
             showNotification('error', 'Une erreur est survenue lors de l\'inscription');
         }
-    }, [registerForm, register, navigate, validateField, showNotification]);
+    }, [registerForm, register, validateField, showNotification]);
 
     const handleLoginSubmit = useCallback(async (e) => {
         e.preventDefault();
@@ -228,7 +230,6 @@ const AuthPage = () => {
             } else if (result.details) {
                 setLoginErrors(prev => ({ ...prev, ...result.details }));
             }
-            // eslint-disable-next-line no-unused-vars
         } catch (err) {
             showNotification('error', 'Une erreur est survenue lors de la connexion');
         }
@@ -262,7 +263,7 @@ const AuthPage = () => {
 
     return (
         <>
-            <BackButton />
+            <BackButtonHome />
             <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center p-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
                 {/* Enhanced Notification */}
                 <NotificationComponent

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import InteractiveButton from "../../shared/InteractiveButton.jsx";
+import { Smartphone, Map } from 'lucide-react';
 
 const Hero = () => {
     const [activeAgents, setActiveAgents] = useState(12);
@@ -62,7 +63,7 @@ const Hero = () => {
                     </div>
                     <div className="hero-visual relative">
                         <div className="floating-card floating-card-1">
-                            <div className="card-icon"><i className="fa fa-mobile"></i></div>
+                            <div className="card-icon"><Smartphone className="w-5 h-5" /></div>
                             <div className="card-title">Transmission GSM</div>
                             <div className="card-subtitle">Communication en temps réel avec vos équipes sur le terrain</div>
                             <div className="gsm-indicator">
@@ -75,7 +76,7 @@ const Hero = () => {
                             </div>
                         </div>
                         <div className="floating-card floating-card-2">
-                            <div className="card-icon"><i className="fa fa-map"></i></div>
+                            <div className="card-icon"><Map className="w-5 h-5" /></div>
                             <div className="card-title">Géolocalisation</div>
                             <div className="card-subtitle">Suivi GPS précis de tous vos agents avec historique des rondes</div>
                         </div>

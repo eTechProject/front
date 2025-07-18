@@ -1,4 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import {
+    Shield,
+    CalendarDays,
+    MapPin,
+    Bell,
+    LineChart,
+    Smartphone
+} from 'lucide-react';
 
 const Features = () => {
     const [hoveredCard, setHoveredCard] = useState(null);
@@ -9,37 +17,37 @@ const Features = () => {
     const features = [
         {
             id: 1,
-            icon: "fas fa-user-shield",
+            icon: Shield,
             title: "Gestion du personnel",
             description: "Suivi complet des agents : planning, compétences, certifications, évaluations et disponibilités en temps réel."
         },
         {
             id: 2,
-            icon: "fas fa-calendar-alt",
+            icon: CalendarDays,
             title: "Planification intelligente",
             description: "Algorithmes d'optimisation pour créer automatiquement les plannings en fonction des besoins et contraintes."
         },
         {
             id: 3,
-            icon: "fas fa-map-marked-alt",
+            icon: MapPin,
             title: "Géolocalisation",
             description: "Suivi en temps réel des agents sur le terrain avec historique des déplacements et alertes de zone."
         },
         {
             id: 4,
-            icon: "fas fa-bell",
+            icon: Bell,
             title: "Alertes en temps réel",
             description: "Système d'alerte intelligent pour incidents, retards ou situations anormales avec notifications push."
         },
         {
             id: 5,
-            icon: "fas fa-chart-line",
+            icon: LineChart,
             title: "Analytics avancés",
             description: "Tableaux de bord personnalisables avec indicateurs clés pour mesurer l'efficacité de vos équipes."
         },
         {
             id: 6,
-            icon: "fas fa-mobile-alt",
+            icon: Smartphone,
             title: "Application mobile",
             description: "Accès complet depuis smartphone pour les agents et managers avec fonctionnalités hors ligne."
         }
@@ -123,7 +131,7 @@ const Features = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8" style={{ perspective: '1000px' }}>
-                    {features.map((feature, index) => (
+                    {features.map((feature) => (
                         <div
                             key={feature.id}
                             ref={el => cardRefs.current[feature.id] = el}
@@ -153,9 +161,9 @@ const Features = () => {
                                         ? 'bg-gray-900 shadow-sm'
                                         : 'bg-gray-100 group-hover:bg-gray-200'
                                 }`}>
-                                    <i className={`${feature.icon} text-xl md:text-2xl transition-colors duration-300 ${
+                                    <feature.icon className={`w-5 h-5 md:w-6 md:h-6 transition-colors duration-300 ${
                                         hoveredCard === feature.id ? 'text-white' : 'text-gray-600'
-                                    }`}></i>
+                                    }`} />
                                 </div>
 
                                 {/* Title */}

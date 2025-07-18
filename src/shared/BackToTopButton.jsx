@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import {ChevronUp} from "lucide-react";
 
 const BackToTopButton = () => {
     const [isVisible, setIsVisible] = useState(false);
@@ -35,7 +36,7 @@ const BackToTopButton = () => {
                 isVisible ? 'opacity-100 visible' : 'opacity-0 invisible'
             }`}
         >
-            <i className="fas fa-arrow-up"></i>
+            <ChevronUp/>
         </button>
     );
 };

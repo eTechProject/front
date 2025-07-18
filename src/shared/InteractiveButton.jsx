@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import "./InteractiveButton.css";
+import { ArrowDownRight } from 'lucide-react';
 
 function InteractiveButton({ children, href = "#about" }) {
     const buttonRef = useRef(null);
@@ -42,7 +43,7 @@ function InteractiveButton({ children, href = "#about" }) {
         >
             <span className="button-text">{children}</span>
             <span className="button-circle">
-                <i className="fa fa-arrow-down button-arrow"></i>
+                <ArrowDownRight />
             </span>
         </a>
     );

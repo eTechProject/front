@@ -3,6 +3,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import "./App.css";
 import SmoothScroll from "./useTools/SmoothScroll.jsx";
 import RouterConfig from "./routes/Router.jsx";
+import {AuthProvider} from "./context/AuthContext.jsx";
 
 function App() {
     // Refs pour éviter les fuites mémoire
@@ -13,7 +14,7 @@ function App() {
 
     // Callback memoïsé pour la création des animations fadeIn
     const setupFadeInAnimations = useCallback(() => {
-        if (styleRef.current) return; // Évite les doublons
+        if (styleRef.current) return;
 
         const style = document.createElement("style");
         style.innerHTML = `
@@ -187,10 +188,13 @@ function App() {
     }, [setupFadeInAnimations, setupParticles, setupScrollAnimations]);
 
     return (
-        <Router>
-            <SmoothScroll />
-            <RouterConfig />
-        </Router>
+        <AuthProvider>
+            <Router>
+                <SmoothScroll />
+                <RouterConfig />
+            </Router>
+        </AuthProvider>
+
     );
 }
 

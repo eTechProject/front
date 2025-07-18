@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import logo from "../assets/logo128-U.png";
 import BackButton from "../shared/BackButton.jsx";
 import InputField from "../shared/InputField.jsx";
-import { useAuth } from '../hooks/useAuth';
 import PasswordInputField from "../shared/PasswordInputField.jsx";
+import {useAuth} from "../context/AuthContext.jsx";
 
 // Constants for validation
 const VALIDATION_RULES = {
@@ -196,7 +196,6 @@ const AuthPage = () => {
 
             if (result.success) {
                 showNotification('success', `Inscription réussie pour ${registerForm.username}!`);
-                setTimeout(() => navigate('/dashboard'), 1500);
             } else if (result.details) {
                 setRegisterErrors(prev => ({ ...prev, ...result.details }));
             }

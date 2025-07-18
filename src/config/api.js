@@ -29,6 +29,12 @@ apiClient.interceptors.request.use(
 // Intercepteur pour les réponses (gestion des erreurs globales)
 apiClient.interceptors.response.use(
     (response) => {
+        if (response.data && response.data.data) {
+            return {
+                ...response,
+                data: response.data.data
+            };
+        }
         return response;
     },
     (error) => {

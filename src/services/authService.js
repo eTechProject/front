@@ -44,7 +44,7 @@ export const authService = {
     // Déconnexion
     logout: async () => {
         try {
-            await apiClient.post('/auth/logout');
+            //await apiClient.post('/auth/logout');
         } catch (error) {
             console.error('Erreur lors de la déconnexion:', error);
         } finally {

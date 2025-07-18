@@ -29,6 +29,12 @@ apiClient.interceptors.request.use(
 // Intercepteur pour les réponses (gestion des erreurs globales)
 apiClient.interceptors.response.use(
     (response) => {
+        if (response.data && response.data.data) {
+            return {
+                ...response,
+                data: response.data.data
+            };
+        }
         return response;
     },
     (error) => {
@@ -36,7 +42,7 @@ apiClient.interceptors.response.use(
             // Token expiré ou invalide
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            window.location.href = '/auth';
+            //window.location.href = '/auth'; ty le bugg iny
         }
         return Promise.reject(error);
     }

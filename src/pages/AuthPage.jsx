@@ -196,14 +196,16 @@ const AuthPage = () => {
 
             if (result.success) {
                 showNotification('success', `Inscription réussie pour ${registerForm.username}!`);
+                setTimeout(() => {
+                    setIsRightPanelActive(false);
+                }, 1000);
             } else if (result.details) {
                 setRegisterErrors(prev => ({ ...prev, ...result.details }));
             }
-            // eslint-disable-next-line no-unused-vars
         } catch (err) {
             showNotification('error', 'Une erreur est survenue lors de l\'inscription');
         }
-    }, [registerForm, register, navigate, validateField, showNotification]);
+    }, [registerForm, register, validateField, showNotification]);
 
     const handleLoginSubmit = useCallback(async (e) => {
         e.preventDefault();
@@ -228,7 +230,6 @@ const AuthPage = () => {
             } else if (result.details) {
                 setLoginErrors(prev => ({ ...prev, ...result.details }));
             }
-            // eslint-disable-next-line no-unused-vars
         } catch (err) {
             showNotification('error', 'Une erreur est survenue lors de la connexion');
         }

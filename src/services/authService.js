@@ -22,7 +22,6 @@ export const authService = {
     login: async (credentials) => {
         try {
             const response = await apiClient.post('/login_check', credentials);
-
             // Stocker le token et les infos utilisateur
             if (response.data.token) {
                 localStorage.setItem('token', response.data.token);
@@ -64,20 +63,5 @@ export const authService = {
     getCurrentUser: () => {
         const user = localStorage.getItem('user');
         return user ? JSON.parse(user) : null;
-    },
-
-    // Rafraîchir le token
-    refreshToken: async () => {
-        try {
-            const response = await apiClient.post('/refresh');
-            if (response.data.token) {
-                localStorage.setItem('token', response.data.token);
-            }
-            return response.data;
-        } catch (error) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            throw error;
-        }
     }
 };

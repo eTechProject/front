@@ -14,7 +14,7 @@ const InputField = ({
                     }) => {
     return (
         <div className={`w-full relative mb-6 ${className}`}>
-            <div className={`relative flex items-center   rounded-lg px-4 py-3 transition-all duration-200 ${error ? 'border-red-500' : ''} ${disabled ? 'bg-gray-100' : 'bg-white'}`}>
+            <div className={`relative flex items-center border rounded-md  px-4 py-3 transition-all duration-200  ${disabled ? 'bg-gray-100' : 'bg-white'}`}>
                 {required && (
                     <span className="text-red-500 mr-1">*</span>
                 )}

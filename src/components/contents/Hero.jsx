@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import InteractiveButton from "../../shared/InteractiveButton.jsx";
 import { Smartphone, Map } from 'lucide-react';
 
 const Hero = () => {
     const [activeAgents, setActiveAgents] = useState(12);
     const totalAgents = 15;
+    const particlesContainerRef = useRef(null);
 
     // Memoisation du style du gradient pour éviter les re-renders
     const gradientStyle = useMemo(() => ({
@@ -13,7 +14,66 @@ const Hero = () => {
         WebkitTextFillColor: 'transparent'
     }), []);
 
+    // Callback memoïsé pour la création des particules
+    const setupParticles = useCallback(() => {
+        const particlesContainerId = 'particles-js-bg';
+        let particlesContainer = document.getElementById(particlesContainerId);
+
+        if (!particlesContainer) {
+            particlesContainer = document.createElement('div');
+            particlesContainer.id = particlesContainerId;
+
+            // Styles des particules
+            Object.assign(particlesContainer.style, {
+                position: 'fixed',
+                top: '0',
+                left: '0',
+                width: '100%',
+                height: '100%',
+                zIndex: '-1',
+                pointerEvents: 'none'
+            });
+
+            document.body.insertBefore(particlesContainer, document.body.firstChild);
+            particlesContainerRef.current = particlesContainer;
+        }
+
+        // Création des particules avec une approche plus performante
+        const createParticles = () => {
+            if (!particlesContainer || !document.getElementById(particlesContainerId)) return;
+
+            const fragment = document.createDocumentFragment();
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+
+                // Styles des particules
+                Object.assign(particle.style, {
+                    position: 'absolute',
+                    left: Math.random() * 100 + '%',
+                    top: Math.random() * 100 + '%',
+                    width: `${Math.random() * 2 + 1}px`,
+                    height: `${Math.random() * 2 + 1}px`,
+                    animationDelay: Math.random() * 10 + 's',
+                    animationDuration: (Math.random() * 5 + 10) + 's'
+                });
+
+                fragment.appendChild(particle);
+            }
+
+            particlesContainer.appendChild(fragment);
+        };
+
+        createParticles();
+    }, []);
+
     useEffect(() => {
+        // Setup particles
+        setupParticles();
+
+        // Set up active agents interval
         const interval = setInterval(() => {
             setActiveAgents(prevActiveAgents => {
                 const change = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
@@ -22,9 +82,19 @@ const Hero = () => {
                 if (newValue > totalAgents) newValue = totalAgents; // Max active agents
                 return newValue;
             });
-        }, 4000); // Update every 4 seconds as in original script
-        return () => clearInterval(interval); // Cleanup interval on component unmount
-    }, [totalAgents]);
+        }, 4000);
+
+        // Cleanup function
+        return () => {
+            clearInterval(interval);
+
+            // Nettoyage des particules
+            if (particlesContainerRef.current && document.body.contains(particlesContainerRef.current)) {
+                particlesContainerRef.current.remove();
+                particlesContainerRef.current = null;
+            }
+        };
+    }, [totalAgents, setupParticles]);
 
     // Données mockées pour les agents (évite la duplication dans le JSX)
     const personnelData = useMemo(() => [

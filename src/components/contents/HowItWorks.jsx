@@ -1,6 +1,6 @@
 import React from 'react';
 import './HowItWorks.css';
-
+import { Link } from 'react-router-dom';
 const HowItWorks = () => {
     return (
         <section id="how-it-works" className="py-16 md:py-20 bg-white px-4 sm:px-6 lg:px-8">
@@ -98,12 +98,12 @@ const HowItWorks = () => {
                 </div>
 
                 <div className="mt-12 md:mt-16 text-center">
-                    <a href="#auth" className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-orange-600 to-orange-400 hover:opacity-90 transition duration-300">
+                    <Link to="auth" className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gradient-to-r from-orange-600 to-orange-400 hover:opacity-90 transition duration-300">
                         Essayer maintenant
                         <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                    </a>
+                    </Link>
                 </div>
             </div>
         </section>

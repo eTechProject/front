@@ -10,11 +10,15 @@ const InputField = ({
                         required = false,
                         disabled = false,
                         className = '',
+                        idPrefix = '', // Nouveau prop pour préfixer l'ID
                         ...props
                     }) => {
+    const uniqueId = idPrefix ? `${idPrefix}-${name}` : name;
+    const errorId = `${uniqueId}-error`;
+
     return (
         <div className={`w-full relative mb-6 ${className}`}>
-            <div className={`relative flex items-center border rounded-md  px-4 py-3 transition-all duration-200  ${disabled ? 'bg-gray-100' : 'bg-white'}`}>
+            <div className={`relative flex items-center border rounded-md px-4 py-3 transition-all duration-200 ${disabled ? 'bg-gray-100' : 'bg-white'}`}>
                 {required && (
                     <span className="text-red-500 mr-1">*</span>
                 )}
@@ -22,14 +26,14 @@ const InputField = ({
                 <input
                     type={type}
                     name={name}
-                    id={name}
+                    id={uniqueId}
                     value={value}
                     onChange={onChange}
                     placeholder={placeholder}
                     disabled={disabled}
                     className={`w-full bg-transparent outline-none ${disabled ? 'text-gray-500' : 'text-gray-800'}`}
                     aria-invalid={error ? 'true' : 'false'}
-                    aria-describedby={error ? `${name}-error` : undefined}
+                    aria-describedby={error ? errorId : undefined}
                     aria-required={required}
                     {...props}
                 />
@@ -42,7 +46,7 @@ const InputField = ({
 
             {error && (
                 <small
-                    id={`${name}-error`}
+                    id={errorId}
                     className="text-red-500 text-left ml-6 text-xs mt-1 block"
                     role="alert"
                 >
@@ -51,7 +55,7 @@ const InputField = ({
             )}
 
             <label
-                htmlFor={name}
+                htmlFor={uniqueId}
                 className="sr-only"
                 aria-hidden="true"
             >

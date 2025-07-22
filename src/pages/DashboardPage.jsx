@@ -1,37 +1,31 @@
-import { useAuth } from '../context/AuthContext';
+import Sidebar from "../components/dash/Sidebar.jsx";
+import {useAuth} from "../context/AuthContext.jsx";
+import { Link } from "react-router-dom";
 
 export default function DashboardPage() {
     const { user, isAuthenticated, isLoading, logout } = useAuth();
 
     if (isLoading) {
-        return <div className="loading">Chargement en cours...</div>;
+        return <div className="flex items-center justify-center h-screen">Chargement en cours...</div>;
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="text-center p-8 bg-white rounded-xl shadow-sm max-w-md">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Accès non autorisé</h2>
+                    <p className="text-gray-600 mb-6">Connectez-vous pour accéder à cette page.</p>
+                    <Link to="auth" className="px-6 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-200 text-sm font-medium shadow-md inline-block">
+                        Se connecter
+                    </Link>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="dashboard">
-            {isAuthenticated ? (
-                <>
-                    <header className="dashboard-header">
-                        <h1>Bonjour, {user?.name || 'utilisateur'} !</h1>
-                        <button onClick={logout} className="logout-btn">
-                            Déconnexion
-                        </button>
-                    </header>
-
-                    <main className="dashboard-content">
-                        {/* Vos composants de tableau de bord ici */}
-                        <section className="stats-section">
-                            <h2>Vos statistiques</h2>
-                            {/* ... */}
-                        </section>
-                    </main>
-                </>
-            ) : (
-                <div className="auth-required">
-                    <h2>Accès non autorisé</h2>
-                    <p>Connectez-vous pour accéder à cette page.</p>
-                </div>
-            )}
-        </div>
+        <>
+            <Sidebar user={user} logout={logout} />
+        </>
     );
 }

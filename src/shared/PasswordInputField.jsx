@@ -1,11 +1,23 @@
-import {useState} from "react";
+import { useState } from "react";
 
-const PasswordInputField = ({ value, error, disabled, onChange, placeholder, name, required = true }) => {
+const PasswordInputField = ({
+                                value,
+                                error,
+                                disabled,
+                                onChange,
+                                placeholder,
+                                name,
+                                required = true,
+                                idPrefix = '' 
+                            }) => {
     const [showPassword, setShowPassword] = useState(false);
+
+    const uniqueId = idPrefix ? `${idPrefix}-${name}` : name;
+    const errorId = `${uniqueId}-error`;
 
     return (
         <div className={`w-full relative mb-6`}>
-            <div className={`relative flex items-center rounded-md border px-4 py-3 transition-all duration-200  ${disabled ? 'bg-gray-100' : 'bg-white'}`}>
+            <div className={`relative flex items-center rounded-md border px-4 py-3 transition-all duration-200 ${disabled ? 'bg-gray-100' : 'bg-white'}`}>
                 {required && (
                     <span className="text-red-500 mr-1">*</span>
                 )}
@@ -13,14 +25,14 @@ const PasswordInputField = ({ value, error, disabled, onChange, placeholder, nam
                 <input
                     type={showPassword ? 'text' : 'password'}
                     name={name}
-                    id={name}
+                    id={uniqueId}
                     value={value}
                     onChange={onChange}
                     placeholder={placeholder}
                     disabled={disabled}
                     className={`w-full bg-transparent outline-none pr-8 ${disabled ? 'text-gray-500' : 'text-gray-800'}`}
                     aria-invalid={error ? 'true' : 'false'}
-                    aria-describedby={error ? `${name}-error` : undefined}
+                    aria-describedby={error ? errorId : undefined}
                     aria-required={required}
                 />
 
@@ -52,7 +64,7 @@ const PasswordInputField = ({ value, error, disabled, onChange, placeholder, nam
 
             {error && (
                 <small
-                    id={`${name}-error`}
+                    id={errorId}
                     className="text-red-500 text-left ml-6 text-xs mt-1 block"
                     role="alert"
                 >
@@ -61,7 +73,7 @@ const PasswordInputField = ({ value, error, disabled, onChange, placeholder, nam
             )}
 
             <label
-                htmlFor={name}
+                htmlFor={uniqueId}
                 className="sr-only"
                 aria-hidden="true"
             >
@@ -70,4 +82,5 @@ const PasswordInputField = ({ value, error, disabled, onChange, placeholder, nam
         </div>
     );
 };
+
 export default PasswordInputField;

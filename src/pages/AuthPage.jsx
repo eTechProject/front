@@ -30,7 +30,6 @@ const VALIDATION_RULES = {
     }
 };
 
-
 // Enhanced notification component
 const NotificationComponent = ({ notification, onClose }) => {
     if (!notification.show) return null;
@@ -249,12 +248,21 @@ const AuthPage = () => {
         disabled: isLoading
     }), [isLoading]);
 
-    // Memoized input props
-    const inputProps = useMemo(() => ({
+    // Memoized input props for login
+    const loginInputProps = useMemo(() => ({
         disabled: isLoading,
         required: true,
-        onChange: isRightPanelActive ? handleRegisterChange : handleLoginChange
-    }), [isLoading, isRightPanelActive, handleRegisterChange, handleLoginChange]);
+        onChange: handleLoginChange,
+        idPrefix: "login"
+    }), [isLoading, handleLoginChange]);
+
+    // Memoized input props for register
+    const registerInputProps = useMemo(() => ({
+        disabled: isLoading,
+        required: true,
+        onChange: handleRegisterChange,
+        idPrefix: "register"
+    }), [isLoading, handleRegisterChange]);
 
     // Close notification handler
     const handleCloseNotification = useCallback(() => {
@@ -286,7 +294,7 @@ const AuthPage = () => {
                                         value={loginForm.email}
                                         placeholder="Adresse email"
                                         error={loginErrors.email}
-                                        {...inputProps}
+                                        {...loginInputProps}
                                     />
 
                                     <PasswordInputField
@@ -296,6 +304,7 @@ const AuthPage = () => {
                                         error={loginErrors.password}
                                         disabled={isLoading}
                                         onChange={handleLoginChange}
+                                        idPrefix="login"
                                     />
 
                                     <div className="flex justify-between items-center w-full mb-8">
@@ -303,6 +312,7 @@ const AuthPage = () => {
                                             <input
                                                 type="checkbox"
                                                 name="rememberMe"
+                                                id="login-rememberMe"
                                                 checked={loginForm.rememberMe}
                                                 onChange={handleLoginChange}
                                                 className="mr-2 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
@@ -343,7 +353,7 @@ const AuthPage = () => {
                                         value={registerForm.username}
                                         placeholder="Nom d'utilisateur"
                                         error={registerErrors.username}
-                                        {...inputProps}
+                                        {...registerInputProps}
                                     />
 
                                     <InputField
@@ -352,7 +362,7 @@ const AuthPage = () => {
                                         value={registerForm.email}
                                         placeholder="Adresse email"
                                         error={registerErrors.email}
-                                        {...inputProps}
+                                        {...registerInputProps}
                                     />
 
                                     <PasswordInputField
@@ -362,17 +372,19 @@ const AuthPage = () => {
                                         error={registerErrors.password}
                                         disabled={isLoading}
                                         onChange={handleRegisterChange}
+                                        idPrefix="register"
                                     />
 
                                     <InputField
                                         type="tel"
                                         name="phone"
                                         value={registerForm.phone}
-                                        placeholder="  Téléphone"
+                                        placeholder="Téléphone"
                                         error={registerErrors.phone}
                                         required={false}
                                         disabled={isLoading}
                                         onChange={handleRegisterChange}
+                                        idPrefix="register"
                                     />
 
                                     <button
@@ -445,7 +457,10 @@ const AuthPage = () => {
                                         value={loginForm.email}
                                         placeholder="Adresse email"
                                         error={loginErrors.email}
-                                        {...inputProps}
+                                        disabled={isLoading}
+                                        required={true}
+                                        onChange={handleLoginChange}
+                                        idPrefix="mobile-login"
                                     />
 
                                     <PasswordInputField
@@ -455,6 +470,7 @@ const AuthPage = () => {
                                         error={loginErrors.password}
                                         disabled={isLoading}
                                         onChange={handleLoginChange}
+                                        idPrefix="mobile-login"
                                     />
 
                                     <div className="flex justify-between items-center w-full mb-6">
@@ -462,6 +478,7 @@ const AuthPage = () => {
                                             <input
                                                 type="checkbox"
                                                 name="rememberMe"
+                                                id="mobile-login-rememberMe"
                                                 checked={loginForm.rememberMe}
                                                 onChange={handleLoginChange}
                                                 className="mr-2 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
@@ -506,7 +523,10 @@ const AuthPage = () => {
                                         value={registerForm.username}
                                         placeholder="Nom d'utilisateur"
                                         error={registerErrors.username}
-                                        {...inputProps}
+                                        disabled={isLoading}
+                                        required={true}
+                                        onChange={handleRegisterChange}
+                                        idPrefix="mobile-register"
                                     />
 
                                     <InputField
@@ -515,7 +535,10 @@ const AuthPage = () => {
                                         value={registerForm.email}
                                         placeholder="Adresse email"
                                         error={registerErrors.email}
-                                        {...inputProps}
+                                        disabled={isLoading}
+                                        required={true}
+                                        onChange={handleRegisterChange}
+                                        idPrefix="mobile-register"
                                     />
 
                                     <PasswordInputField
@@ -525,6 +548,7 @@ const AuthPage = () => {
                                         error={registerErrors.password}
                                         disabled={isLoading}
                                         onChange={handleRegisterChange}
+                                        idPrefix="mobile-register"
                                     />
 
                                     <InputField
@@ -536,6 +560,7 @@ const AuthPage = () => {
                                         required={false}
                                         disabled={isLoading}
                                         onChange={handleRegisterChange}
+                                        idPrefix="mobile-register"
                                     />
 
                                     <button

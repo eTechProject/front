@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import {Link} from "react-router-dom";
+import { Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext"; // Importez le contexte d'authentification
 import logo from "../assets/logo128.png";
 import "./NavBar.css";
 
 const Navbar = () => {
     const [isActive, setIsActive] = useState(false);
+    const { isAuthenticated } = useAuth(); // Récupérez l'état d'authentification
 
     const toggleMenu = () => {
         setIsActive(!isActive);
@@ -18,7 +20,7 @@ const Navbar = () => {
                     {/* Logo */}
                     <div className="flex-shrink-0 flex items-center">
                         <Link to="/" className="flex items-center">
-                            <img  src={logo} alt="Guard logo"/>
+                            <img src={logo} alt="Guard logo"/>
                         </Link>
                     </div>
 
@@ -35,11 +37,23 @@ const Navbar = () => {
                         </a>
                     </div>
 
-                    {/* Desktop Action Button */}
+                    {/* Desktop Action Button - Conditionnel selon l'authentification */}
                     <div className="hidden md:flex md:items-center md:space-x-3 lg:space-x-4">
-                        <Link to="/auth" className="px-4 py-2 rounded-md text-sm font-medium border border-orange-400 bg-orange-400 text-white hover:bg-orange-500 transition duration-200">
-                            Connexion
-                        </Link>
+                        {isAuthenticated ? (
+                            <Link
+                                to="/dashboard"
+                                className="px-4 py-2 rounded-md text-sm font-medium border border-orange-400 bg-orange-400 text-white hover:bg-orange-500 transition duration-200"
+                            >
+                                Tableau de bord
+                            </Link>
+                        ) : (
+                            <Link
+                                to="/auth"
+                                className="px-4 py-2 rounded-md text-sm font-medium border border-orange-400 bg-orange-400 text-white hover:bg-orange-500 transition duration-200"
+                            >
+                                Connexion
+                            </Link>
+                        )}
                     </div>
 
                     {/* Bouton hamburger animé en noir */}
@@ -70,9 +84,23 @@ const Navbar = () => {
                         <a href="#pricing" onClick={toggleMenu} className="text-black">Tarifs</a>
                     </li>
                     <li>
-                        <Link to="/auth" onClick={toggleMenu} className=" bg-orange-400 text-white hover:bg-orange-500 px-4 py-2 rounded-md">
-                            Connexion
-                        </Link>
+                        {isAuthenticated ? (
+                            <Link
+                                to="/dashboard"
+                                onClick={toggleMenu}
+                                className="bg-orange-400 text-white hover:bg-orange-500 px-4 py-2 rounded-md"
+                            >
+                                Tableau de bord
+                            </Link>
+                        ) : (
+                            <Link
+                                to="/auth"
+                                onClick={toggleMenu}
+                                className="bg-orange-400 text-white hover:bg-orange-500 px-4 py-2 rounded-md"
+                            >
+                                Connexion
+                            </Link>
+                        )}
                     </li>
                 </ul>
             </div>

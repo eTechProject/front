@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ChevronLeft, Menu } from 'lucide-react';
 import EmployeeCard from "./MapContent/EmployeeCard.jsx";
-import MapView from "./MapContent/MapView.jsx";
+import MapView from "./MapContent/Map/MapView.jsx";
 import EmployeeList from "./MapContent/EmployeeList.jsx";
 
 const MapContent = () => {
@@ -30,7 +30,7 @@ const MapContent = () => {
             status: 'Pause',
             distance: '2.3 km',
             phone: '+1 234 567 8901',
-            role: 'Field Technician'
+            role: 'Technicien de terrain'
         },
         {
             id: 2,
@@ -47,7 +47,7 @@ const MapContent = () => {
             status: 'Disponible',
             distance: '1.8 km',
             phone: '+1 234 567 8902',
-            role: 'Service Rep'
+            role: 'Agent de service'
         },
         {
             id: 3,
@@ -60,15 +60,15 @@ const MapContent = () => {
             status: 'Occupé',
             distance: '0 km',
             phone: '+1 234 567 8903',
-            role: 'Supervisor'
+            role: 'Superviseur'
         }
     ];
 
     const formatDate = (date) => {
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString('fr-FR', {
             weekday: 'long',
             day: 'numeric',
-            month: 'short',
+            month: 'long',
             year: 'numeric'
         });
     };
@@ -154,7 +154,7 @@ const MapContent = () => {
                 <button
                     onClick={toggleSidebar}
                     className="absolute top-20 left-2 z-[1000] bg-white hover:bg-gray-50 shadow-lg rounded-lg p-2 border transition-colors"
-                    title={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
+                    title={sidebarVisible ? "Masquer le panneau" : "Afficher le panneau"}
                 >
                     {sidebarVisible ? (
                         <ChevronLeft size={20} className="text-gray-600" />
@@ -162,6 +162,11 @@ const MapContent = () => {
                         <Menu size={20} className="text-gray-600" />
                     )}
                 </button>
+
+                {/* Instructions pour le dessin */}
+                <div className="absolute top-2 left-1/3 transform -translate-x-1/2 z-[1000] bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 max-w-sm text-sm text-center">
+                    Utilisez les outils en haut à droite pour dessiner des zones
+                </div>
 
                 <MapView
                     mapRef={mapRef}

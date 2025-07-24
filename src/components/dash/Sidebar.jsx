@@ -2,20 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import logo from "../../assets/logo48.png";
 import {
-    BarChart3, Map, Settings, Bell,
+    Map, Settings,
     LayoutDashboard, MessageSquareMore
 } from 'lucide-react';
 
-// Import des composants de contenu
 import DashboardContent from './contents/DashboardContent';
 import MapContent from './contents/MapContent';
 import StatsContent from './contents/StatsContent';
 import MessagesContent from './contents/MessagesContent';
 import SettingsContent from './contents/SettingsContent';
 import ProfileContent from './contents/ProfileContent';
-import NotificationsContent from './contents/NotificationsContent';
+import NotificationsPopover from "./contents/NotificationsPopover.jsx";
 
-function Sidebar({ user, logout }) {
+export default function Sidebar({ user, logout }) {
     const [activeItem, setActiveItem] = useState('dashboard');
     const [indicatorStyle, setIndicatorStyle] = useState({});
     const itemsRef = useRef({});
@@ -23,13 +22,12 @@ function Sidebar({ user, logout }) {
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'map', label: 'Map', icon: Map },
-        { id: 'stats', label: 'Stats', icon: BarChart3 },
         { id: 'messages', label: 'Messages', icon: MessageSquareMore },
         { id: 'settings', label: 'Settings', icon: Settings },
     ];
 
-    const updateIndicatorPosition = (itemId) => {
-        const element = itemsRef.current[itemId];
+    useEffect(() => {
+        const element = itemsRef.current[activeItem];
         if (element) {
             const { offsetTop, offsetHeight } = element;
             setIndicatorStyle({
@@ -38,10 +36,6 @@ function Sidebar({ user, logout }) {
                 transition: 'all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
             });
         }
-    };
-
-    useEffect(() => {
-        updateIndicatorPosition(activeItem);
     }, [activeItem]);
 
     const Tooltip = ({ children, text, className = "" }) => (
@@ -59,17 +53,12 @@ function Sidebar({ user, logout }) {
     const MenuItem = ({ item }) => {
         const Icon = item.icon;
         const isActive = activeItem === item.id;
-
         return (
-            <div
-                className="relative"
-                ref={(el) => (itemsRef.current[item.id] = el)}
-            >
+            <div className="relative" ref={el => (itemsRef.current[item.id] = el)}>
                 <Tooltip text={item.label}>
                     <button
                         onClick={() => {
                             setActiveItem(item.id);
-                            updateIndicatorPosition(item.id);
                         }}
                         className={`
               w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
@@ -80,11 +69,6 @@ function Sidebar({ user, logout }) {
             `}
                     >
                         <Icon size={20} />
-                        {item.badge && (
-                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium animate-bounce">
-                                {item.badge}
-                            </div>
-                        )}
                     </button>
                 </Tooltip>
             </div>
@@ -92,14 +76,12 @@ function Sidebar({ user, logout }) {
     };
 
     const renderContent = () => {
-        switch(activeItem) {
+        switch (activeItem) {
             case 'dashboard': return <DashboardContent user={user} />;
             case 'map': return <MapContent />;
-            case 'stats': return <StatsContent />;
             case 'messages': return <MessagesContent />;
             case 'settings': return <SettingsContent />;
             case 'profile': return <ProfileContent user={user} />;
-            case 'notifications': return <NotificationsContent />;
             default: return <DashboardContent user={user} />;
         }
     };
@@ -107,7 +89,7 @@ function Sidebar({ user, logout }) {
     return (
         <div className="flex h-screen bg-gray-50">
             {/* Sidebar */}
-            <div className="w-20 bg-white shadow-lg border-r border-gray-100 flex flex-col items-center py-6 relative">
+            <div className="w-20 bg-white shadow-sm border-r border-gray-100 flex flex-col items-center py-6 relative z-30">
                 {/* Animated active indicator */}
                 <div
                     className="absolute -left-4 w-1 h-10 bg-gradient-to-b from-orange-400 to-orange-500 rounded-r-full"
@@ -119,7 +101,7 @@ function Sidebar({ user, logout }) {
                 />
 
                 <Link to={""} className="mb-8">
-                    <img src={logo} alt="Guard logo" width={20} height={20}/>
+                    <img src={logo} alt="Guard logo" width={20} height={20} />
                 </Link>
 
                 {/* Navigation */}
@@ -131,33 +113,6 @@ function Sidebar({ user, logout }) {
 
                 {/* Bottom items */}
                 <div className="flex flex-col items-center space-y-4">
-                    {/* Notifications with badge */}
-                    <div
-                        className="relative"
-                        ref={(el) => (itemsRef.current['notifications'] = el)}
-                    >
-                        <Tooltip text="Notifications (3 nouvelles)">
-                            <button
-                                onClick={() => {
-                                    setActiveItem('notifications');
-                                    updateIndicatorPosition('notifications');
-                                }}
-                                className={`
-                  w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
-                  ${activeItem === 'notifications'
-                                    ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/25 scale-105'
-                                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50 hover:scale-105'
-                                }
-                `}
-                            >
-                                <Bell size={20} />
-                                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium animate-bounce">
-                                    3
-                                </div>
-                            </button>
-                        </Tooltip>
-                    </div>
-
                     {/* Settings */}
                     <MenuItem item={menuItems[menuItems.length - 1]} />
                     <Tooltip text="Déconnexion">
@@ -170,17 +125,15 @@ function Sidebar({ user, logout }) {
                             </svg>
                         </button>
                     </Tooltip>
-
                     {/* Profile */}
                     <div
                         className="relative"
-                        ref={(el) => (itemsRef.current['profile'] = el)}
+                        ref={el => (itemsRef.current['profile'] = el)}
                     >
                         <Tooltip text={`${user?.name || 'Utilisateur'} - Profile`}>
                             <button
                                 onClick={() => {
                                     setActiveItem('profile');
-                                    updateIndicatorPosition('profile');
                                 }}
                                 className={`
                   w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative overflow-hidden
@@ -205,8 +158,8 @@ function Sidebar({ user, logout }) {
                     {renderContent()}
                 </div>
             </div>
+            {/* Notifications popover flottant, hors du sidebar pour rester fixe */}
+            <NotificationsPopover />
         </div>
     );
 }
-
-export default Sidebar;

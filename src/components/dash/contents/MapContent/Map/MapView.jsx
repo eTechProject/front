@@ -73,7 +73,10 @@ const MapView = ({
                 window.L.drawLocal.edit.handlers.remove.tooltip.text = 'Cliquez sur une zone pour la supprimer';
             }
 
-            initializeDrawControl();
+            // Création de zone UNIQUEMENT pour les clients
+            if (user.role === 'client') {
+                initializeDrawControl();
+            }
             addEmployeeMarkers();
         }
     };
@@ -185,7 +188,7 @@ const MapView = ({
             layers.eachLayer((layer) => {
                 let coordinates = [];
                 const zone = drawnZones[0];
-                if (!zone) return; // <--- SÉCURISE ICI
+                if (!zone) return;
                 if (zone.type === 'Cercle') {
                     const center = layer.getLatLng();
                     const radius = layer.getRadius();
@@ -232,8 +235,9 @@ const MapView = ({
     };
 
     useEffect(() => {
-        if (mapInstanceRef.current) initializeDrawControl();
-    }, [drawnZones.length]);
+        if (mapInstanceRef.current && user?.role === "client") initializeDrawControl();
+        // eslint-disable-next-line
+    }, [drawnZones.length, user?.role]);
 
     const saveZone = async () => {
         if (!zoneFormData.name) return;
@@ -385,6 +389,7 @@ const MapView = ({
                 mapInstanceRef.current = null;
             }
         };
+        // eslint-disable-next-line
     }, []);
 
     useEffect(() => {
@@ -431,7 +436,8 @@ const MapView = ({
                     onZoneDelete={deleteZone}
                 />
             )}
-            {showZoneForm && (
+            {/* Montrer le formulaire de zone UNIQUEMENT pour client */}
+            {showZoneForm && user?.role === "client" && (
                 <ZoneForm
                     zoneFormData={zoneFormData}
                     onChange={setZoneFormData}

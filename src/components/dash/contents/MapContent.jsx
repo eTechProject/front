@@ -1,10 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { ChevronLeft, Menu } from 'lucide-react';
+import { ChevronLeft, Menu, Info, X } from 'lucide-react';
 import EmployeeCard from "./MapContent/EmployeeCard.jsx";
 import MapView from "./MapContent/Map/MapView.jsx";
 import EmployeeList from "./MapContent/EmployeeList.jsx";
-import {useAuth} from "../../../context/AuthContext.jsx";
-import MapSkeleton from "./MapContent/Map/MapSkeleton.jsx";
+import { useAuth } from "../../../context/AuthContext.jsx";
 
 const MapContent = () => {
     const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -14,18 +13,9 @@ const MapContent = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [cardPosition, setCardPosition] = useState({ x: 40, y: 40 });
     const [sidebarVisible, setSidebarVisible] = useState(true);
-    const [isMapLoading, setIsMapLoading] = useState(true);
+    const [showInstructions, setShowInstructions] = useState(false);
     const mapRef = useRef(null);
-    const {user} = useAuth();
-
-    // Simuler le chargement de la carte (à remplacer par la vraie logique de chargement)
-    React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsMapLoading(false);
-        }, 2000); // 2 secondes de chargement simulé
-
-        return () => clearTimeout(timer);
-    }, []);
+    const { user } = useAuth();
 
     const employees = [
         {
@@ -108,6 +98,10 @@ const MapContent = () => {
         setSidebarVisible(!sidebarVisible);
     };
 
+    const toggleInstructions = () => {
+        setShowInstructions(!showInstructions);
+    };
+
     const handleMouseDown = (e) => {
         e.preventDefault();
         setIsDragging(true);
@@ -160,47 +154,58 @@ const MapContent = () => {
                 />
             </div>
 
-            {/* Main Map Area avec style amélioré */}
+            {/* Main Map Area */}
             <div id="map-container" className="flex-1 relative overflow-hidden">
-                {
-                    (!isMapLoading)&&<button
-                        onClick={toggleSidebar}
-                        className="absolute top-20 left-2 z-[999] bg-white backdrop-blur-sm hover:bg-gray-50  rounded-lg p-2 border transition-colors"
-                        title={sidebarVisible ? "Masquer le panneau" : "Afficher le panneau"}
-                    >
-                        {sidebarVisible ? (
-                            <ChevronLeft size={20} className="text-gray-600" />
-                        ) : (
-                            <Menu size={20} className="text-gray-600" />
-                        )}
-                    </button>
-                }
-
-                {/* Instructions pour le dessin */}
-                {
-                    (!isMapLoading && user.role === "client")&&<div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-[999] bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 max-w-sm text-sm text-center">
-                        Utilisez les outils en haut à droite pour dessiner des zones
-                    </div>
-                }
-
-
-                {/* Contenu de la carte avec skeleton */}
-                <div className="w-full h-full rounded-lg overflow-hidden">
-                    {isMapLoading ? (
-                        <MapSkeleton />
+                <button
+                    onClick={toggleSidebar}
+                    className="absolute top-20 left-2 z-[999] bg-white backdrop-blur-sm hover:bg-gray-50 rounded-lg p-2 border transition-colors"
+                    title={sidebarVisible ? "Masquer le panneau" : "Afficher le panneau"}
+                >
+                    {sidebarVisible ? (
+                        <ChevronLeft size={20} className="text-gray-600" />
                     ) : (
-                        <MapView
-                            mapRef={mapRef}
-                            employees={employees}
-                            handleEmployeeClick={handleEmployeeClick}
-                            selectedEmployee={selectedEmployee}
-                            sidebarVisible={sidebarVisible}
-                        />
+                        <Menu size={20} className="text-gray-600" />
                     )}
+                </button>
+
+                {/* Instructions pour le dessin avec icône d'info */}
+                {user.role === "client" && (
+                    <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-[999] flex items-center">
+                        {showInstructions ? (
+                            <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md text-sm flex items-center space-x-2">
+                                <span>Utilisez les outils en haut à droite pour dessiner des zones</span>
+                                <button
+                                    onClick={toggleInstructions}
+                                    className="text-gray-500 hover:text-gray-700"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={toggleInstructions}
+                                className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-md hover:bg-blue-50"
+                                title="Afficher les instructions"
+                            >
+                                <Info size={18} className="text-blue-500" />
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* Contenu de la carte */}
+                <div className="w-full h-full rounded-lg overflow-hidden">
+                    <MapView
+                        mapRef={mapRef}
+                        employees={employees}
+                        handleEmployeeClick={handleEmployeeClick}
+                        selectedEmployee={selectedEmployee}
+                        sidebarVisible={sidebarVisible}
+                    />
                 </div>
 
                 {/* Selected Employee Detail Card */}
-                {showEmployeeCard && selectedEmployee && !isMapLoading && (
+                {showEmployeeCard && selectedEmployee && (
                     <EmployeeCard
                         employee={selectedEmployee}
                         onClose={() => setShowEmployeeCard(false)}

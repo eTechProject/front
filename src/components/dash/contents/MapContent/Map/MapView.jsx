@@ -28,8 +28,9 @@ const MapView = ({
         type: ''
     });
     const [currentLayer, setCurrentLayer] = useState(null);
+    const [zoneLoaded, setZoneLoaded] = useState(false);
 
-    const { sendZone, isLoading, error, success } = useZone();
+    const { sendZone, getZone, isLoading, error, success } = useZone();
 
     const getStatusColorHex = (status) => {
         switch (status?.toLowerCase()) {
@@ -78,8 +79,134 @@ const MapView = ({
                 initializeDrawControl();
             }
             addEmployeeMarkers();
+
+            // Charger les zones du client après l'initialisation de la carte
+            if (user.role === 'client' && !zoneLoaded) {
+                loadClientZones();
+            }
         }
     };
+
+    // Fonction pour dessiner une zone existante sur la carte
+    const drawExistingZone = (zoneData) => {
+        if (!mapInstanceRef.current || !drawnItemsRef.current) return;
+
+        if (!zoneData.securedZone || !zoneData.securedZone.coordinates) {
+            console.error("Format de zone invalide:", zoneData);
+            return;
+        }
+
+        const coordinates = zoneData.securedZone.coordinates;
+        let layer;
+
+        // Détecter le type de zone basé sur le nombre de points ou la forme
+        let zoneType = 'Polygone';
+        if (coordinates.length === 4) {
+            // Si 4 points, c'est probablement un rectangle
+            zoneType = 'Rectangle';
+            // Créer un rectangle avec les limites définies par les coordonnées
+            const bounds = window.L.latLngBounds(
+                coordinates.map(coord => [coord[0], coord[1]])
+            );
+            layer = window.L.rectangle(bounds, {
+                color: '#3388ff',
+                fillOpacity: 0.2
+            });
+        } else if (coordinates.length >= 30) {
+            // Si beaucoup de points, c'est probablement un cercle
+            zoneType = 'Cercle';
+
+            // Calcul du centre et du rayon
+            const center = coordinates.reduce((acc, point) => {
+                acc.lat += point[0] / coordinates.length;
+                acc.lng += point[1] / coordinates.length;
+                return acc;
+            }, { lat: 0, lng: 0 });
+
+            // Calcul du rayon (distance du centre au premier point)
+            const firstPoint = coordinates[0];
+            const radius = window.L.latLng(center.lat, center.lng)
+                .distanceTo(window.L.latLng(firstPoint[0], firstPoint[1]));
+
+            layer = window.L.circle([center.lat, center.lng], {
+                radius,
+                color: '#3388ff',
+                fillOpacity: 0.2
+            });
+        } else {
+            // Sinon c'est un polygone standard
+            layer = window.L.polygon(coordinates.map(coord => [coord[0], coord[1]]), {
+                color: '#3388ff',
+                fillOpacity: 0.2
+            });
+        }
+
+        // Ajouter la couche à la carte
+        drawnItemsRef.current.addLayer(layer);
+
+        // Mettre à jour l'état
+        setDrawnZones([{
+            id: zoneData.encryptedId || Date.now(),
+            name: zoneData.securedZone.name,
+            description: zoneData.description || '',
+            layer: layer,
+            type: zoneType,
+            coordinates: coordinates
+        }]);
+
+        // Ajouter un popup
+        layer.bindPopup(`<b>${zoneData.securedZone.name}</b><br>${zoneData.description || ''}`);
+
+        // Mettre à jour le formulaire
+        setZoneFormData({
+            name: zoneData.securedZone.name,
+            description: zoneData.description || '',
+            clientId: user.encryptedId,
+            coordinates: coordinates,
+            type: zoneType
+        });
+
+        setCurrentLayer(layer);
+
+        // Centrer la carte sur la zone
+        if (zoneType === 'Cercle') {
+            const center = coordinates.reduce((acc, point) => {
+                acc.lat += point[0] / coordinates.length;
+                acc.lng += point[1] / coordinates.length;
+                return acc;
+            }, { lat: 0, lng: 0 });
+            mapInstanceRef.current.setView([center.lat, center.lng], 15);
+        } else {
+            const bounds = window.L.latLngBounds(coordinates.map(coord => [coord[0], coord[1]]));
+            mapInstanceRef.current.fitBounds(bounds);
+        }
+    };
+
+    // Charger les zones du client
+    const loadClientZones = async () => {
+        if (!user?.encryptedId) return;
+
+        try {
+            setZoneLoaded(true); // Marquer comme chargé pour éviter les appels multiples
+            const result = await getZone(user.encryptedId);
+
+            if (result.success && result.data && Array.isArray(result.data)) {
+                // Récupérer la première zone (pour l'instant on ne gère qu'une seule zone)
+                if (result.data.length > 0) {
+                    console.log("Zone trouvée:", result.data[0]);
+                    drawExistingZone(result.data[0]);
+                }
+            }
+        } catch (error) {
+            console.error("Erreur lors du chargement des zones:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (mapInstanceRef.current && user?.role === 'client' && !zoneLoaded) {
+            loadClientZones();
+        }
+    }, [mapInstanceRef.current, user?.encryptedId, user?.role, zoneLoaded]);
 
     const initializeDrawControl = () => {
         if (!window.L.drawLocal) {

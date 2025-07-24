@@ -16,11 +16,21 @@ export const useZone = () => {
         if (!result.success) setError(result.error);
         return result;
     };
-
+    const getZone= async (clientId) => {
+        setIsLoading(true);
+        setError(null);
+        setSuccess(true);
+        const result = await zoneService.getZone(clientId);
+        setIsLoading(false);
+        setSuccess(result.success);
+        if (!result.success) setError(result.error);
+        return result;
+    }
     return {
         isLoading,
         error,
         success,
-        sendZone
+        sendZone,
+        getZone,
     };
 };

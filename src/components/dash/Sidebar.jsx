@@ -15,7 +15,9 @@ import ProfileContent from './contents/ProfileContent';
 import NotificationsPopover from "./contents/NotificationsPopover.jsx";
 
 export default function Sidebar({ user, logout }) {
-    const [activeItem, setActiveItem] = useState('dashboard');
+    const [activeItem, setActiveItem] = useState(() => {
+        return localStorage.getItem('activeSidebarItem') || 'dashboard';
+    });
     const [indicatorStyle, setIndicatorStyle] = useState({});
     const itemsRef = useRef({});
 
@@ -38,8 +40,13 @@ export default function Sidebar({ user, logout }) {
         }
     }, [activeItem]);
 
+    const handleItemClick = (itemId) => {
+        setActiveItem(itemId);
+        localStorage.setItem('activeSidebarItem', itemId);
+    };
+
     const Tooltip = ({ children, text, className = "" }) => (
-        <div className={`relative z-40 group ${className}`}>
+        <div className={`relative z-[999] group ${className}`}>
             {children}
             <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-3 pointer-events-none z-50 group-hover:opacity-100 opacity-0 transition-all duration-200 ease-out">
                 <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-xl whitespace-nowrap relative">
@@ -57,9 +64,7 @@ export default function Sidebar({ user, logout }) {
             <div className="relative" ref={el => (itemsRef.current[item.id] = el)}>
                 <Tooltip text={item.label}>
                     <button
-                        onClick={() => {
-                            setActiveItem(item.id);
-                        }}
+                        onClick={() => handleItemClick(item.id)}
                         className={`
               w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
               ${isActive
@@ -132,9 +137,7 @@ export default function Sidebar({ user, logout }) {
                     >
                         <Tooltip text={`${user?.name || 'Utilisateur'} - Profile`}>
                             <button
-                                onClick={() => {
-                                    setActiveItem('profile');
-                                }}
+                                onClick={() => handleItemClick('profile')}
                                 className={`
                   w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative overflow-hidden
                   ${activeItem === 'profile'

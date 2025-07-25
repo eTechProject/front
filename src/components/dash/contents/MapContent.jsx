@@ -158,7 +158,7 @@ const MapContent = () => {
             <div id="map-container" className="flex-1 relative overflow-hidden">
                 <button
                     onClick={toggleSidebar}
-                    className="absolute top-20 left-2 z-[999] bg-white backdrop-blur-sm hover:bg-gray-50 rounded-lg p-2 border transition-colors"
+                    className="absolute top-20 left-2 z-20 bg-white backdrop-blur-sm hover:bg-gray-50 rounded-lg p-2 border transition-colors"
                     title={sidebarVisible ? "Masquer le panneau" : "Afficher le panneau"}
                 >
                     {sidebarVisible ? (
@@ -170,7 +170,7 @@ const MapContent = () => {
 
                 {/* Instructions pour le dessin avec icône d'info */}
                 {user.role === "client" && (
-                    <div className="absolute top-44 left-2 transform z-[999] flex items-center">
+                    <div className="absolute top-32 left-2 transform z-[900] flex items-center">
                         {showInstructions ? (
                             <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md text-sm flex items-center space-x-2">
                                 <span>Utilisez les outils en haut à droite pour dessiner des zones</span>
@@ -194,7 +194,7 @@ const MapContent = () => {
                 )}
 
                 {/* Contenu de la carte */}
-                <div className="w-full h-full rounded-lg overflow-hidden">
+                <div className="w-full border relative z-10 h-full rounded-lg overflow-hidden">
                     <MapView
                         mapRef={mapRef}
                         employees={employees}

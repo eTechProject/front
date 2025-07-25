@@ -29,8 +29,14 @@ const MapView = ({
     });
     const [currentLayer, setCurrentLayer] = useState(null);
     const [zoneLoaded, setZoneLoaded] = useState(false);
+    const baseMapsRef = useRef({});
 
     const { sendZone, getZone, isLoading, error, success } = useZone();
+
+    // Définition des constantes pour la configuration de la carte
+    const MAX_ZOOM = 19; 
+    const INITIAL_ZOOM = 13; // Zoom initial
+    const INITIAL_CENTER = [-18.9146, 47.5309]; // Coordonnées d'Antananarivo
 
     const getStatusColorHex = (status) => {
         switch (status?.toLowerCase()) {
@@ -50,9 +56,38 @@ const MapView = ({
 
     const initializeMap = () => {
         if (mapRef.current && window.L && !mapInstanceRef.current) {
-            mapInstanceRef.current = window.L.map(mapRef.current).setView([-18.9146, 47.5309], 13);
-            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
+            // Initialisation de la carte avec maxZoom
+            mapInstanceRef.current = window.L.map(mapRef.current, {
+                maxZoom: MAX_ZOOM,
+                minZoom: 3,
+                zoomControl: true
+            }).setView(INITIAL_CENTER, INITIAL_ZOOM);
+
+            // Définir les couches de base
+            const osmLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: MAX_ZOOM
+            });
+
+            // Couche satellite Stadia
+            const satelliteLayer = window.L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.jpg', {
+                minZoom: 0,
+                maxZoom: MAX_ZOOM,
+                attribution: '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            });
+
+            // Ajouter la couche par défaut
+            osmLayer.addTo(mapInstanceRef.current);
+
+            // Stocker les couches dans une référence pour y accéder plus tard
+            baseMapsRef.current = {
+                "Vue Classique (OSM)": osmLayer,
+                "Vue Satellite": satelliteLayer
+            };
+
+            // Ajouter le contrôle de couches
+            window.L.control.layers(baseMapsRef.current, {}, {
+                position: 'topright'
             }).addTo(mapInstanceRef.current);
 
             drawnItemsRef.current = new window.L.FeatureGroup();
@@ -178,7 +213,9 @@ const MapView = ({
             mapInstanceRef.current.setView([center.lat, center.lng], 15);
         } else {
             const bounds = window.L.latLngBounds(coordinates.map(coord => [coord[0], coord[1]]));
-            mapInstanceRef.current.fitBounds(bounds);
+            mapInstanceRef.current.fitBounds(bounds, {
+                maxZoom: 18 // Limiter le zoom lors de l'ajustement aux limites
+            });
         }
     };
 
@@ -531,7 +568,7 @@ const MapView = ({
         if (selectedEmployee && mapInstanceRef.current && selectedEmployee.position) {
             mapInstanceRef.current.setView(
                 [selectedEmployee.position.lat, selectedEmployee.position.lng],
-                15
+                Math.min(16, MAX_ZOOM) // Ne pas dépasser MAX_ZOOM
             );
         }
     }, [selectedEmployee]);
@@ -543,10 +580,12 @@ const MapView = ({
                 acc.lng += point[1] / zone.coordinates.length;
                 return acc;
             }, { lat: 0, lng: 0 });
-            mapInstanceRef.current.setView([center.lat, center.lng], 15);
+            mapInstanceRef.current.setView([center.lat, center.lng], Math.min(16, MAX_ZOOM));
         } else {
             const bounds = window.L.latLngBounds(zone.coordinates.map(coord => [coord[0], coord[1]]));
-            mapInstanceRef.current.fitBounds(bounds);
+            mapInstanceRef.current.fitBounds(bounds, {
+                maxZoom: 18 // Limiter le zoom lors de l'ajustement aux limites
+            });
         }
     };
 

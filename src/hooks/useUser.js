@@ -6,16 +6,24 @@ export const useUser = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
+    /*useEffect(() => {
         let mounted = true;
         setIsLoading(true);
         userService.getProfile()
-            .then(data => { if(mounted) setUser(data); })
-            .catch(err => { if(mounted) setError(err.message || 'Erreur lors du chargement'); })
-            .finally(() => { if(mounted) setIsLoading(false); });
-        return () => { mounted = false; }
+            .then(data => {
+                if (mounted) setUser(data);
+            })
+            .catch(err => {
+                if (mounted) setError(err.message || 'Erreur lors du chargement');
+            })
+            .finally(() => {
+                if (mounted) setIsLoading(false);
+            });
+        return () => {
+            mounted = false;
+        }
     }, []);
-
+    */
     const updateProfile = useCallback(async (profile) => {
         setIsLoading(true);
         setError(null);

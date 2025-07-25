@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Edit, Camera, Mail, User, Phone, CheckCircle2, Info } from 'lucide-react';
-import {useAuth} from "../../../context/AuthContext.jsx";
-import {useUser} from "../../../hooks/useUser.js";
+import { useAuth } from "../../../context/AuthContext.jsx";
+import { useUser } from "../../../hooks/useUser.js";
+
+const PASSWORD_REQUIREMENTS = [
+    { id: 1, text: "Au moins 8 caractères", regex: /.{8,}/ },
+    { id: 2, text: "Au moins une majuscule", regex: /[A-Z]/ },
+    { id: 3, text: "Au moins un chiffre", regex: /[0-9]/ },
+    { id: 4, text: "Au moins un caractère spécial", regex: /[^A-Za-z0-9]/ },
+];
 
 const NotificationComponent = ({ notification, onClose }) => {
     if (!notification.show) return null;
@@ -32,7 +39,7 @@ const ProfileField = ({ label, value, onChange, name, type = "text", disabled, p
                 onChange={onChange}
                 disabled={disabled}
                 placeholder={placeholder}
-                className="w-full px-3  py-2 text-sm border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-50 disabled:text-gray-600 border-gray-300 min-h-[60px]"
+                className="w-full px-3 py-2 text-sm border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-50 disabled:text-gray-600 border-gray-300 min-h-[60px]"
             />
         ) : (
             <input
@@ -48,9 +55,50 @@ const ProfileField = ({ label, value, onChange, name, type = "text", disabled, p
     </div>
 );
 
+const PasswordStrengthIndicator = ({ password, validations }) => {
+    if (!password) return null;
+
+    return (
+        <div className="mt-2 space-y-2">
+            <div className="text-xs text-gray-500">Exigences du mot de passe :</div>
+            <ul className="space-y-1">
+                {validations.map((req) => (
+                    <li key={req.id} className="flex items-center">
+                        <span className={`inline-block w-2 h-2 mr-2 rounded-full ${
+                            req.isValid ? 'bg-green-600' : 'bg-gray-300'
+                        }`}></span>
+                        <span className={`text-xs ${
+                            req.isValid ? 'text-green-600' : 'text-gray-500'
+                        }`}>{req.text}</span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+const PasswordMatchIndicator = ({ password, confirmPassword }) => {
+    if (!password || !confirmPassword) return null;
+
+    const isMatch = password === confirmPassword;
+
+    return (
+        <div className="mt-2 flex items-center">
+            <span className={`inline-block w-4 h-4 mr-2 rounded-full ${
+                isMatch ? 'bg-green-500' : 'bg-gray-300'
+            }`}></span>
+            <span className={`text-xs ${
+                isMatch ? 'text-green-600' : 'text-gray-500'
+            }`}>
+                {isMatch ? 'Les mots de passe correspondent' : 'Les mots de passe ne correspondent pas'}
+            </span>
+        </div>
+    );
+};
+
 export default function ProfileContent() {
     const { user } = useAuth();
-    const { updateProfile } = useUser();
+    const { updateProfile, updatePassword } = useUser();
 
     const [notification, setNotification] = useState({ show: false, type: '', message: '' });
     const [isEditing, setIsEditing] = useState(false);
@@ -62,6 +110,14 @@ export default function ProfileContent() {
         avatar: null,
         bio: ''
     });
+    const [passwordData, setPasswordData] = useState({
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
+    const [passwordValidations, setPasswordValidations] = useState(
+        PASSWORD_REQUIREMENTS.map(req => ({ ...req, isValid: false }))
+    );
 
     useEffect(() => {
         if (user) {
@@ -85,6 +141,23 @@ export default function ProfileContent() {
     const handleInputChange = useCallback((e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    }, []);
+
+    const handlePasswordChange = useCallback((e) => {
+        const { name, value } = e.target;
+        setPasswordData(prev => {
+            const newData = { ...prev, [name]: value };
+
+            if (name === 'newPassword') {
+                const updatedValidations = PASSWORD_REQUIREMENTS.map(req => ({
+                    ...req,
+                    isValid: req.regex.test(value)
+                }));
+                setPasswordValidations(updatedValidations);
+            }
+
+            return newData;
+        });
     }, []);
 
     const handleAvatarUpload = useCallback((e) => {
@@ -115,7 +188,41 @@ export default function ProfileContent() {
         }
     }, [formData, updateProfile, showNotification]);
 
-    // Pour la démo, on suppose que user.createdAt existe (string) et user.verified (bool)
+    const handlePasswordSubmit = useCallback(async () => {
+        const allValid = passwordValidations.every(req => req.isValid);
+        if (!allValid) {
+            showNotification('error', 'Le mot de passe ne remplit pas tous les critères requis');
+            return;
+        }
+
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            showNotification('error', 'Les nouveaux mots de passe ne correspondent pas');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const result = await updatePassword({
+                newPassword: passwordData.newPassword
+            });
+
+            if (result?.success) {
+                showNotification('success', 'Mot de passe mis à jour avec succès');
+                setPasswordData({
+                    newPassword: '',
+                    confirmPassword: ''
+                });
+                setShowPasswordForm(false);
+            } else {
+                showNotification('error', result?.message || 'Échec de la mise à jour du mot de passe');
+            }
+        } catch (error) {
+            showNotification('error', 'Erreur lors de la mise à jour du mot de passe');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [passwordData, passwordValidations, showNotification, updatePassword]);
+
     const formattedDate = user && user.createdAt
         ? new Date(user.createdAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
         : 'Inconnue';
@@ -132,14 +239,14 @@ export default function ProfileContent() {
     }
 
     return (
-        <div className="min-h-screen  py-10" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="min-h-screen py-10" style={{ fontFamily: 'Inter, sans-serif' }}>
             <NotificationComponent
                 notification={notification}
                 onClose={() => setNotification(prev => ({ ...prev, show: false }))}
             />
 
             <div className="max-w-2xl mx-auto flex flex-col gap-8">
-                {/* Carte Profil (en-tête) */}
+                {/* Profile Card (Header) */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col md:flex-row items-center gap-6">
                     {/* Avatar */}
                     <div className="relative">
@@ -165,7 +272,7 @@ export default function ProfileContent() {
                             </label>
                         )}
                     </div>
-                    {/* Infos principales */}
+                    {/* Main Info */}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-2xl font-semibold capitalize text-gray-900 truncate">
@@ -197,7 +304,7 @@ export default function ProfileContent() {
                             </div>
                         </div>
                     </div>
-                    {/* Edit */}
+                    {/* Edit Button */}
                     {!isEditing && (
                         <button
                             onClick={() => setIsEditing(true)}
@@ -209,7 +316,7 @@ export default function ProfileContent() {
                     )}
                 </div>
 
-                {/* Section informations */}
+                {/* Personal Information Section */}
                 <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <Info className="w-5 h-5 text-orange-400" /> Informations personnelles
@@ -287,6 +394,85 @@ export default function ProfileContent() {
                                 <span className="block font-medium text-gray-900">{user.bio || <span className="text-gray-400">Aucune bio renseignée</span>}</span>
                             </div>
                         </div>
+                    )}
+                </div>
+
+                {/* Password Change Section */}
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                            Sécurité du compte
+                        </h3>
+                        {!showPasswordForm && (
+                            <button
+                                onClick={() => setShowPasswordForm(true)}
+                                className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+                            >
+                                Changer le mot de passe
+                            </button>
+                        )}
+                    </div>
+
+                    {showPasswordForm ? (
+                        <div className="space-y-4">
+                            <div>
+                                <ProfileField
+                                    label="Nouveau mot de passe"
+                                    name="newPassword"
+                                    type="password"
+                                    value={passwordData.newPassword}
+                                    onChange={handlePasswordChange}
+                                    disabled={isLoading}
+                                    placeholder="Entrez votre nouveau mot de passe"
+                                />
+                                <PasswordStrengthIndicator
+                                    password={passwordData.newPassword}
+                                    validations={passwordValidations}
+                                />
+                            </div>
+
+                            <div>
+                                <ProfileField
+                                    label="Confirmer le nouveau mot de passe"
+                                    name="confirmPassword"
+                                    type="password"
+                                    value={passwordData.confirmPassword}
+                                    onChange={handlePasswordChange}
+                                    disabled={isLoading}
+                                    placeholder="Confirmez votre nouveau mot de passe"
+                                />
+                                <PasswordMatchIndicator
+                                    password={passwordData.newPassword}
+                                    confirmPassword={passwordData.confirmPassword}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={handlePasswordSubmit}
+                                    disabled={isLoading}
+                                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-lg transition-colors duration-200 disabled:opacity-50"
+                                >
+                                    {isLoading ? 'Enregistrement...' : 'Mettre à jour le mot de passe'}
+                                </button>
+                                <button
+                                    onClick={() => setShowPasswordForm(false)}
+                                    disabled={isLoading}
+                                    className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                                >
+                                    Annuler
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-gray-500 text-sm">
+                            Pour des raisons de sécurité, nous vous recommandons de changer votre mot de passe régulièrement.
+                            Votre mot de passe doit contenir au moins 8 caractères, une majuscule, un chiffre et un caractère spécial.
+                        </p>
                     )}
                 </div>
             </div>

@@ -170,7 +170,7 @@ const MapContent = () => {
 
                 {/* Instructions pour le dessin avec icône d'info */}
                 {user.role === "client" && (
-                    <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-[999] flex items-center">
+                    <div className="absolute top-44 left-2 transform z-[999] flex items-center">
                         {showInstructions ? (
                             <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md text-sm flex items-center space-x-2">
                                 <span>Utilisez les outils en haut à droite pour dessiner des zones</span>
@@ -184,10 +184,10 @@ const MapContent = () => {
                         ) : (
                             <button
                                 onClick={toggleInstructions}
-                                className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-md hover:bg-blue-50"
+                                className="bg-white/90 backdrop-blur-sm rounded-full p-2"
                                 title="Afficher les instructions"
                             >
-                                <Info size={18} className="text-blue-500" />
+                                <Info size={18} className="text-gray-700 hover:text-orange-500" />
                             </button>
                         )}
                     </div>

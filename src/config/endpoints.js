@@ -5,7 +5,7 @@ const ENDPOINTS = {
     },
     AGENT: {
         LIST: '/public/agents',
-        DETAIL: id => `/public/agents/${id}`, // GET, PUT, DELETE pour un agent
+        DETAIL: id => `/public/agents/${id}`,
         CREATE: '/public/agents',
     },
     ZONE: {
@@ -19,6 +19,14 @@ const ENDPOINTS = {
     AUTH: {
         REGISTER: '/register',
         LOGIN: '/login_check',
+    },
+    ADMIN: {
+        AGENTS: {
+            LIST: 'admin/agents',
+            DETAIL: id => `admin/agents/${id}`,
+            CREATE: 'admin/agents',
+            SEARCH: 'admin/agents/search'
+        }
     }
 };
 

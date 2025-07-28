@@ -300,13 +300,18 @@ const MapView = ({
      * Charge les zones du client depuis l'API (1ère zone seulement).
      */
     const loadClientZones = async () => {
-        if (!user?.userId) return;
+        if (!user?.encryptedId) return;
+
         try {
-            setZoneLoaded(true);
-            const result = await getZone(user.userId);
-            if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
-                console.log("Zone trouvée:", result.data[0]);
-                drawExistingZone(result.data[0]);
+            setZoneLoaded(true); // Marquer comme chargé pour éviter les appels multiples
+            const result = await getZone(user.encryptedId);
+
+            if (result.success && result.data && Array.isArray(result.data)) {
+                // Récupérer la première zone (pour l'instant on ne gère qu'une seule zone)
+                if (result.data.length > 0) {
+                    console.log("Zone trouvée:", result.data[0]);
+                    drawExistingZone(result.data[0]);
+                }
             }
         } catch (error) {
             console.error("Erreur lors du chargement des zones:", error);

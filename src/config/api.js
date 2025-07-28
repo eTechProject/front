@@ -30,9 +30,14 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => {
         if (response.data && response.data.data) {
+            const { total, page, pages } = response.data;
+            const hasPagination = typeof total !== 'undefined' && typeof page !== 'undefined' && typeof pages !== 'undefined';
             return {
                 ...response,
-                data: response.data.data
+                data: response.data.data,
+                ...(hasPagination && {
+                    pagination: { total, page, pages }
+                })
             };
         }
         return response;

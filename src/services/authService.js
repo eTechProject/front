@@ -1,10 +1,10 @@
 import apiClient from '../config/api';
+import ENDPOINTS from '../config/endpoints';
 
 export const authService = {
-    // Inscription
     register: async (userData) => {
         try {
-            const response = await apiClient.post('/register', userData);
+            const response = await apiClient.post(ENDPOINTS.AUTH.REGISTER, userData);
             return {
                 success: true,
                 data: response.data
@@ -18,16 +18,13 @@ export const authService = {
         }
     },
 
-    // Connexion
     login: async (credentials) => {
         try {
-            const response = await apiClient.post('/login_check', credentials);
-            // Stocker le token et les infos utilisateur
+            const response = await apiClient.post(ENDPOINTS.AUTH.LOGIN, credentials);
             if (response.data.token) {
                 localStorage.setItem('token', response.data.token);
                 localStorage.setItem('user', JSON.stringify(response.data.user));
             }
-
             return {
                 success: true,
                 data: response.data
@@ -41,25 +38,26 @@ export const authService = {
         }
     },
 
-    // Déconnexion
     logout: async () => {
         try {
-            //await apiClient.post('/auth/logout');
+            // await apiClient.post(ENDPOINTS.AUTH.LOGOUT);
         } catch (error) {
             console.error('Erreur lors de la déconnexion:', error);
         } finally {
-            // Nettoyer le localStorage dans tous les cas
             localStorage.removeItem('token');
             localStorage.removeItem('user');
         }
     },
 
-    // Vérifier si l'utilisateur est connecté
     isAuthenticated: () => {
         return !!localStorage.getItem('token');
     },
 
-    // Obtenir l'utilisateur actuel
+    getUserRole: () => {
+        const user = authService.getCurrentUser();
+        return user && user.role ? user.role : null;
+    },
+
     getCurrentUser: () => {
         const user = localStorage.getItem('user');
         return user ? JSON.parse(user) : null;

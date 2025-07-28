@@ -1,10 +1,11 @@
 import apiClient from '../config/api';
+import ENDPOINTS from '../config/endpoints';
 
 export const passwordService = {
     // Demande de réinitialisation
     requestReset: async (email) => {
         try {
-            await apiClient.post('/public/request-reset-password', { email });
+            await apiClient.post(ENDPOINTS.PASSWORD.REQUEST_RESET, { email });
             return { success: true };
         } catch (error) {
             return {
@@ -16,7 +17,7 @@ export const passwordService = {
     // Réinitialisation effective
     resetPassword: async (token, newPassword) => {
         try {
-            await apiClient.post('/public/reset-password', { token, password: newPassword });
+            await apiClient.post(ENDPOINTS.PASSWORD.RESET, { token, password: newPassword });
             return { success: true };
         } catch (error) {
             return {

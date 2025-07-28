@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { agentService } from '../services/agentService';
 
+// Utilisation du hook pour gérer les agents
 export const useAgent = () => {
     const [agents, setAgents] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -10,64 +11,70 @@ export const useAgent = () => {
     const fetchAgents = useCallback(async (params = {}) => {
         setIsLoading(true);
         setError(null);
-        try {
-            const data = await agentService.getAll(params);
-            setAgents(data);
-            return { success: true, data };
-        } catch (err) {
-            setError(err.message || 'Erreur lors du chargement des agents');
-            return { success: false, error: err.message };
-        } finally {
-            setIsLoading(false);
+
+        const result = await agentService.getAll(params);
+
+        if (result.success) {
+            setAgents(result.data); // result.data est déjà un tableau d'agents
+            setError(null);
+        } else {
+            setAgents([]);
+            setError(result.error);
         }
+        setIsLoading(false);
+        return result;
     }, []);
 
     // Création
     const createAgent = useCallback(async (agent) => {
         setIsLoading(true);
         setError(null);
-        try {
-            const data = await agentService.create(agent);
-            setAgents(prev => [...prev, data]);
-            return { success: true, data };
-        } catch (err) {
-            setError(err.message || 'Erreur lors de la création');
-            return { success: false, error: err.message };
-        } finally {
-            setIsLoading(false);
+
+        const result = await agentService.create(agent);
+
+        if (result.success) {
+            setAgents(prev => [...prev, result.data]);
+        } else {
+            setError(result.error);
         }
+        setIsLoading(false);
+        return result;
     }, []);
 
     // Edition
     const updateAgent = useCallback(async (id, agent) => {
         setIsLoading(true);
         setError(null);
-        try {
-            const data = await agentService.update(id, agent);
-            setAgents(prev => prev.map(a => (a.id === id ? data : a)));
-            return { success: true, data };
-        } catch (err) {
-            setError(err.message || 'Erreur lors de la modification');
-            return { success: false, error: err.message };
-        } finally {
-            setIsLoading(false);
+
+        const result = await agentService.update(id, agent);
+
+        if (result.success) {
+            setAgents(prev =>
+                prev.map(a =>
+                    a.encryptedId === id ? result.data : a
+                )
+            );
+        } else {
+            setError(result.error);
         }
+        setIsLoading(false);
+        return result;
     }, []);
 
     // Suppression
     const removeAgent = useCallback(async (id) => {
         setIsLoading(true);
         setError(null);
-        try {
-            await agentService.remove(id);
-            setAgents(prev => prev.filter(a => a.id !== id));
-            return { success: true };
-        } catch (err) {
-            setError(err.message || 'Erreur lors de la suppression');
-            return { success: false, error: err.message };
-        } finally {
-            setIsLoading(false);
+
+        const result = await agentService.remove(id);
+
+        if (result.success) {
+            setAgents(prev => prev.filter(a => a.encryptedId !== id));
+        } else {
+            setError(result.error);
         }
+        setIsLoading(false);
+        return result;
     }, []);
 
     return {

@@ -4,9 +4,9 @@ const ENDPOINTS = {
         AVATAR: '/user/avatar',
     },
     AGENT: {
-        LIST: '/agents',
-        DETAIL: id => `/agents/${id}`,// GET, PUT, DELETE pour un agent
-        CREATE: '/agents',            
+        LIST: '/public/agents',
+        DETAIL: id => `/public/agents/${id}`, // GET, PUT, DELETE pour un agent
+        CREATE: '/public/agents',
     },
     ZONE: {
         SEND: '/service-orders',

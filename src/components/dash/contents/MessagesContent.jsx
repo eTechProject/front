@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, {useState, useRef, useEffect} from 'react';
+import {MessageSquareText} from "lucide-react";
 
-// Données fictives pour utilisateurs et messages
+// Données fictives
 const mockUsers = [
     {
         user: {
@@ -38,7 +39,7 @@ const mockUsers = [
     },
 ];
 
-// Données fictives pour les conversations
+// Données fictives
 const mockMessages = {
     1: [
         {
@@ -82,7 +83,7 @@ export default function MessagesContent() {
     }, [selectedUser]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
     }, [messages, selectedUser]);
 
     const filteredUsers = usersWithLastMessage.filter(userData =>
@@ -110,11 +111,17 @@ export default function MessagesContent() {
     };
 
     return (
-        <div className="flex h-full bg-[#f7f7f8] rounded-xl  border border-gray-100 overflow-hidden">
+        <div className="flex p-2 h-full bg-[#f7f7f8] rounded-xl border border-gray-100 overflow-hidden">
             {/* Liste des conversations */}
-            <div className="w-1/3 bg-white border-r border-gray-100 flex flex-col">
-                <div className="px-5 py-4 border-b border-gray-100 bg-white">
-                    <h1 className="text-lg font-semibold text-gray-800 tracking-tight">Messagerie</h1>
+            <div className="w-1/3 p-2 bg-white border-r border-gray-100 flex flex-col">
+                <div className="border-b border-gray-100 bg-white">
+                    <div className="mb-8">
+                        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                            <MessageSquareText className="w-6 h-6"/>
+                            Messagerie
+                        </h1>
+                        <p className="text-gray-600 mt-1">Gérez vos personnels</p>
+                    </div>
                     <div className="relative mt-3">
                         <input
                             type="text"
@@ -124,8 +131,10 @@ export default function MessagesContent() {
                             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm bg-gray-50"
                         />
                         <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24"
+                                 stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                             </svg>
                         </div>
                     </div>
@@ -144,17 +153,23 @@ export default function MessagesContent() {
                             >
                                 <div className="flex items-center gap-3 p-4">
                                     <div className="relative">
-                                        <div className={`h-9 w-9 rounded-full flex items-center justify-center font-semibold text-base shadow-sm ${selectedUser?.id === userData.user.id ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                                        <div
+                                            className={`h-9 w-9 rounded-full flex items-center justify-center font-semibold text-base shadow-sm ${selectedUser?.id === userData.user.id ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-600'}`}>
                                             {userData.user.username.charAt(0).toUpperCase()}
                                         </div>
-                                        <span className={`absolute -bottom-1 -right-1 h-2.5 w-2.5 border-2 border-white rounded-full ${userData.user.isOnline ? 'bg-green-400' : 'bg-gray-300'}`}></span>
+                                        <span
+                                            className={`absolute -bottom-1 -right-1 h-2.5 w-2.5 border-2 border-white rounded-full ${userData.user.isOnline ? 'bg-green-400' : 'bg-gray-300'}`}></span>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm font-medium text-gray-800 truncate">{userData.user.username}</span>
+                                            <span
+                                                className="text-sm font-medium text-gray-800 truncate">{userData.user.username}</span>
                                             {userData.lastMessage && (
                                                 <span className="text-xs text-gray-400 font-medium">
-                                                    {new Date(userData.lastMessage.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(userData.lastMessage.created_at).toLocaleTimeString('fr-FR', {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
                                                 </span>
                                             )}
                                         </div>
@@ -178,8 +193,10 @@ export default function MessagesContent() {
                 {!selectedUser ? (
                     <div className="flex-1 flex items-center justify-center">
                         <div className="text-center">
-                            <svg className="mx-auto h-14 w-14 text-gray-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            <svg className="mx-auto h-14 w-14 text-gray-200 mb-4" fill="none" viewBox="0 0 24 24"
+                                 stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                             </svg>
                             <h3 className="text-base font-medium text-gray-700 mb-1">Sélectionnez une conversation</h3>
                             <p className="text-gray-400 text-sm">Choisissez quelqu'un pour discuter</p>
@@ -189,12 +206,14 @@ export default function MessagesContent() {
                     <>
                         {/* Entête du chat */}
                         <div className="border-b border-gray-100 px-6 py-4 flex items-center gap-3 bg-white">
-                            <div className="h-9 w-9 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-base shadow-sm">
+                            <div
+                                className="h-9 w-9 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-base shadow-sm">
                                 {selectedUser.username.charAt(0).toUpperCase()}
                             </div>
                             <div>
                                 <div className="text-base font-semibold text-gray-900">{selectedUser.username}</div>
-                                <div className={`text-xs ${selectedUser.isOnline ? 'text-green-500' : 'text-gray-400'}`}>
+                                <div
+                                    className={`text-xs ${selectedUser.isOnline ? 'text-green-500' : 'text-gray-400'}`}>
                                     {selectedUser.isOnline ? 'En ligne' : 'Hors ligne'}
                                 </div>
                             </div>
@@ -209,21 +228,26 @@ export default function MessagesContent() {
                             {messages.map((message) => {
                                 const isFromCurrentUser = isCurrentUserMessage(message);
                                 return (
-                                    <div key={message.id} className={`flex mb-3 ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                                    <div key={message.id}
+                                         className={`flex mb-3 ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}>
                                         <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm
                                             ${isFromCurrentUser
                                             ? 'bg-gray-900 text-white'
                                             : 'bg-white text-gray-800 border border-gray-100'
                                         }`}>
-                                            <div className="break-words whitespace-pre-wrap text-sm">{message.content}</div>
+                                            <div
+                                                className="break-words whitespace-pre-wrap text-sm">{message.content}</div>
                                             <div className={`text-xs mt-1 text-right opacity-70`}>
-                                                {new Date(message.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                {new Date(message.created_at).toLocaleTimeString('fr-FR', {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
                                             </div>
                                         </div>
                                     </div>
                                 );
                             })}
-                            <div ref={messagesEndRef} />
+                            <div ref={messagesEndRef}/>
                         </div>
                         {/* Input */}
                         <div className="bg-white border-t border-gray-100 px-6 py-4">

@@ -1,9 +1,11 @@
 import React from 'react';
-import { Trash2 } from 'lucide-react';
+import {Trash2} from 'lucide-react';
 
-const ZonePanel = ({ drawnZones, onZoneClick, onZoneDelete }) => (
-    <div className="absolute right-12 top-14 z-[1000] bg-white shadow-lg rounded-lg overflow-hidden w-72 border border-gray-200">
-        <div className="p-3 bg-orange-50 border-b border-orange-100 font-medium text-orange-800 flex justify-between items-center">
+const ZonePanel = ({drawnZones, onZoneClick, onZoneDelete}) => (
+    <div
+        className="absolute left-2 bottom-2 z-[1000] bg-white shadow-lg rounded-lg overflow-hidden w-72 border border-gray-200">
+        <div
+            className="p-3 bg-orange-50 border-b border-orange-100 font-medium text-orange-800 flex justify-between items-center">
             <span>Votre zone de surveillance</span>
         </div>
         <div className="max-h-64 overflow-y-auto">
@@ -27,7 +29,7 @@ const ZonePanel = ({ drawnZones, onZoneClick, onZoneDelete }) => (
                         onClick={() => onZoneDelete(zone.id)}
                         title="Supprimer cette zone"
                     >
-                        <Trash2 size={16} />
+                        <Trash2 size={16}/>
                     </button>
                 </div>
             ))}

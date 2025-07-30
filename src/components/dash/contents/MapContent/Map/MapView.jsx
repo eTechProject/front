@@ -10,7 +10,7 @@ import {useZone} from "../../../../../hooks/useZone.js";
  * - Affiche les employés sur la carte (Leaflet)
  * - Permet de créer/éditer/supprimer des zones (clients uniquement)
  * - Permet de placer des employés sur la carte via drag & drop (agents non assignés)
- * - Gère l’affichage du panneau des zones et du formulaire de zone
+ * - Gère l'affichage du panneau des zones et du formulaire de zone
  */
 const MapView = ({
                      mapRef,
@@ -123,30 +123,16 @@ const MapView = ({
             securedZoneId: "shuo_c3aQVmqC0T60hPuNg"
         };
 
-        // Afficher les informations complètes dans la console
-        console.log('Affectation agent:', {
-            agentId: draggingEmployee?.id || 'Non identifié',
-            coordinates: {
-                lat: point.lat.toFixed(6),
-                lng: point.lng.toFixed(6),
-            },
-            serviceOrderId: zoneInfo.serviceOrderId,
-            securedZoneId: zoneInfo.securedZoneId,
-            timestamp: "2025-07-28 17:09:58",
-            action: 'assignment',
-            employee: draggingEmployee?.name || 'Non identifié'
-        });
-
         try {
             // Essayer de récupérer l'employé des données de transfert
             const data = e.dataTransfer.getData('application/json');
             if (data) {
                 const employee = JSON.parse(data);
                 if (onEmployeeDrop) {
-                    onEmployeeDrop(employee, point);
+                    onEmployeeDrop(employee, point, zoneInfo);
                 }
             } else if (draggingEmployee && onEmployeeDrop) {
-                onEmployeeDrop(draggingEmployee, point);
+                onEmployeeDrop(draggingEmployee, point, zoneInfo);
             }
         } catch (err) {
             console.error("Erreur lors du traitement du drop:", err);
@@ -156,7 +142,7 @@ const MapView = ({
 
     /**
      * Initialise Leaflet et les outils de dessin (draw control).
-     * Ne s’exécute qu’une fois.
+     * Ne s'exécute qu'une fois.
      */
     const initializeMap = () => {
         if (mapRef.current && window.L && !mapInstanceRef.current) {
@@ -194,7 +180,7 @@ const MapView = ({
             // Gère le clic sur la carte (pour placer un employé)
             mapInstanceRef.current.on('click', (e) => {
                 if (onMapClick) {
-                    onMapClick(e.latlng);
+                    onMapClick(e.latlng, currentZoneInfo);
                 }
             });
 
@@ -617,6 +603,8 @@ const MapView = ({
      * Centre la carte sur la zone sélectionnée (depuis le panneau).
      */
     const handleZoneClick = (zone) => {
+        if (!mapInstanceRef.current) return;
+
         if (zone.type === 'Cercle') {
             const center = zone.coordinates.reduce((acc, point) => {
                 acc.lat += point[0] / zone.coordinates.length;
@@ -683,7 +671,7 @@ const MapView = ({
                             </div>
                         </>
                     )}
-                    <div className="mt-1 text-gray-400 text-[10px]">Tonnyjoh - 2025-07-28 17:09:58</div>
+                    <div className="mt-1 text-gray-400 text-[10px]">Tonnyjoh - 2025-07-30 07:58:10</div>
                 </div>
             )}
 

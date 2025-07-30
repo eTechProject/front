@@ -106,8 +106,8 @@ const EmployeeList = ({
                     <div className="flex items-center space-x-2">
                         <Calendar className="text-gray-500" size={18}/>
                         <span className="text-sm font-medium text-gray-700">
-              {formatDate(new Date())}
-            </span>
+                          {formatDate(new Date())}
+                        </span>
                     </div>
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
@@ -153,13 +153,13 @@ const EmployeeList = ({
                                 {showUnassigned ? <Users size={16}/> : <User size={16}/>}
                             </div>
                             <span className="text-sm font-medium text-gray-700">
-                {showUnassigned ? 'Agents non affectés' : 'Agents en mission'}
-              </span>
+                              {showUnassigned ? 'Agents non affectés' : 'Agents en mission'}
+                            </span>
                         </div>
                         <div className="flex items-center space-x-2">
-              <span className="text-xs font-medium px-2 py-1 bg-white rounded-full">
-                {currentEmployees.length}
-              </span>
+                          <span className="text-xs font-medium px-2 py-1 bg-white rounded-full">
+                            {currentEmployees.length}
+                          </span>
                             <div className={`transition-colors duration-200 ${
                                 showUnassigned ? 'text-blue-600' : 'text-gray-400'
                             }`}>
@@ -171,8 +171,7 @@ const EmployeeList = ({
 
                 {/* Instruction Banner */}
                 {showUnassigned && (
-                    <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs border-b border-blue-100
-                        animate-fadeIn">
+                    <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs border-b border-blue-100">
                         <p>Glissez un agent sur la carte pour l'affecter à une mission</p>
                     </div>
                 )}
@@ -188,8 +187,8 @@ const EmployeeList = ({
                             <div
                                 key={employee.id}
                                 className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-200
-                          hover:shadow-sm hover:scale-[1.01] active:scale-[0.99]
-                          animate-slideIn ${
+                                  hover:shadow-sm hover:scale-[1.01] active:scale-[0.99]
+                                  ${
                                     selectedEmployee?.id === employee.id
                                         ? 'bg-blue-50 border-l-4 border-blue-500'
                                         : 'bg-white border border-gray-100 hover:bg-gray-50'
@@ -203,13 +202,13 @@ const EmployeeList = ({
                                 <div className="relative mr-3">
                                     <div
                                         className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm
-                             font-semibold shadow-inner hover:scale-105 transition-transform duration-150"
+                                         font-semibold shadow-inner hover:scale-105 transition-transform duration-150"
                                         style={{backgroundColor: employee.routeColor}}
                                     >
                                         {employee.avatar}
                                     </div>
                                     <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center 
-                                 justify-center shadow-sm transition-transform duration-150 hover:scale-110 ${
+                                             justify-center shadow-sm transition-transform duration-150 hover:scale-110 ${
                                         showUnassigned ? 'bg-blue-500' : 'bg-green-500'
                                     }`}>
                                         {showUnassigned ? (
@@ -227,7 +226,7 @@ const EmployeeList = ({
                                 </div>
                                 {!showUnassigned && (
                                     <div className="ml-2 px-2 py-1 bg-blue-100 text-blue-600 text-xs font-medium
-                                rounded-full whitespace-nowrap hover:scale-105 transition-transform duration-150">
+                                    rounded-full whitespace-nowrap hover:scale-105 transition-transform duration-150">
                                         En mission
                                     </div>
                                 )}
@@ -237,7 +236,8 @@ const EmployeeList = ({
                 </div>
             </div>
 
-            <style jsx>{`
+            <style>
+                {`
                 @keyframes fadeIn {
                     from {
                         opacity: 0;
@@ -263,10 +263,10 @@ const EmployeeList = ({
                 .animate-fadeIn {
                     animation: fadeIn 0.3s ease-out;
                 }
-
-            `}</style>
+                `}
+            </style>
         </div>
     );
 };
 
-export default React.memo(EmployeeList);
+export default EmployeeList;

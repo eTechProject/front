@@ -19,6 +19,10 @@ const ENDPOINTS = {
     AUTH: {
         REGISTER: '/register',
         LOGIN: '/login_check',
+    },
+    ASSIGNMENT: {
+        ASSIGN_AGENT: '/client/assign-agents',
+        GET_AVAILABLE_AGENTS: 'client/available-agents',
     }
 };
 

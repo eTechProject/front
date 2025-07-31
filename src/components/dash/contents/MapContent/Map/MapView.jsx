@@ -23,7 +23,7 @@ const MapView = ({
     const [zoneFormData, setZoneFormData] = useState({
         name: '',
         description: '',
-        clientId: user.encryptedId,
+        clientId: user.userId,
         coordinates: [],
         type: ''
     });
@@ -181,7 +181,7 @@ const MapView = ({
 
         // Mettre à jour l'état
         setDrawnZones([{
-            id: zoneData.encryptedId || Date.now(),
+            id: zoneData.userId || Date.now(),
             name: zoneData.securedZone.name,
             description: zoneData.description || '',
             layer: layer,
@@ -196,7 +196,7 @@ const MapView = ({
         setZoneFormData({
             name: zoneData.securedZone.name,
             description: zoneData.description || '',
-            clientId: user.encryptedId,
+            clientId: user.userId,
             coordinates: coordinates,
             type: zoneType
         });
@@ -221,11 +221,11 @@ const MapView = ({
 
     // Charger les zones du client
     const loadClientZones = async () => {
-        if (!user?.encryptedId) return;
+        if (!user?.userId) return;
 
         try {
             setZoneLoaded(true); // Marquer comme chargé pour éviter les appels multiples
-            const result = await getZone(user.encryptedId);
+            const result = await getZone(user.userId);
 
             if (result.success && result.data && Array.isArray(result.data)) {
                 // Récupérer la première zone (pour l'instant on ne gère qu'une seule zone)
@@ -243,7 +243,7 @@ const MapView = ({
         if (mapInstanceRef.current && user?.role === 'client' && !zoneLoaded) {
             loadClientZones();
         }
-    }, [mapInstanceRef.current, user?.encryptedId, user?.role, zoneLoaded]);
+    }, [mapInstanceRef.current, user?.userId, user?.role, zoneLoaded]);
 
     const initializeDrawControl = () => {
         if (!window.L.drawLocal) {
@@ -338,7 +338,7 @@ const MapView = ({
             setZoneFormData({
                 name: 'Zone 1',
                 description: '',
-                clientId: user.encryptedId,
+                clientId: user.userId,
                 coordinates: coordinates,
                 type: layerType === 'circle' ? 'Cercle' :
                     layerType === 'rectangle' ? 'Rectangle' : 'Polygone'

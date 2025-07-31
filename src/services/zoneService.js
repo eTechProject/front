@@ -1,9 +1,10 @@
 import apiClient from '../config/api';
+import ENDPOINTS from '../config/endpoints';
 
 export const zoneService = {
     sendZone: async (zoneData) => {
         try {
-            const response = await apiClient.post('/service-orders', zoneData);
+            const response = await apiClient.post(ENDPOINTS.ZONE.SEND, zoneData);
             return { success: true, data: response.data };
         } catch (error) {
             return {
@@ -15,7 +16,7 @@ export const zoneService = {
     },
     getZone: async (clientId) => {
         try {
-            const response = await apiClient.get(`/service-orders/client/${clientId}`);
+            const response = await apiClient.get(ENDPOINTS.ZONE.GET_BY_CLIENT(clientId));
             return {
                 success: true,
                 data: response.data

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import LandingPage from "../pages/LandingPage.jsx";
 import AuthPage from "../pages/AuthPage.jsx";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage.jsx";
@@ -7,9 +7,12 @@ import NotFound from "../useTools/NotFound.jsx";
 import ProtectedRoute from "./ProtectedRoute.jsx";
 import DashboardPage from "../pages/DashboardPage.jsx";
 import { useAuth } from '../context/AuthContext';
+import Unauthorized from "../useTools/Unauthorized.jsx";
+import ProtectedAdminRoute from "./ProtectedAdminRoute.jsx";
+import DashboardAdminPage from "../pages/DashboardAdminPage.jsx";
 
 const RouterConfig = () => {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, isAdmin } = useAuth();
     return (
         <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -24,7 +27,16 @@ const RouterConfig = () => {
                     </ProtectedRoute>
                 }
             />
+            <Route
+                path="/admin/dashboard"
+                element={
+                    <ProtectedAdminRoute isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
+                        <DashboardAdminPage />
+                    </ProtectedAdminRoute>
+                }
+            />
             <Route path="*" element={<NotFound />} />
+            <Route path={"/unauthorised"} element={<Unauthorized/>}/>
         </Routes>
     );
 };

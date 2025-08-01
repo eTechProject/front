@@ -286,11 +286,11 @@ const MapView = ({
      * Charge les zones du client depuis l'API (1ère zone seulement).
      */
     const loadClientZones = async () => {
-        if (!user?.encryptedId) return;
+        if (!user?.userId) return;
 
         try {
             setZoneLoaded(true); // Marquer comme chargé pour éviter les appels multiples
-            const result = await getZone(user.encryptedId);
+            const result = await getZone(user.userId);
 
             if (result.success && result.data && Array.isArray(result.data)) {
                 // Récupérer la première zone (pour l'instant on ne gère qu'une seule zone)

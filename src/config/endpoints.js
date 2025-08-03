@@ -31,7 +31,15 @@ const ENDPOINTS = {
     ASSIGNMENT: {
         ASSIGN_AGENT: '/client/assign-agents',
         GET_AVAILABLE_AGENTS: 'client/available-agents',
+    },
+    MESSAGE: {
+        SEND: '/messages',
+        GET: encryptedOrderId => `/messages/${encryptedOrderId}`,
+        CONVERSATION: (senderId, receiverId) =>
+            `/messages/conversation?sender_id=${senderId}&receiver_id=${receiverId}`,
+        MERCURE_TOKEN: '/messages/mercure-token',
     }
+
 };
 
 export default ENDPOINTS;

@@ -1,118 +1,96 @@
-import React, {useState, useRef, useEffect} from 'react';
-import {MessageSquareText} from "lucide-react";
-
-// Données fictives
-const mockUsers = [
-    {
-        user: {
-            id: 1,
-            username: "Alice",
-            isOnline: true,
-        },
-        lastMessage: {
-            id: 101,
-            content: "Salut, comment ça va ?",
-            created_at: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
-            sender_id: 1,
-        }
-    },
-    {
-        user: {
-            id: 2,
-            username: "Bob",
-            isOnline: false,
-        },
-        lastMessage: {
-            id: 102,
-            content: "À bientôt !",
-            created_at: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-            sender_id: 2,
-        }
-    },
-    {
-        user: {
-            id: 3,
-            username: "Charly",
-            isOnline: true,
-        },
-        lastMessage: null
-    },
-];
-
-// Données fictives
-const mockMessages = {
-    1: [
-        {
-            id: 100,
-            content: "Coucou Alice !",
-            sender_id: 999,
-            created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString()
-        },
-        {
-            id: 101,
-            content: "Salut, comment ça va ?",
-            sender_id: 1,
-            created_at: new Date(Date.now() - 1000 * 60 * 2).toISOString()
-        }
-    ],
-    2: [
-        {
-            id: 102,
-            content: "À bientôt !",
-            sender_id: 2,
-            created_at: new Date(Date.now() - 1000 * 60 * 10).toISOString()
-        }
-    ],
-    3: [],
-};
-
-const fakeCurrentUserId = 999;
+import React, { useState, useRef, useEffect } from 'react';
+import { MessageSquareText } from "lucide-react";
+import { useZone } from "../../../hooks/useZone.js";
+import { useAuth } from "../../../context/AuthContext.jsx";
+import { useMessages } from "../../../hooks/useMessage.js";
 
 export default function MessagesContent() {
-    const [usersWithLastMessage] = useState(mockUsers);
     const [selectedUser, setSelectedUser] = useState(null);
-    const [messages, setMessages] = useState([]);
-    const [newMessage, setNewMessage] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const messagesEndRef = useRef(null);
+    const { user } = useAuth();
+    const { getZone } = useZone();
+    const {
+        messages,
+        getMessages,
+        sendMessage,
+        isLoading: messagesLoading,
+        error: messagesError,
+        getConversationMessages
+    } = useMessages();
+
+    const [serviceOrder, setServiceOrder] = useState(null);
+    const [assignedAgents, setAssignedAgents] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [newMessage, setNewMessage] = useState('');
 
     useEffect(() => {
-        if (selectedUser) {
-            setMessages(mockMessages[selectedUser.id] || []);
+        const fetchZone = async () => {
+            try {
+                setIsLoading(true);
+                const result = await getZone(user.userId);
+                if (result?.success) {
+                    setServiceOrder(result.data.serviceOrder);
+                    setAssignedAgents(result.data.assignedAgents);
+                }
+            } catch (error) {
+                console.error("Erreur dans getZone:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchZone().then();
+    }, [user.userId]);
+
+    // Transform assigned agents into users format - ensure encryptedId exists!
+    const agentUsers = assignedAgents.map(agent => ({
+        user: {
+            id: agent.agent.agentId,
+            encryptedId: agent.agent.user.encryptedId, // ID chiffré pour POST
+            username: agent.agent.user.name || 'Agent',
+            isOnline: agent.status === 'actif',
+            role: agent.agent.user.role,
+            agentData: agent
+        },
+        lastMessage: null
+    }));
+
+    // Charger les messages de la conversation spécifique à chaque changement d'agent sélectionné
+    useEffect(() => {
+        if (selectedUser && user.userId && selectedUser.id) {
+            getConversationMessages(user.userId, selectedUser.id, {page: 1, limit: 20}).then();
         }
-    }, [selectedUser]);
+    }, [selectedUser, user.userId]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, selectedUser]);
 
-    const filteredUsers = usersWithLastMessage.filter(userData =>
+    const filteredUsers = agentUsers.filter(userData =>
         userData.user.username.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleSendMessage = (e) => {
+    const handleSendMessage = async (e) => {
         e.preventDefault();
         if (!newMessage.trim() || !selectedUser) return;
 
-        const fakeMessage = {
-            id: Date.now(), // Un id unique temporaire
-            content: newMessage,
-            sender_id: fakeCurrentUserId,
-            created_at: new Date().toISOString()
-        };
-
-        setMessages(prev => [...prev, fakeMessage]);
+        await sendMessage({
+            order_id: serviceOrder?.id,
+            sender_id: user.userId,
+            receiver_id: selectedUser.id,
+            content: newMessage
+        });
         setNewMessage('');
     };
 
-    // Fonction pour déterminer si un message est envoyé par l'utilisateur actuel
     const isCurrentUserMessage = (message) => {
-        return String(message.sender_id) === String(fakeCurrentUserId);
+        if (!message) return false;
+        return String(message.sender_id) === String(user.encryptedId);
     };
 
     return (
         <div className="flex p-2 h-full bg-[#f7f7f8] rounded-xl border border-gray-100 overflow-hidden">
-            {/* Liste des conversations */}
+            {/* Conversations list */}
             <div className="w-1/3 p-2 bg-white border-r border-gray-100 flex flex-col">
                 <div className="border-b border-gray-100 bg-white">
                     <div className="mb-8">
@@ -120,12 +98,12 @@ export default function MessagesContent() {
                             <MessageSquareText className="w-6 h-6"/>
                             Messagerie
                         </h1>
-                        <p className="text-gray-600 mt-1">Gérez vos personnels</p>
+                        <p className="text-gray-600 mt-1">Gérez vos agents</p>
                     </div>
                     <div className="relative mt-3">
                         <input
                             type="text"
-                            placeholder="Rechercher..."
+                            placeholder="Rechercher un agent..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm bg-gray-50"
@@ -140,9 +118,14 @@ export default function MessagesContent() {
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                    {filteredUsers.length === 0 ? (
+                    {isLoading ? (
+                        <div className="p-6 text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mx-auto"></div>
+                            <p className="text-gray-500 mt-2">Chargement des agents...</p>
+                        </div>
+                    ) : filteredUsers.length === 0 ? (
                         <div className="p-6 text-center text-gray-400 text-sm">
-                            Aucun résultat
+                            {searchTerm ? 'Aucun agent ne correspond à votre recherche' : 'Aucun agent assigné'}
                         </div>
                     ) : (
                         filteredUsers.map((userData) => (
@@ -162,24 +145,16 @@ export default function MessagesContent() {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-center">
-                                            <span
-                                                className="text-sm font-medium text-gray-800 truncate">{userData.user.username}</span>
-                                            {userData.lastMessage && (
-                                                <span className="text-xs text-gray-400 font-medium">
-                                                    {new Date(userData.lastMessage.created_at).toLocaleTimeString('fr-FR', {
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {userData.lastMessage ? (
-                                            <span className="text-xs text-gray-500 truncate block mt-0.5">
-                                                {userData.lastMessage.content}
+                                            <span className="text-sm font-medium text-gray-800 truncate">
+                                                {userData.user.username}
                                             </span>
-                                        ) : (
-                                            <span className="text-xs text-gray-300 italic block mt-0.5">Commencer une conversation</span>
-                                        )}
+                                            <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
+                                                {userData.user.role}
+                                            </span>
+                                        </div>
+                                        <span className="text-xs text-gray-500 truncate block mt-0.5">
+                                            {userData.user.agentData.task?.description || 'Aucune tâche assignée'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -188,7 +163,7 @@ export default function MessagesContent() {
                 </div>
             </div>
 
-            {/* Zone de chat */}
+            {/* Chat area */}
             <div className="flex-1 flex flex-col bg-[#f7f7f8]">
                 {!selectedUser ? (
                     <div className="flex-1 flex items-center justify-center">
@@ -198,13 +173,13 @@ export default function MessagesContent() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                       d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                             </svg>
-                            <h3 className="text-base font-medium text-gray-700 mb-1">Sélectionnez une conversation</h3>
-                            <p className="text-gray-400 text-sm">Choisissez quelqu'un pour discuter</p>
+                            <h3 className="text-base font-medium text-gray-700 mb-1">Sélectionnez un agent</h3>
+                            <p className="text-gray-400 text-sm">Choisissez un agent pour communiquer</p>
                         </div>
                     </div>
                 ) : (
                     <>
-                        {/* Entête du chat */}
+                        {/* Chat header */}
                         <div className="border-b border-gray-100 px-6 py-4 flex items-center gap-3 bg-white">
                             <div
                                 className="h-9 w-9 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-base shadow-sm">
@@ -220,15 +195,25 @@ export default function MessagesContent() {
                         </div>
                         {/* Messages */}
                         <div className="flex-1 overflow-y-auto px-6 py-4">
-                            {messages.length === 0 && (
-                                <div className="flex items-center justify-center h-full text-gray-300 italic">
-                                    Aucun message pour l’instant...
+                            {messagesLoading && (
+                                <div className="flex items-center justify-center h-full text-gray-400 italic">
+                                    Chargement...
                                 </div>
                             )}
-                            {messages.map((message) => {
+                            {messagesError && (
+                                <div className="flex items-center justify-center h-full text-red-400 italic">
+                                    {messagesError}
+                                </div>
+                            )}
+                            {!messagesLoading && (!messages || messages.length === 0) && (
+                                <div className="flex items-center justify-center h-full text-gray-300 italic">
+                                    Aucun message pour l'instant...
+                                </div>
+                            )}
+                            {(messages || []).filter(msg => !!msg).map((message,index) => {
                                 const isFromCurrentUser = isCurrentUserMessage(message);
                                 return (
-                                    <div key={message.id}
+                                    <div key={index}
                                          className={`flex mb-3 ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}>
                                         <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm
                                             ${isFromCurrentUser
@@ -238,10 +223,13 @@ export default function MessagesContent() {
                                             <div
                                                 className="break-words whitespace-pre-wrap text-sm">{message.content}</div>
                                             <div className={`text-xs mt-1 text-right opacity-70`}>
-                                                {new Date(message.created_at).toLocaleTimeString('fr-FR', {
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
+                                                {message.sent_at
+                                                    ? new Date(message.sent_at).toLocaleTimeString('fr-FR', {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })
+                                                    : ''
+                                                }
                                             </div>
                                         </div>
                                     </div>
@@ -249,14 +237,14 @@ export default function MessagesContent() {
                             })}
                             <div ref={messagesEndRef}/>
                         </div>
-                        {/* Input */}
+                        {/* Message input */}
                         <div className="bg-white border-t border-gray-100 px-6 py-4">
                             <form onSubmit={handleSendMessage} className="flex gap-3">
                                 <input
                                     type="text"
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
-                                    placeholder="Tapez votre message…"
+                                    placeholder="Tapez votre message..."
                                     className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm bg-gray-50"
                                 />
                                 <button

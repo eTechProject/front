@@ -1,29 +1,43 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageSquareText } from "lucide-react";
 import { useZone } from "../../../hooks/useZone.js";
 import { useAuth } from "../../../context/AuthContext.jsx";
 import { useMessages } from "../../../hooks/useMessage.js";
 
+/**
+ * Composant principal de messagerie permettant aux utilisateurs de communiquer avec les agents
+ * @returns {JSX.Element} Interface de messagerie
+ */
 export default function MessagesContent() {
+    // États utilisateur et recherche
     const [selectedUser, setSelectedUser] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const messagesEndRef = useRef(null);
+
+    // Hooks contextuels
     const { user } = useAuth();
     const { getZone } = useZone();
     const {
         messages,
-        getMessages,
         sendMessage,
         isLoading: messagesLoading,
         error: messagesError,
         getConversationMessages
     } = useMessages();
 
+    // États de la zone et des agents
     const [serviceOrder, setServiceOrder] = useState(null);
+    // Initialiser avec un tableau vide pour éviter l'erreur
     const [assignedAgents, setAssignedAgents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [newMessage, setNewMessage] = useState('');
 
+    // États du formulaire de message
+    const [newMessage, setNewMessage] = useState('');
+    const [sendingMessage, setSendingMessage] = useState(false);
+
+    /**
+     * Récupère les informations de la zone de l'utilisateur, y compris les agents assignés
+     */
     useEffect(() => {
         const fetchZone = async () => {
             try {
@@ -31,22 +45,31 @@ export default function MessagesContent() {
                 const result = await getZone(user.userId);
                 if (result?.success) {
                     setServiceOrder(result.data.serviceOrder);
-                    setAssignedAgents(result.data.assignedAgents);
+                    // S'assurer que assignedAgents est un tableau
+                    setAssignedAgents(result.data.assignedAgents || []);
                 }
             } catch (error) {
                 console.error("Erreur dans getZone:", error);
+                // En cas d'erreur, réinitialiser à un tableau vide
+                setAssignedAgents([]);
             } finally {
                 setIsLoading(false);
             }
         };
-        fetchZone().then();
-    }, [user.userId]);
 
-    // Transform assigned agents into users format - ensure encryptedId exists!
-    const agentUsers = assignedAgents.map(agent => ({
+        if (user?.userId) {
+            fetchZone();
+        }
+    }, [user?.userId]);
+
+    /**
+     * Transforme les agents assignés en format utilisateur pour l'affichage
+     * Utilise un opérateur de coalescence nullish pour garantir un tableau
+     */
+    const agentUsers = (assignedAgents || []).map(agent => ({
         user: {
             id: agent.agent.agentId,
-            encryptedId: agent.agent.user.encryptedId, // ID chiffré pour POST
+            encryptedId: agent.agent.user.encryptedId,
             username: agent.agent.user.name || 'Agent',
             isOnline: agent.status === 'actif',
             role: agent.agent.user.role,
@@ -55,42 +78,64 @@ export default function MessagesContent() {
         lastMessage: null
     }));
 
-    // Charger les messages de la conversation spécifique à chaque changement d'agent sélectionné
+    /**
+     * Charge les messages de la conversation lorsqu'un utilisateur est sélectionné
+     */
     useEffect(() => {
-        if (selectedUser && user.userId && selectedUser.id) {
-            getConversationMessages(user.userId, selectedUser.id, {page: 1, limit: 20}).then();
+        if (selectedUser && user?.userId && selectedUser.id) {
+            getConversationMessages(user.userId, selectedUser.id, {page: 1, limit: 20});
         }
-    }, [selectedUser, user.userId]);
+    }, [selectedUser, user?.userId]);
 
+    /**
+     * Fait défiler automatiquement vers le dernier message
+     */
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, selectedUser]);
+        if (messages?.length > 0) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages]);
 
+    /**
+     * Filtre les utilisateurs en fonction du terme de recherche
+     */
     const filteredUsers = agentUsers.filter(userData =>
         userData.user.username.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleSendMessage = async (e) => {
+    /**
+     * Gère l'envoi d'un nouveau message
+     * @param {Event} e - Événement de soumission du formulaire
+     */
+    const handleSendMessage = useCallback(async (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !selectedUser) return;
+        if (!newMessage.trim() || !selectedUser || sendingMessage) return;
 
-        await sendMessage({
+        const messageContent = newMessage;
+        setNewMessage(''); // Efface l'entrée immédiatement
+        setSendingMessage(true);
+
+        const messageData = {
             order_id: serviceOrder?.id,
             sender_id: user.userId,
             receiver_id: selectedUser.id,
-            content: newMessage
-        });
-        setNewMessage('');
-    };
+            content: messageContent
+        };
 
-    const isCurrentUserMessage = (message) => {
-        if (!message) return false;
-        return String(message.sender_id) === String(user.encryptedId);
-    };
+        try {
+            // Le hook useMessages met à jour automatiquement l'état des messages
+            await sendMessage(messageData);
+        } catch (error) {
+            console.error("Erreur lors de l'envoi du message:", error);
+            setNewMessage(messageContent); // Restaure le message en cas d'échec
+        } finally {
+            setSendingMessage(false);
+        }
+    }, [newMessage, selectedUser, sendingMessage, serviceOrder, user, sendMessage]);
 
     return (
         <div className="flex p-2 h-full bg-[#f7f7f8] rounded-xl border border-gray-100 overflow-hidden">
-            {/* Conversations list */}
+            {/* Panneau latéral - Liste des agents */}
             <div className="w-1/3 p-2 bg-white border-r border-gray-100 flex flex-col">
                 <div className="border-b border-gray-100 bg-white">
                     <div className="mb-8">
@@ -100,6 +145,8 @@ export default function MessagesContent() {
                         </h1>
                         <p className="text-gray-600 mt-1">Gérez vos agents</p>
                     </div>
+
+                    {/* Barre de recherche d'agents */}
                     <div className="relative mt-3">
                         <input
                             type="text"
@@ -109,14 +156,15 @@ export default function MessagesContent() {
                             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm bg-gray-50"
                         />
                         <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24"
-                                 stroke="currentColor">
+                            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                       d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                             </svg>
                         </div>
                     </div>
                 </div>
+
+                {/* Liste des agents */}
                 <div className="flex-1 overflow-y-auto">
                     {isLoading ? (
                         <div className="p-6 text-center">
@@ -163,9 +211,10 @@ export default function MessagesContent() {
                 </div>
             </div>
 
-            {/* Chat area */}
+            {/* Zone de chat */}
             <div className="flex-1 flex flex-col bg-[#f7f7f8]">
                 {!selectedUser ? (
+                    // État initial - Aucun agent sélectionné
                     <div className="flex-1 flex items-center justify-center">
                         <div className="text-center">
                             <svg className="mx-auto h-14 w-14 text-gray-200 mb-4" fill="none" viewBox="0 0 24 24"
@@ -179,7 +228,7 @@ export default function MessagesContent() {
                     </div>
                 ) : (
                     <>
-                        {/* Chat header */}
+                        {/* Entête de la conversation */}
                         <div className="border-b border-gray-100 px-6 py-4 flex items-center gap-3 bg-white">
                             <div
                                 className="h-9 w-9 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-base shadow-sm">
@@ -193,14 +242,16 @@ export default function MessagesContent() {
                                 </div>
                             </div>
                         </div>
-                        {/* Messages */}
-                        <div className="flex-1 overflow-y-auto px-6 py-4">
-                            {messagesLoading && (
+
+                        {/* Conteneur des messages */}
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+                            {/* États de chargement et d'erreur */}
+                            {messagesLoading && messages?.length === 0 && (
                                 <div className="flex items-center justify-center h-full text-gray-400 italic">
                                     Chargement...
                                 </div>
                             )}
-                            {messagesError && (
+                            {messagesError && messages?.length === 0 && (
                                 <div className="flex items-center justify-center h-full text-red-400 italic">
                                     {messagesError}
                                 </div>
@@ -210,18 +261,22 @@ export default function MessagesContent() {
                                     Aucun message pour l'instant...
                                 </div>
                             )}
-                            {(messages || []).filter(msg => !!msg).map((message,index) => {
-                                const isFromCurrentUser = isCurrentUserMessage(message);
+
+                            {/* Affichage des messages */}
+                            {messages && messages.map((message, index) => {
+                                const isFromCurrentUser = message.sender_id === user.userId ||
+                                    (message._forceCurrentUser === true);
+
                                 return (
-                                    <div key={index}
-                                         className={`flex mb-3 ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[70%] px-4 py-2.5 rounded-2xl shadow-sm
+                                    <div key={message.id || index} className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl shadow-sm
                                             ${isFromCurrentUser
                                             ? 'bg-gray-900 text-white'
                                             : 'bg-white text-gray-800 border border-gray-100'
                                         }`}>
-                                            <div
-                                                className="break-words whitespace-pre-wrap text-sm">{message.content}</div>
+                                            <div className="break-words whitespace-pre-wrap text-sm">
+                                                {message.content}
+                                            </div>
                                             <div className={`text-xs mt-1 text-right opacity-70`}>
                                                 {message.sent_at
                                                     ? new Date(message.sent_at).toLocaleTimeString('fr-FR', {
@@ -235,9 +290,27 @@ export default function MessagesContent() {
                                     </div>
                                 );
                             })}
+
+                            {/* Indicateur d'envoi en cours */}
+                            {sendingMessage && (
+                                <div className="flex justify-end">
+                                    <div className="max-w-[80%] px-4 py-2.5 rounded-2xl shadow-sm bg-gray-200 text-gray-500 opacity-70">
+                                        <div className="text-sm flex items-center gap-2">
+                                            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Envoi en cours...
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Référence pour le défilement automatique */}
                             <div ref={messagesEndRef}/>
                         </div>
-                        {/* Message input */}
+
+                        {/* Formulaire d'envoi de message */}
                         <div className="bg-white border-t border-gray-100 px-6 py-4">
                             <form onSubmit={handleSendMessage} className="flex gap-3">
                                 <input
@@ -246,13 +319,15 @@ export default function MessagesContent() {
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     placeholder="Tapez votre message..."
                                     className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm bg-gray-50"
+                                    autoComplete="off"
+                                    disabled={sendingMessage}
                                 />
                                 <button
                                     type="submit"
-                                    disabled={!newMessage.trim()}
+                                    disabled={!newMessage.trim() || sendingMessage}
                                     className="bg-gray-900 text-white rounded-lg px-6 py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-gray-300 disabled:text-gray-400"
                                 >
-                                    Envoyer
+                                    {sendingMessage ? 'Envoi...' : 'Envoyer'}
                                 </button>
                             </form>
                         </div>

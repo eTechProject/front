@@ -15,7 +15,11 @@ export const useMessages = () => {
         setIsLoading(false);
         setSuccess(result.success);
         if (result.success) {
-            setMessages(prev => [ ...(prev || []), result.data ]);
+            const newMessage = {
+                ...result.data,
+                _forceCurrentUser: true
+            };
+            setMessages(prev => [ ...(prev || []), newMessage ]);
         } else {
             setError(result.error);
         }
@@ -45,7 +49,13 @@ export const useMessages = () => {
         setIsLoading(false);
         setSuccess(result.success);
         if (result.success) {
-            setMessages(result.messages || []);
+            const messagesWithSenderInfo = (result.messages || []).map(message => {
+                if (String(message.sender_id) === String(senderId)) {
+                    return { ...message, _forceCurrentUser: true };
+                }
+                return message;
+            });
+            setMessages(messagesWithSenderInfo);
         } else {
             setError(result.error);
         }

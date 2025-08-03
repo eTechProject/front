@@ -5,7 +5,7 @@ export const messageService = {
     sendMessage: async (messageData) => {
         try {
             const response = await apiClient.post(ENDPOINTS.MESSAGE.SEND, messageData);
-            return { success: true, data: response.data.data };
+            return { success: true, data: response.data };
         } catch (error) {
             return {
                 success: false,

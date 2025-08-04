@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, Menu, Info, X, Check } from 'lucide-react';
-import EmployeeCard from "./MapContent/EmployeeCard.jsx";
-import MapView from "./MapContent/Map/MapView.jsx";
-import EmployeeList from "./MapContent/EmployeeList.jsx";
-import { useAuth } from "../../../context/AuthContext.jsx";
-import { useZone } from "../../../hooks/useZone.js";
+import EmployeeCard from "../MapContent/EmployeeCard.jsx";
+import MapView from "../MapContent/Map/MapView.jsx";
+import EmployeeList from "../MapContent/EmployeeList.jsx";
+import { useAuth } from "../../../../context/AuthContext.jsx";
+import { useZone } from "../../../../hooks/useZone.js";
 
 const MapContent = () => {
     // UI States

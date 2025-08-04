@@ -7,9 +7,9 @@ import NotFound from "../useTools/NotFound.jsx";
 import Unauthorized from "../useTools/Unauthorized.jsx";
 import { useAuth } from '../context/AuthContext';
 import ProtectedRoleRoute from "./ProtectedRoleRoute.jsx";
-import DashboardAdminPage from "../pages/DashboardAdminPage.jsx";
-import DashboardAgentPage from "../pages/DashboardAgentPage.jsx";
-import DashboardPage from "../pages/DashboardPage.jsx";
+import DashboardAdminPage from "../pages/dashboard/DashboardAdminPage.jsx";
+import DashboardAgentPage from "../pages/dashboard/DashboardAgentPage.jsx";
+import DashboardClientPage from "../pages/dashboard/DashboardClientPage.jsx";
 
 
 const RouterConfig = () => {
@@ -33,7 +33,7 @@ const RouterConfig = () => {
                         userRole={userRole}
                         allowedRoles={['client']}
                     >
-                        <DashboardPage />
+                        <DashboardClientPage />
                     </ProtectedRoleRoute>
                 }
             />
@@ -75,7 +75,7 @@ const RouterConfig = () => {
                     >
                         {userRole === 'admin' ? <DashboardAdminPage /> :
                             userRole === 'agent' ? <DashboardAgentPage /> :
-                                <DashboardPage />}
+                                <DashboardClientPage />}
                     </ProtectedRoleRoute>
                 }
             />

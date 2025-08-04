@@ -85,5 +85,21 @@ export const agentService = {
                 details: error.response?.data?.errors || {}
             };
         }
-    }
+    },
+    // Récupère les tâches assignées à un agent (clients à contacter)
+    getAssignedTasks: async (agentId) => {
+        try {
+            const response = await apiClient.get(ENDPOINTS.AGENT.GET_TASKS_MESSAGE(agentId));
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Erreur lors du chargement des tâches assignées',
+                details: error.response?.data?.errors || {}
+            };
+        }
+    },
 };

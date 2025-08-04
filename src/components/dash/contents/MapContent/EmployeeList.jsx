@@ -12,60 +12,15 @@ import {
 } from 'lucide-react';
 
 const EmployeeList = ({
-                          employees = [
-                              {
-                                  id: 1,
-                                  name: 'Marie Dubois',
-                                  role: 'Agent terrain',
-                                  status: 'En déplacement - Secteur Nord',
-                                  avatar: 'MD',
-                                  routeColor: '#3B82F6'
-                              },
-                              {
-                                  id: 2,
-                                  name: 'Jean Martin',
-                                  role: 'Superviseur',
-                                  status: 'Mission urgente - Centre ville',
-                                  avatar: 'JM',
-                                  routeColor: '#EF4444'
-                              },
-                              {
-                                  id: 3,
-                                  name: 'Sophie Laurent',
-                                  role: 'Agent terrain',
-                                  status: 'Pause - Zone industrielle',
-                                  avatar: 'SL',
-                                  routeColor: '#10B981'
-                              }
-                          ],
-                          unassignedEmployees = [
-                              {
-                                  id: 4,
-                                  name: 'Pierre Bernard',
-                                  role: 'Agent terrain',
-                                  avatar: 'PB',
-                                  routeColor: '#8B5CF6'
-                              },
-                              {
-                                  id: 5,
-                                  name: 'Claire Moreau',
-                                  role: 'Agent terrain',
-                                  avatar: 'CM',
-                                  routeColor: '#F59E0B'
-                              },
-                              {id: 6, name: 'Thomas Petit', role: 'Superviseur', avatar: 'TP', routeColor: '#EC4899'}
-                          ],
+                          employees = [],
+                          unassignedEmployees = [],
                           filterText = '',
-                          setFilterText = () => {
-                          },
-                          handleEmployeeClick = () => {
-                          },
+                          setFilterText = () => {},
+                          handleEmployeeClick = () => {},
                           selectedEmployee = null,
                           formatDate = (date) => date.toLocaleDateString('fr-FR'),
-                          onDragStart = () => {
-                          },
-                          onDragEnd = () => {
-                          },
+                          onDragStart = () => {},
+                          onDragEnd = () => {},
                       }) => {
     const [showUnassigned, setShowUnassigned] = useState(false);
     const [isExpanded, setIsExpanded] = useState(true);
@@ -221,7 +176,7 @@ const EmployeeList = ({
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-gray-900 truncate">{employee.name}</p>
                                     <p className="text-xs text-gray-500 truncate">
-                                        {showUnassigned ? employee.role : employee.status}
+                                        {employee.role}
                                     </p>
                                 </div>
                                 {!showUnassigned && (

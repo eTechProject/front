@@ -4,39 +4,84 @@ import AuthPage from "../pages/AuthPage.jsx";
 import ForgotPasswordPage from "../pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "../pages/ResetPasswordPage.jsx";
 import NotFound from "../useTools/NotFound.jsx";
-import ProtectedRoute from "./ProtectedRoute.jsx";
-import DashboardPage from "../pages/DashboardPage.jsx";
-import { useAuth } from '../context/AuthContext';
 import Unauthorized from "../useTools/Unauthorized.jsx";
-import ProtectedAdminRoute from "./ProtectedAdminRoute.jsx";
+import { useAuth } from '../context/AuthContext';
+import ProtectedRoleRoute from "./ProtectedRoleRoute.jsx";
 import DashboardAdminPage from "../pages/DashboardAdminPage.jsx";
+import DashboardAgentPage from "../pages/DashboardAgentPage.jsx";
+import DashboardPage from "../pages/DashboardPage.jsx";
+
 
 const RouterConfig = () => {
-    const { isAuthenticated, isAdmin } = useAuth();
+    const { isAuthenticated, userRole } = useAuth();
+
     return (
         <Routes>
+            {/* Routes publiques */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+            <Route path="/unauthorised" element={<Unauthorized />} />
+
+            {/* Routes protégées par rôle */}
             <Route
-                path="/dashboard"
+                path="/client/dashboard"
                 element={
-                    <ProtectedRoute isAuthenticated={isAuthenticated}>
+                    <ProtectedRoleRoute
+                        isAuthenticated={isAuthenticated}
+                        userRole={userRole}
+                        allowedRoles={['client']}
+                    >
                         <DashboardPage />
-                    </ProtectedRoute>
+                    </ProtectedRoleRoute>
                 }
             />
+
+            <Route
+                path="/agent/dashboard"
+                element={
+                    <ProtectedRoleRoute
+                        isAuthenticated={isAuthenticated}
+                        userRole={userRole}
+                        allowedRoles={['agent']}
+                    >
+                        <DashboardAgentPage />
+                    </ProtectedRoleRoute>
+                }
+            />
+
             <Route
                 path="/admin/dashboard"
                 element={
-                    <ProtectedAdminRoute isAuthenticated={isAuthenticated} isAdmin={isAdmin}>
+                    <ProtectedRoleRoute
+                        isAuthenticated={isAuthenticated}
+                        userRole={userRole}
+                        allowedRoles={['admin']}
+                    >
                         <DashboardAdminPage />
-                    </ProtectedAdminRoute>
+                    </ProtectedRoleRoute>
                 }
             />
+
+            {/* Redirection générique vers le dashboard approprié */}
+            <Route
+                path="/dashboard"
+                element={
+                    <ProtectedRoleRoute
+                        isAuthenticated={isAuthenticated}
+                        userRole={userRole}
+                        allowedRoles={['client', 'agent', 'admin']}
+                    >
+                        {userRole === 'admin' ? <DashboardAdminPage /> :
+                            userRole === 'agent' ? <DashboardAgentPage /> :
+                                <DashboardPage />}
+                    </ProtectedRoleRoute>
+                }
+            />
+
+            {/* Route 404 */}
             <Route path="*" element={<NotFound />} />
-            <Route path={"/unauthorised"} element={<Unauthorized/>}/>
         </Routes>
     );
 };

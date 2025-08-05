@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from "react";
 import {Map, MessageSquareMore, Settings} from "lucide-react";
-import MapContent from "./contents/client/MapContent.jsx";
+import MapContent from "./contents/MapContent/MapContent.jsx";
 import SettingsContent from "./contents/SettingsContent.jsx";
 import ProfileContent from "./contents/ProfileContent.jsx";
 import {Link} from "react-router-dom";

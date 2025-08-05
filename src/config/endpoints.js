@@ -9,6 +9,7 @@ const ENDPOINTS = {
     ZONE: {
         SEND: '/service-orders',
         GET_BY_CLIENT: (clientId) => `/client/${clientId}/map-data`,
+        GET_BY_AGENT: (agentId) => `/agent/${agentId}/map-data`,
     },
     PASSWORD: {
         REQUEST_RESET: '/public/request-reset-password',

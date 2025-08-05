@@ -53,6 +53,8 @@ export default function useMercureSubscription({ topic, mercureUrl, token, onMes
         // Handle errors
         eventSource.onerror = (err) => {
             console.error('Mercure connection error:', err);
+            console.error('Vérifiez que le hub Mercure est démarré à:', mercureUrl);
+            console.error('Topic:', topic);
 
             // Try to reconnect after a delay in case of error
             setTimeout(() => {

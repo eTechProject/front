@@ -2,19 +2,23 @@
  * Generates a consistent conversation topic for Mercure
  * by sorting user IDs to ensure same topic regardless of order
  *
- * @param {string} currentUserEncryptedId - ID of the current user
- * @param {string} otherUserEncryptedId - ID of the other user
+ * @param {string} currentUserId - ID of the current user
+ * @param {string} otherUserId - ID of the other user
  * @returns {string} The formatted topic string
  */
-export default function generateConversationTopic(currentUserEncryptedId, otherUserEncryptedId) {
-    if (!currentUserEncryptedId || !otherUserEncryptedId) {
+export default function generateConversationTopic(currentUserId, otherUserId) {
+    if (!currentUserId || !otherUserId) {
         console.error('Missing user IDs for conversation topic generation');
         return null;
     }
 
+    console.log('Generating topic with IDs:', { currentUserId, otherUserId });
+
     // Sort IDs to ensure consistent topic regardless of user order
-    const encryptedIds = [currentUserEncryptedId, otherUserEncryptedId].sort();
+    const userIds = [currentUserId, otherUserId].sort();
 
     // Return formatted topic
-    return `chat/conversation/${encryptedIds[0]}-${encryptedIds[1]}`;
+    const topic = `chat/conversation/${userIds[0]}-${userIds[1]}`;
+    console.log('Generated topic:', topic);
+    return topic;
 }

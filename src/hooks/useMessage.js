@@ -7,20 +7,20 @@ export const useMessages = () => {
     const [messages, setMessages] = useState([]);
     const [success, setSuccess] = useState(false);
 
-    const sendMessage = async (messageData) => {
+    const sendMessage = async (messageData, addToLocalState = false) => {
         setIsLoading(true);
         setError(null);
         setSuccess(false);
         const result = await messageService.sendMessage(messageData);
         setIsLoading(false);
         setSuccess(result.success);
-        if (result.success) {
+        if (result.success && addToLocalState) {
             const newMessage = {
                 ...result.data,
                 _forceCurrentUser: true
             };
             setMessages(prev => [ ...(prev || []), newMessage ]);
-        } else {
+        } else if (!result.success) {
             setError(result.error);
         }
         return result;
@@ -73,6 +73,26 @@ export const useMessages = () => {
         return result;
     };
 
+    const addMercureMessage = (newMessage) => {
+        setMessages(prevMessages => {
+            const existingIds = (prevMessages || []).map(msg => msg.id);
+            // Check if message already exists by ID
+            if (newMessage.id && !existingIds.includes(newMessage.id)) {
+                const sortedMessages = [...(prevMessages || []), newMessage].sort((a, b) => 
+                    new Date(a.sent_at) - new Date(b.sent_at)
+                );
+                return sortedMessages;
+            } else if (!newMessage.id) {
+                // Handle messages without ID (should not happen but just in case)
+                console.warn('Message received without ID:', newMessage);
+                return [...(prevMessages || []), newMessage].sort((a, b) => 
+                    new Date(a.sent_at) - new Date(b.sent_at)
+                );
+            }
+            return prevMessages;
+        });
+    };
+
     return {
         isLoading,
         error,
@@ -81,6 +101,7 @@ export const useMessages = () => {
         sendMessage,
         getMessages,
         getConversationMessages,
-        getMercureToken
+        getMercureToken,
+        addMercureMessage
     };
 };

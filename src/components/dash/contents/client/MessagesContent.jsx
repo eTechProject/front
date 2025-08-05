@@ -3,6 +3,8 @@ import { MessageSquareText, Menu, X } from "lucide-react";
 import { useZone } from "../../../../hooks/useZone.js";
 import { useAuth } from "../../../../context/AuthContext.jsx";
 import { useMessages } from "../../../../hooks/useMessage.js";
+import useMercureSubscription from "../../../../hooks/useMercureSubscription.js";
+import generateConversationTopic from "../../../../utils/generateConversationTopic.js";
 
 /**
  * Composant principal de messagerie permettant aux utilisateurs de communiquer avec les agents
@@ -24,6 +26,8 @@ export default function MessagesContent() {
         isLoading: messagesLoading,
         error: messagesError,
         getConversationMessages,
+        getMercureToken,
+        addMercureMessage
     } = useMessages();
 
     // États de la zone et des agents
@@ -34,6 +38,11 @@ export default function MessagesContent() {
     // États du formulaire de message
     const [newMessage, setNewMessage] = useState('');
     const [sendingMessage, setSendingMessage] = useState(false);
+
+    // États pour Mercure
+    const [mercureToken, setMercureToken] = useState(null);
+    const [mercureUrl, setMercureUrl] = useState(import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure');
+    const [conversationTopic, setConversationTopic] = useState(null);
 
     /**
      * Récupère les informations de la zone de l'utilisateur, y compris les agents assignés
@@ -81,9 +90,92 @@ export default function MessagesContent() {
      */
     useEffect(() => {
         if (selectedUser && user?.userId && selectedUser.user.agentData.agent.user.userId) {
+            console.log('IDs utilisés pour la conversation:');
+            console.log('user.userId:', user.userId);
+            console.log('selectedUser.user.agentData.agent.user.userId:', selectedUser.user.agentData.agent.user.userId);
+            
             getConversationMessages(user.userId, selectedUser.user.agentData.agent.user.userId, {page: 1, limit: 20});
+            
+            // Générer le topic de conversation pour Mercure en utilisant les IDs réguliers
+            const topic = generateConversationTopic(user.userId, selectedUser.user.agentData.agent.user.userId);
+            console.log('Topic de conversation généré:', topic);
+            setConversationTopic(topic);
+        } else {
+            setConversationTopic(null);
+            setMercureToken(null); // Reset token when no conversation
         }
     }, [selectedUser, user?.userId]);
+
+    /**
+     * Récupère le token Mercure quand nécessaire
+     */
+    useEffect(() => {
+        const fetchMercureToken = async () => {
+            if (conversationTopic) {
+                try {
+                    const result = await getMercureToken();
+                    if (result.success) {
+                        setMercureToken(result.token);
+                        
+                        // Programmer le renouvellement du token avant expiration
+                        if (result.expires_in) {
+                            const refreshTime = (result.expires_in - 60) * 1000; // Renouveler 1 minute avant expiration
+                            setTimeout(() => {
+                                setMercureToken(null); // Forcer le renouvellement
+                            }, refreshTime);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de la récupération du token Mercure:', error);
+                }
+            }
+        };
+
+        if (conversationTopic && !mercureToken) {
+            fetchMercureToken();
+        }
+    }, [conversationTopic, mercureToken, getMercureToken]);
+
+    /**
+     * Gestionnaire des messages Mercure en temps réel
+     */
+    const handleMercureMessage = useCallback((data) => {
+        console.log('Message Mercure reçu:', data);
+        console.log('Topic actuel:', conversationTopic);
+        console.log('Utilisateur sélectionné:', selectedUser?.user?.username);
+        console.log('ID utilisateur actuel:', user?.userId);
+        console.log('ID expéditeur du message:', data.sender_id);
+        
+        if (data.content) {
+            // Mark messages from current user to display them correctly
+            const messageData = {
+                ...data,
+                _forceCurrentUser: String(data.sender_id) === String(user?.userId)
+            };
+            
+            console.log('Ajout du message complet:', messageData);
+            console.log('Message de l\'utilisateur actuel:', messageData._forceCurrentUser);
+            
+            // Pass the entire message data instead of just content
+            addMercureMessage(messageData);
+        }
+    }, [addMercureMessage, conversationTopic, selectedUser, user?.userId]);
+
+    // Abonnement Mercure
+    useMercureSubscription({
+        topic: conversationTopic,
+        mercureUrl: mercureUrl,
+        token: mercureToken,
+        onMessage: handleMercureMessage
+    });
+
+    // Log de l'état de la connexion Mercure
+    useEffect(() => {
+        if (conversationTopic && mercureToken) {
+            console.log('Mercure activé pour le topic:', conversationTopic);
+            console.log('URL Mercure:', mercureUrl);
+        }
+    }, [conversationTopic, mercureToken, mercureUrl]);
 
     // Combine API messages (plus de Mercure)
     const allMessages = useMemo(() => {
@@ -160,8 +252,13 @@ export default function MessagesContent() {
         };
 
         try {
-            const result = await sendMessage(messageData);
+            const result = await sendMessage(messageData, false);
+            if (!result.success) {
+                console.error('Erreur lors de l\'envoi du message:', result.error);
+                setNewMessage(messageContent); // Restaure le message en cas d'erreur
+            }
         } catch (error) {
+            console.error('Erreur lors de l\'envoi du message:', error);
             setNewMessage(messageContent); // Restaure le message en cas d'erreur
         } finally {
             setSendingMessage(false);
@@ -322,6 +419,12 @@ export default function MessagesContent() {
                                     {selectedUser.user.isOnline ? 'En ligne' : 'Hors ligne'}
                                 </div>
                             </div>
+                            {conversationTopic && mercureToken && (
+                                <div className="flex items-center text-xs text-green-500" title="Messages en temps réel activés">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
+                                    <span className="hidden sm:inline">Temps réel</span>
+                                </div>
+                            )}
                         </div>
                         <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3 lg:py-4 space-y-3">
                             {messagesLoading && allMessages?.length === 0 && (

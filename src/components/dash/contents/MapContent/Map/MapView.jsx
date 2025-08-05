@@ -1,15 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useAuth } from "../../../../../context/AuthContext.jsx";
 import ZonePanel from './ZonePanel';
 import ZonePanelToggle from './ZonePanelToggle';
 import ZoneForm from './ZoneForm';
+import { useAuth } from "../../../../../context/AuthContext.jsx";
 import { useZone } from "../../../../../hooks/useZone.js";
 
 /**
  * Composant principal de la carte.
  * - Affiche les employés sur la carte (Leaflet)
  * - Permet de créer/éditer/supprimer des zones (clients uniquement)
- * - Permet de placer des employés sur la carte via drag & drop (agents non assignés)
+ * - Permet de placer des employés sur la carte via drag & drop (clients uniquement)
  * - Gère l'affichage du panneau des zones et du formulaire de zone
  */
 const MapView = ({
@@ -23,6 +23,7 @@ const MapView = ({
                      onMapClick,
                      zoneData,
                      zoneAssignedAgents = [],
+                     userRole,
                  }) => {
     // Références et états pour la carte
     const mapInstanceRef = useRef(null);
@@ -74,7 +75,6 @@ const MapView = ({
             'disponible': '#22c55e',
             'pending': '#eab308'
         };
-
         return statusMap[status?.toLowerCase()] || '#eab308';
     };
 
@@ -84,7 +84,6 @@ const MapView = ({
     const addZoneAgentsToMap = () => {
         if (!mapInstanceRef.current) return;
 
-        // Nettoyer les marqueurs existants
         zoneAgentMarkersRef.current.forEach(marker => {
             if (mapInstanceRef.current.hasLayer(marker)) {
                 mapInstanceRef.current.removeLayer(marker);
@@ -92,24 +91,13 @@ const MapView = ({
         });
         zoneAgentMarkersRef.current = [];
 
-        // Ajouter les nouveaux marqueurs pour chaque agent
         zoneAssignedAgents.forEach(agent => {
             try {
-                if (!agent?.name) {
-                    console.warn("Agent mal formé:", agent);
-                    return;
-                }
-
-                if (!agent.position) {
-                    console.warn(`Agent ${agent.name} n'a pas de position définie`);
-                    return;
-                }
-
+                if (!agent?.name) return;
+                if (!agent.position) return;
                 const position = [agent.position.lat, agent.position.lng];
-                const agentColor = agent.routeColor ||
-                    '#' + Math.floor(Math.random()*16777215).toString(16);
+                const agentColor = agent.routeColor || '#' + Math.floor(Math.random()*16777215).toString(16);
 
-                // Créer l'icône personnalisée
                 const customIcon = window.L.divIcon({
                     html: `<div style="
                         background-color: ${agentColor};
@@ -124,11 +112,9 @@ const MapView = ({
                     iconAnchor: [16, 16]
                 });
 
-                // Créer le marqueur et l'ajouter à la carte
                 const marker = window.L.marker(position, {icon: customIcon})
                     .addTo(mapInstanceRef.current);
 
-                // Ajouter une popup avec les informations de l'agent
                 marker.bindPopup(`
                     <div style="text-align: center; padding: 8px;">
                         <strong>${agent.name}</strong><br>
@@ -142,14 +128,12 @@ const MapView = ({
                     </div>
                 `);
 
-                // Configurer l'événement de clic
                 marker.on('click', () => {
                     if (handleEmployeeClick) {
                         handleEmployeeClick(agent);
                     }
                 });
 
-                // Stocker le marqueur pour le nettoyage ultérieur
                 zoneAgentMarkersRef.current.push(marker);
             } catch (error) {
                 console.error("Erreur lors de l'ajout de l'agent sur la carte:", error);
@@ -157,7 +141,6 @@ const MapView = ({
         });
     };
 
-    // Mettre à jour les marqueurs des agents assignés quand les données changent
     useEffect(() => {
         if (mapIsReady && zoneAssignedAgents.length > 0) {
             addZoneAgentsToMap();
@@ -165,13 +148,13 @@ const MapView = ({
     }, [zoneAssignedAgents, mapIsReady]);
 
     /**
-     * Gère le survol de la carte lors d'un drag d'employé
+     * Drag & drop (client uniquement)
      */
     const handleDragOver = (e) => {
+        if (userRole !== "client") return;
         e.preventDefault();
         setIsDragOver(true);
 
-        // Calcule la position de dépôt sur la carte
         if (mapRef.current && mapInstanceRef.current) {
             const rect = mapRef.current.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -181,24 +164,19 @@ const MapView = ({
         }
     };
 
-    /**
-     * Réinitialise l'état du drag quand on quitte la carte
-     */
     const handleDragLeave = () => {
+        if (userRole !== "client") return;
         setIsDragOver(false);
         setDropPosition(null);
     };
 
-    /**
-     * Gère le dépôt d'un employé sur la carte
-     */
     const handleDrop = (e) => {
+        if (userRole !== "client") return;
         e.preventDefault();
         setIsDragOver(false);
 
         if (!mapInstanceRef.current) return;
 
-        // Récupérer les coordonnées où l'employé est déposé
         const rect = mapRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -206,7 +184,6 @@ const MapView = ({
         const zoneInfo = currentZoneInfo || null;
 
         try {
-            // Essayer de récupérer l'employé des données de transfert
             const data = e.dataTransfer.getData('application/json');
             if (data) {
                 const employee = JSON.parse(data);
@@ -228,19 +205,16 @@ const MapView = ({
      */
     const initializeMap = () => {
         if (mapRef.current && window.L && !mapInstanceRef.current) {
-            // Créer l'instance de la carte
             mapInstanceRef.current = window.L.map(mapRef.current, {
                 maxZoom: MAX_ZOOM,
                 minZoom: 3,
                 zoomControl: true
             }).setView(INITIAL_CENTER, INITIAL_ZOOM);
 
-            // Ajouter les fonds de carte
             const osmLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
                 maxZoom: MAX_ZOOM
             });
-
             const satelliteLayer = window.L.tileLayer(
                 'https://tiles.stadiamaps.com/tiles/alidade_satellite/{z}/{x}/{y}{r}.jpg',
                 {
@@ -259,11 +233,9 @@ const MapView = ({
             window.L.control.layers(baseMapsRef.current, {}, {position: 'topright'})
                 .addTo(mapInstanceRef.current);
 
-            // Initialiser le groupe de dessin
             drawnItemsRef.current = new window.L.FeatureGroup();
             mapInstanceRef.current.addLayer(drawnItemsRef.current);
 
-            // Localisation des outils de dessin en français
             if (window.L.drawLocal) {
                 window.L.drawLocal.draw.toolbar.buttons.polygon = 'Dessiner une zone';
                 window.L.drawLocal.draw.toolbar.buttons.rectangle = 'Dessiner un rectangle';
@@ -271,29 +243,24 @@ const MapView = ({
             }
 
             // Outils de dessin uniquement pour les clients
-            if (user?.role === 'client') {
+            if (userRole === 'client') {
                 initializeDrawControl();
             }
 
             // Gestion du clic sur la carte
             mapInstanceRef.current.on('click', (e) => {
-                if (onMapClick) {
+                if (userRole === 'client' && onMapClick) {
                     onMapClick(e.latlng, currentZoneInfo);
                 }
             });
 
-            // Ajouter les marqueurs d'employés
             addEmployeeMarkers();
-
-            // Marquer la carte comme prête
             setMapIsReady(true);
 
-            // Dessiner la zone si les données sont disponibles
             if (zoneData && drawnZones.length === 0) {
                 drawExistingZone(zoneData);
             }
 
-            // Ajouter les agents assignés sur la carte
             if (zoneAssignedAgents.length > 0) {
                 addZoneAgentsToMap();
             }
@@ -304,10 +271,7 @@ const MapView = ({
      * Dessine une zone existante sur la carte à partir de ses coordonnées
      */
     const drawExistingZone = (zoneData) => {
-        if (!mapInstanceRef.current || !drawnItemsRef.current) {
-            console.warn("Map ou groupe de dessins non initialisés");
-            return;
-        }
+        if (!mapInstanceRef.current || !drawnItemsRef.current) return;
 
         if (!zoneData.securedZone?.coordinates) {
             console.error("Format de zone invalide:", zoneData);
@@ -315,7 +279,6 @@ const MapView = ({
         }
 
         try {
-            // Stocker les informations de la zone courante
             setCurrentZoneInfo({
                 serviceOrderId: zoneData.serviceOrder?.id,
                 securedZoneId: zoneData.securedZone.securedZoneId || "unknown",
@@ -324,7 +287,6 @@ const MapView = ({
 
             const coordinates = zoneData.securedZone.coordinates;
 
-            // Tracer un polygone avec les coordonnées
             const layer = window.L.polygon(
                 coordinates.map(coord => [coord[0], coord[1]]),
                 {
@@ -335,7 +297,6 @@ const MapView = ({
 
             drawnItemsRef.current.addLayer(layer);
 
-            // Mettre à jour l'état des zones dessinées
             setDrawnZones([{
                 id: zoneData.userId || Date.now(),
                 name: zoneData.securedZone.name,
@@ -347,7 +308,6 @@ const MapView = ({
                 securedZoneId: zoneData.securedZone.securedZoneId
             }]);
 
-            // Ajouter une popup à la zone
             layer.bindPopup(
                 `<b>${zoneData.securedZone.name}</b><br>
                 ${zoneData.description || ''}<br>
@@ -355,7 +315,6 @@ const MapView = ({
                 <small class="text-gray-500">Service ID: ${zoneData.serviceOrder?.id}</small>`
             );
 
-            // Mettre à jour le formulaire avec les données de la zone
             setZoneFormData({
                 name: zoneData.securedZone.name,
                 description: zoneData.description || '',
@@ -365,7 +324,6 @@ const MapView = ({
             });
             setCurrentLayer(layer);
 
-            // Centrer la carte sur la zone
             const bounds = window.L.latLngBounds(coordinates.map(coord => [coord[0], coord[1]]));
             mapInstanceRef.current.fitBounds(bounds, {maxZoom: 18});
         } catch (error) {
@@ -373,7 +331,6 @@ const MapView = ({
         }
     };
 
-    // Dessiner la zone avec les données reçues quand la carte est prête
     useEffect(() => {
         if (zoneData && mapIsReady && drawnZones.length === 0) {
             drawExistingZone(zoneData);
@@ -389,7 +346,6 @@ const MapView = ({
             return;
         }
 
-        // Supprimer le contrôle existant s'il y en a un
         if (drawControlRef.current) {
             mapInstanceRef.current.removeControl(drawControlRef.current);
             drawControlRef.current = null;
@@ -397,7 +353,6 @@ const MapView = ({
 
         const hasZone = drawnZones.length > 0;
 
-        // Options pour les outils de dessin
         const drawOptions = {
             position: 'topright',
             draw: hasZone ? {
@@ -426,11 +381,9 @@ const MapView = ({
             }
         };
 
-        // Créer et ajouter le contrôle de dessin
         drawControlRef.current = new window.L.Control.Draw(drawOptions);
         mapInstanceRef.current.addControl(drawControlRef.current);
 
-        // Gestion de l'événement de création de zone
         mapInstanceRef.current.on(window.L.Draw.Event.CREATED, (e) => {
             if (drawnZones.length > 0) return;
 
@@ -438,11 +391,9 @@ const MapView = ({
             drawnItemsRef.current.addLayer(layer);
             setCurrentLayer(layer);
 
-            // Extraire les coordonnées du polygone
             const latLngs = layer.getLatLngs()[0];
             const coordinates = latLngs.map(point => [point.lat, point.lng]);
 
-            // Mettre à jour le formulaire
             setZoneFormData({
                 name: 'Zone 1',
                 description: '',
@@ -453,23 +404,19 @@ const MapView = ({
             setShowZoneForm(true);
         });
 
-        // Gestion de l'événement d'édition de zone
         mapInstanceRef.current.on(window.L.Draw.Event.EDITED, (e) => {
             const layers = e.layers;
             layers.eachLayer((layer) => {
                 const zone = drawnZones[0];
                 if (!zone) return;
 
-                // Mettre à jour les coordonnées après édition
                 const latLngs = layer.getLatLngs()[0];
                 const coordinates = latLngs.map(point => [point.lat, point.lng]);
-
                 setZoneFormData(prev => ({...prev, coordinates: coordinates}));
                 setDrawnZones([{...zone, coordinates: coordinates}]);
             });
         });
 
-        // Gestion de l'événement de suppression de zone
         mapInstanceRef.current.on(window.L.Draw.Event.DELETED, () => {
             setDrawnZones([]);
             setZoneFormData({
@@ -482,12 +429,11 @@ const MapView = ({
         });
     };
 
-    // Réinitialiser les outils de dessin quand nécessaire
     useEffect(() => {
-        if (mapInstanceRef.current && user?.role === "client") {
+        if (mapInstanceRef.current && userRole === "client") {
             initializeDrawControl();
         }
-    }, [drawnZones.length, user?.role]);
+    }, [drawnZones.length, userRole]);
 
     /**
      * Sauvegarde la zone via l'API
@@ -495,7 +441,7 @@ const MapView = ({
     const saveZone = async () => {
         if (!zoneFormData.name) return;
 
-        const zoneData = {
+        const zoneDataToSend = {
             description: zoneFormData.description,
             clientId: zoneFormData.clientId,
             securedZone: {
@@ -504,7 +450,7 @@ const MapView = ({
             }
         };
 
-        await sendZone(zoneData);
+        await sendZone(zoneDataToSend);
 
         setDrawnZones([{
             id: Date.now(),
@@ -558,7 +504,6 @@ const MapView = ({
     const addEmployeeMarkers = () => {
         if (!window.L || !mapInstanceRef.current) return;
 
-        // Nettoyer les marqueurs existants
         markersRef.current.forEach(marker => {
             if (marker && mapInstanceRef.current.hasLayer(marker)) {
                 mapInstanceRef.current.removeLayer(marker);
@@ -566,11 +511,9 @@ const MapView = ({
         });
         markersRef.current = [];
 
-        // Ajouter les nouveaux marqueurs
         employees.forEach(employee => {
             if (!employee.position) return;
 
-            // Créer une icône personnalisée
             const customIcon = window.L.divIcon({
                 html: `<div style="
                     background-color: ${employee.routeColor || '#888'};
@@ -585,13 +528,11 @@ const MapView = ({
                 iconAnchor: [16, 16]
             });
 
-            // Créer et ajouter le marqueur
             const marker = window.L.marker(
                 [employee.position.lat, employee.position.lng],
                 {icon: customIcon}
             ).addTo(mapInstanceRef.current);
 
-            // Ajouter une popup
             marker.bindPopup(`
                 <div style="text-align: center; padding: 8px;">
                     <strong>${employee.name}</strong><br>
@@ -603,7 +544,6 @@ const MapView = ({
                 </div>
             `);
 
-            // Configurer l'événement de clic
             marker.on('click', () => {
                 handleEmployeeClick(employee);
             });
@@ -612,18 +552,15 @@ const MapView = ({
         });
     };
 
-    // Mettre à jour les marqueurs quand les employés changent
     useEffect(() => {
         if (mapInstanceRef.current) {
             addEmployeeMarkers();
         }
     }, [employees]);
 
-    // Charger dynamiquement Leaflet et ses dépendances
     useEffect(() => {
         if (mapInstanceRef.current) return;
 
-        // Ajouter les feuilles de style si nécessaire
         if (!document.querySelector('link[href*="leaflet.css"]')) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
@@ -638,7 +575,6 @@ const MapView = ({
             document.head.appendChild(drawLink);
         }
 
-        // Charger les scripts de Leaflet
         const loadLeaflet = () => new Promise((resolve) => {
             if (window.L) {
                 resolve();
@@ -661,14 +597,12 @@ const MapView = ({
             }
         });
 
-        // Chargement séquentiel des bibliothèques
         loadLeaflet()
             .then(loadLeafletDraw)
             .then(() => {
                 setTimeout(initializeMap, 100);
             });
 
-        // Nettoyage à la désinscription du composant
         return () => {
             if (mapInstanceRef.current) {
                 mapInstanceRef.current.remove();
@@ -677,7 +611,6 @@ const MapView = ({
         };
     }, []);
 
-    // Mettre à jour la taille de la carte quand la sidebar change
     useEffect(() => {
         if (mapInstanceRef.current) {
             setTimeout(() => {
@@ -686,7 +619,6 @@ const MapView = ({
         }
     }, [sidebarVisible]);
 
-    // Centrer la carte sur l'employé sélectionné
     useEffect(() => {
         if (selectedEmployee?.position && mapInstanceRef.current) {
             mapInstanceRef.current.setView(
@@ -696,9 +628,6 @@ const MapView = ({
         }
     }, [selectedEmployee]);
 
-    /**
-     * Centre la carte sur la zone sélectionnée
-     */
     const handleZoneClick = (zone) => {
         if (!mapInstanceRef.current) return;
         const bounds = window.L.latLngBounds(
@@ -710,13 +639,12 @@ const MapView = ({
     return (
         <div
             className={`relative w-full h-full ${isDragOver ? 'bg-blue-50' : ''}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
+            onDragOver={userRole === "client" ? handleDragOver : undefined}
+            onDragLeave={userRole === "client" ? handleDragLeave : undefined}
+            onDrop={userRole === "client" ? handleDrop : undefined}
         >
             <div ref={mapRef} className="w-full h-full"></div>
 
-            {/* Indicateur visuel de la position de dépôt */}
             {isDragOver && dropPosition && (
                 <div
                     className="absolute z-[1000] pointer-events-none"
@@ -742,7 +670,6 @@ const MapView = ({
                 </div>
             )}
 
-            {/* Coordonnées en bas à droite lors d'un drag */}
             {isDragOver && dropPosition && (
                 <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-md shadow-md z-50 text-xs text-gray-700">
                     <div className="font-medium">Affectation d'agent</div>
@@ -763,7 +690,6 @@ const MapView = ({
                 </div>
             )}
 
-            {/* Panneau des zones */}
             {drawnZones.length > 0 && (
                 <ZonePanelToggle
                     show={showZonePanel}
@@ -779,8 +705,7 @@ const MapView = ({
                 />
             )}
 
-            {/* Formulaire création/édition de zone (client uniquement) */}
-            {showZoneForm && user?.role === "client" && (
+            {showZoneForm && userRole === "client" && (
                 <ZoneForm
                     zoneFormData={zoneFormData}
                     onChange={setZoneFormData}
@@ -792,7 +717,6 @@ const MapView = ({
                 />
             )}
 
-            {/* Attribution */}
             <div className="absolute bottom-1 right-1 text-xs text-gray-500 bg-white/50 px-1 rounded z-[400]">
                 Tonnyjoh - 2025-08-01 18:31:33
             </div>

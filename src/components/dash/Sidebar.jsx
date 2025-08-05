@@ -6,7 +6,7 @@ import {
     MessageSquareMore
 } from 'lucide-react';
 
-import MapContent from './contents/client/MapContent.jsx';
+import MapContent from './contents/MapContent/MapContent.jsx';
 import MessagesContent from './contents/client/MessagesContent.jsx';
 import SettingsContent from './contents/SettingsContent';
 import ProfileContent from './contents/ProfileContent';

@@ -403,10 +403,93 @@ const MapContent = () => {
                     </div>
                 )}
 
-                {user.role === "client" && showPendingAssignments && pendingAssignments.length > 0 && (
+                {showPendingAssignments && pendingAssignments.length > 0 && (
                     <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-2xl w-full">
-                        {/* ...pending assignments table unchanged... */}
-                        {/* Same as your original code */}
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-lg font-semibold text-gray-800">Affectations en attente ({pendingAssignments.length})</h3>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={confirmAssignments}
+                                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm flex items-center gap-1"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? 'Envoi...' : (
+                                        <>
+                                            <Check size={16} /> Confirmer
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={cancelAssignments}
+                                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded-md text-sm flex items-center gap-1"
+                                    disabled={isLoading}
+                                >
+                                    <X size={16} /> Annuler
+                                </button>
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="mb-3 p-2 bg-red-100 text-red-700 rounded text-sm">
+                                Erreur: {error}
+                            </div>
+                        )}
+
+                        {success && (
+                            <div className="mb-3 p-2 bg-green-100 text-green-700 rounded text-sm">
+                                Affectations envoyées avec succès!
+                            </div>
+                        )}
+
+                        <div className="max-h-60 overflow-y-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Agent</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zone</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                {pendingAssignments.map(assignment => (
+                                    <tr key={assignment.id} className="hover:bg-gray-50">
+                                        <td className="px-4 py-2 whitespace-nowrap">
+                                            <div className="flex items-center">
+                                                <div
+                                                    className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-white"
+                                                    style={{ backgroundColor: assignment.employeeColor }}
+                                                >
+                                                    {assignment.employeeAvatar}
+                                                </div>
+                                                <div className="ml-3">
+                                                    <div className="text-sm font-medium text-gray-900">{assignment.employeeName}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                                            {assignment.coordinates.lat.toFixed(5)}, {assignment.coordinates.lng.toFixed(5)}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                                            {assignment.zoneInfo?.zoneName || 'Non spécifiée'}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap">
+                                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                    assignment.isNewAssignment
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-blue-100 text-blue-800'
+                                                }`}>
+                                                    {assignment.isNewAssignment ? 'Nouvelle affectation' : 'Déplacement'}
+                                                </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="mt-3 text-xs capitalize text-gray-500 text-right">
+                            {user?.name}{' '}, {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        </div>
                     </div>
                 )}
 

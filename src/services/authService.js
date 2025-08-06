@@ -1,5 +1,6 @@
 import apiClient from '../config/api';
 import ENDPOINTS from '../config/endpoints';
+import { jwtDecode } from "jwt-decode";
 
 export const authService = {
     register: async (userData) => {
@@ -50,16 +51,84 @@ export const authService = {
     },
 
     isAuthenticated: () => {
-        return !!localStorage.getItem('token');
+        const token = localStorage.getItem('token');
+        if (!token) return false;
+
+        try {
+            const decoded = jwtDecode(token);
+            const currentTime = Date.now() / 1000;
+            return decoded.exp > currentTime;
+        } catch (error) {
+            // Token invalide
+            localStorage.removeItem('token');
+            return false;
+        }
+    },
+
+    // Nouvelle méthode pour décoder le payload JWT
+    getTokenPayload: () => {
+        const token = localStorage.getItem('token');
+        if (!token) return null;
+
+        try {
+            const decoded = jwtDecode(token);
+            const currentTime = Date.now() / 1000;
+
+            // Vérifier si le token est encore valide
+            if (decoded.exp <= currentTime) {
+                localStorage.removeItem('token');
+                return null;
+            }
+
+            return decoded;
+        } catch (error) {
+            console.error('Erreur lors du décodage du token:', error);
+            localStorage.removeItem('token');
+            return null;
+        }
     },
 
     getUserRole: () => {
-        const user = authService.getCurrentUser();
-        return user && user.role ? user.role : null;
+        const payload = authService.getTokenPayload();
+
+        if (!payload || !payload.roles || !Array.isArray(payload.roles)) {
+            return null;
+        }
+
+        const firstRole = payload.roles[0];
+        if (!firstRole) return null;
+
+        switch (firstRole) {
+            case 'ROLE_ADMIN':
+                return 'admin';
+            case 'ROLE_AGENT':
+                return 'agent';
+            case 'ROLE_CLIENT':
+                return 'client';
+            default:
+                return null;
+        }
     },
 
     getCurrentUser: () => {
         const user = localStorage.getItem('user');
         return user ? JSON.parse(user) : null;
+    },
+    refreshUserData: async (userId) => {
+        try {
+            const response = await apiClient.get(ENDPOINTS.USER.PROFILE(userId));
+            if (response.data) {
+                localStorage.setItem('user', JSON.stringify(response.data));
+            }
+            return {
+                success: true,
+                user: response.data
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Erreur de rafraîchissement'
+            };
+        }
     }
 };

@@ -1,4 +1,4 @@
-import Sidebar from "../../components/dash/Sidebar.jsx";
+import SidebarClient from "../../components/dash/SidebarClient.jsx";
 import {useAuth} from "../../context/AuthContext.jsx";
 import { Link } from "react-router-dom";
 
@@ -25,7 +25,7 @@ export default function DashboardClientPage() {
 
     return (
         <>
-            <Sidebar user={user} logout={logout} />
+            <SidebarClient user={user} logout={logout} />
         </>
     );
 }

@@ -21,10 +21,17 @@ const ENDPOINTS = {
     },
     ADMIN: {
         AGENTS: {
-            LIST: 'admin/agents',
-            DETAIL: id => `admin/agents/${id}`,
-            CREATE: 'admin/agents',
-            SEARCH: 'admin/agents/search'
+            LIST: '/admin/agents',
+            DETAIL: id => `/admin/agents/${id}`,
+            CREATE: '/admin/agents',
+            SEARCH: '/admin/agents/search',
+            AGENT_TASKS: id => `/admin/agent-tasks/${id}`,
+        },
+        CLIENTS: {
+            LIST: '/admin/clients',
+            DETAIL: id => `/admin/clients/${id}`,
+            CREATE: '/admin/clients',
+            SEARCH: '/admin/clients-search'
         }
     },
     ASSIGNMENT: {

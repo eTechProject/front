@@ -1,7 +1,7 @@
-import apiClient from '../config/api';
-import ENDPOINTS from '../config/endpoints';
+import apiClient from '../../config/api.js';
+import ENDPOINTS from '../../config/endpoints.js';
 
-export const adminService = {
+export const adminAgentService = {
     // Liste tous les agents, avec params de pagination
     getAllAgents: async (params = {}) => {
         try {
@@ -106,5 +106,23 @@ export const adminService = {
                 details: error.response?.data?.errors || {}
             };
         }
+    },
+
+    // Récupère les tâches assignées à un agent
+    getAgentTasks: async (agentId) => {
+        try {
+            const response = await apiClient.get(ENDPOINTS.ADMIN.AGENTS.AGENT_TASKS(agentId));
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Erreur lors du chargement des tâches de l\'agent',
+                details: error.response?.data?.errors || {}
+            };
+        }
     }
+
 };

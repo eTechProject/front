@@ -206,6 +206,7 @@ const AuthPage = () => {
         }
     }, [registerForm, register, validateField, showNotification]);
 
+    // Uniquement la partie handleLoginSubmit à modifier
     const handleLoginSubmit = useCallback(async (e) => {
         e.preventDefault();
         const errors = {};
@@ -225,7 +226,22 @@ const AuthPage = () => {
             const result = await login(loginForm);
             if (result.success) {
                 showNotification('success', `Connexion réussie avec ${loginForm.email}!`);
-                setTimeout(() => navigate('/dashboard'), 1500);
+
+                // Redirection basée sur le rôle
+                setTimeout(() => {
+                    switch(result.role) {
+                        case 'admin':
+                            navigate('/admin/dashboard');
+                            break;
+                        case 'agent':
+                            navigate('/agent/dashboard');
+                            break;
+                        case 'client':
+                        default:
+                            navigate('/client/dashboard');
+                            break;
+                    }
+                }, 1500);
             } else if (result.details) {
                 setLoginErrors(prev => ({ ...prev, ...result.details }));
             }

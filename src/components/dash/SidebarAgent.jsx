@@ -1,18 +1,14 @@
-import React, {useState, useRef, useEffect} from 'react';
-import {Link} from 'react-router-dom';
+import React, {useEffect, useRef, useState} from "react";
+import {Map, MessageSquareMore, Settings} from "lucide-react";
+import MapContent from "./contents/MapContent/MapContent.jsx";
+import SettingsContent from "./contents/SettingsContent.jsx";
+import ProfileContent from "./contents/ProfileContent.jsx";
+import {Link} from "react-router-dom";
 import logo from "../../assets/logo48.png";
-import {
-    Map, Settings,
-    MessageSquareMore
-} from 'lucide-react';
-
-import MapContent from './contents/MapContent/MapContent.jsx';
-import MessagesContent from './contents/client/MessagesContent.jsx';
-import SettingsContent from './contents/SettingsContent';
-import ProfileContent from './contents/ProfileContent';
 import NotificationsPopover from "./contents/NotificationsPopover.jsx";
+import MessagesContentAgent from "./contents/agent/MessagesContentAgent.jsx";
 
-export default function Sidebar({user, logout}) {
+export default function SidebarAgent({user, logout}) {
     const [activeItem, setActiveItem] = useState(() => {
         return localStorage.getItem('activeSidebarItem') || 'dashboard';
     });
@@ -85,7 +81,7 @@ export default function Sidebar({user, logout}) {
             case 'map':
                 return <MapContent/>;
             case 'messages':
-                return <MessagesContent/>;
+                return <MessagesContentAgent/>;
             case 'settings':
                 return <SettingsContent/>;
             case 'profile':

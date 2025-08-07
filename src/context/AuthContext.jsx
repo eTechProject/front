@@ -96,7 +96,12 @@ export const AuthProvider = ({ children }) => {
             if (result.success) {
                 updateAuthState();
                 scheduleAutoLogout();
-                return { success: true, data: result.data };
+                const role = authService.getUserRole();
+                return {
+                    success: true,
+                    data: result.data,
+                    role: role
+                };
             } else {
                 setError(result.error);
                 return { success: false, error: result.error, details: result.details };
@@ -171,11 +176,19 @@ export const AuthProvider = ({ children }) => {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, [updateAuthState, scheduleAutoLogout]);
 
+    // Vérification des rôles d'utilisateur
+    const isAdmin = userRole === "admin";
+    const isAgent = userRole === "agent";
+    const isClient = userRole === "client";
+
     return (
         <AuthContext.Provider value={{
             user,
             isAuthenticated,
-            isAdmin: userRole === "admin",
+            isAdmin,
+            isAgent,
+            isClient,
+            userRole,
             isLoading,
             error,
             login,
@@ -192,8 +205,6 @@ export const AuthProvider = ({ children }) => {
  * Hook personnalisé pour utiliser le contexte d'authentification dans les composants enfants.
  * @throws Erreur si utilisé en dehors d'un AuthProvider
  */
-
-// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {

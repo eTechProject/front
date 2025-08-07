@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, Menu, Info, X, Check } from 'lucide-react';
-import EmployeeCard from "./MapContent/EmployeeCard.jsx";
-import MapView from "./MapContent/Map/MapView.jsx";
-import EmployeeList from "./MapContent/EmployeeList.jsx";
-import { useAuth } from "../../../context/AuthContext.jsx";
-import { useZone } from "../../../hooks/useZone.js";
+import EmployeeCard from "./EmployeeCard.jsx";
+import MapView from "./Map/MapView.jsx";
+import EmployeeList from "./EmployeeList.jsx";
+import { useAuth } from "../../../../context/AuthContext.jsx";
+import { useZone } from "../../../../hooks/useZone.js";
 
 const MapContent = () => {
     // UI States
@@ -38,7 +38,7 @@ const MapContent = () => {
     const [unassignedEmployees, setUnassignedEmployees] = useState([]);
 
     // Zone operations hook
-    const { getAvailableAgent, sendAssignment, getZone, isLoading, error, success } = useZone();
+    const { getAvailableAgent, sendAssignment, getZone, getZoneByAgent, isLoading, error, success } = useZone();
 
     // Format date to French locale
     const formatDate = (date) => date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -66,7 +66,7 @@ const MapContent = () => {
     // Extract coordinates from text like "[-18.123, 47.456]"
     const extractCoordinates = (text) => {
         if (!text) return null;
-        const coordMatch = text.match(/\[([-\d.]+),\s*([-\d.]+)\]/);
+        const coordMatch = text.match(/\[([-\d.]+),\s*([-\d.]+)]/);
         if (coordMatch && coordMatch.length >= 3) {
             return {
                 lat: parseFloat(coordMatch[1]),
@@ -76,8 +76,9 @@ const MapContent = () => {
         return null;
     };
 
-    // Load available agents from API
+    // Load available agents from API (client only)
     useEffect(() => {
+        if (user?.role !== "client") return;
         const fetchAgents = async () => {
             const result = await getAvailableAgent();
 
@@ -100,104 +101,96 @@ const MapContent = () => {
             }
         };
 
-        fetchAgents().then();
-    }, []);
+        fetchAgents();
+    }, [user?.role]);
 
     // Load zone data from API
     useEffect(() => {
         const loadZoneData = async () => {
             if (!user?.userId || zoneLoaded) return;
 
-            try {
-                setZoneLoaded(true);
-                const result = await getZone(user.userId);
+            setZoneLoaded(true);
 
-                if (result.success && result.data) {
-                    console.log("Zone chargée:", result.data);
-                    setZoneData(result.data);
+            let result;
+            if (user.role === "client") {
+                result = await getZone(user.userId);
+            } else if (user.role === "agent") {
+                result = await getZoneByAgent(user.userId);
+            }
 
-                    // Format assigned agents if available
-                    if (result.data.assignedAgents?.length > 0) {
-                        const formattedZoneAgents = result.data.assignedAgents
-                            .filter(assignedAgent => assignedAgent.agent?.user)
-                            .map(assignedAgent => {
-                                const agent = assignedAgent.agent;
-                                const user = agent.user;
-                                const name = user.name || "Agent inconnu";
-                                const initials = name.split(' ').map(n => n[0]).join('');
+            if (result.success && result.data) {
+                setZoneData(result.data);
 
-                                // Get position from task or current position
-                                let position = null;
+                // Format assigned agents if available
+                if (result.data.assignedAgents?.length > 0) {
+                    const formattedZoneAgents = result.data.assignedAgents
+                        .filter(assignedAgent => assignedAgent.agent?.user)
+                        .map(assignedAgent => {
+                            const agent = assignedAgent.agent;
+                            const userObj = agent.user;
+                            const name = userObj.name || "Agent inconnu";
+                            const initials = name.split(' ').map(n => n[0]).join('');
 
-                                // First check if task has assignPosition
-                                if (assignedAgent.task?.assignPosition &&
-                                    Array.isArray(assignedAgent.task.assignPosition) &&
-                                    assignedAgent.task.assignPosition.length === 2) {
-                                    position = {
-                                        lat: assignedAgent.task.assignPosition[0],
-                                        lng: assignedAgent.task.assignPosition[1]
-                                    };
-                                }
-                                // If not, try extracting from description
-                                else if (assignedAgent.task?.description) {
-                                    position = extractCoordinates(assignedAgent.task.description);
-                                }
-                                // Lastly, check currentPosition
-                                else if (assignedAgent.currentPosition &&
-                                    Array.isArray(assignedAgent.currentPosition) &&
-                                    assignedAgent.currentPosition.length === 2) {
-                                    position = {
-                                        lat: assignedAgent.currentPosition[0],
-                                        lng: assignedAgent.currentPosition[1]
-                                    };
-                                }
-
-                                return {
-                                    id: agent.agentId,
-                                    assignmentId: assignedAgent.id, // Store the assignment ID
-                                    name: name,
-                                    avatar: initials,
-                                    email: user.email,
-                                    role: 'Agent assigné',
-                                    status: assignedAgent.status || assignedAgent.task?.status || 'Inactif',
-                                    routeColor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
-                                    position: position,
-                                    task: assignedAgent.task,
-                                    taskDescription: assignedAgent.task?.description || '',
-                                    phone: user.phone || 'Non renseigné',
-                                    address: agent.address,
-                                    sexe: agent.sexe
+                            // Get position from task or current position
+                            let position = null;
+                            if (assignedAgent.task?.assignPosition &&
+                                Array.isArray(assignedAgent.task.assignPosition) &&
+                                assignedAgent.task.assignPosition.length === 2) {
+                                position = {
+                                    lat: assignedAgent.task.assignPosition[0],
+                                    lng: assignedAgent.task.assignPosition[1]
                                 };
-                            });
+                            } else if (assignedAgent.task?.description) {
+                                position = extractCoordinates(assignedAgent.task.description);
+                            } else if (assignedAgent.currentPosition &&
+                                Array.isArray(assignedAgent.currentPosition) &&
+                                assignedAgent.currentPosition.length === 2) {
+                                position = {
+                                    lat: assignedAgent.currentPosition[0],
+                                    lng: assignedAgent.currentPosition[1]
+                                };
+                            }
 
-                        setZoneAssignedAgents(formattedZoneAgents);
-
-                        // Add to assigned employees list with additional UI-specific data
-                        const assignedAgentsFromAPI = formattedZoneAgents.map(agent => ({
-                            ...agent,
-                            distance: '0 km',
-                            route: []
-                        }));
-
-                        // Update assigned employees without duplicates
-                        setAssignedEmployees(prev => {
-                            const existingIds = prev.map(emp => emp.id);
-                            const newAgents = assignedAgentsFromAPI.filter(agent => !existingIds.includes(agent.id));
-                            return [...prev, ...newAgents];
+                            return {
+                                id: agent.agentId,
+                                assignmentId: assignedAgent.id,
+                                name: name,
+                                avatar: initials,
+                                email: userObj.email,
+                                role: 'Agent assigné',
+                                status: assignedAgent.status || assignedAgent.task?.status || 'Inactif',
+                                routeColor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+                                position: position,
+                                task: assignedAgent.task,
+                                taskDescription: assignedAgent.task?.description || '',
+                                phone: userObj.phone || 'Non renseigné',
+                                address: agent.address,
+                                sexe: agent.sexe
+                            };
                         });
 
-                        // Remove these agents from unassigned list
+                    setZoneAssignedAgents(formattedZoneAgents);
+
+                    // Add to assigned employees list with additional UI-specific data
+                    const assignedAgentsFromAPI = formattedZoneAgents.map(agent => ({
+                        ...agent,
+                        distance: '0 km',
+                        route: []
+                    }));
+
+                    setAssignedEmployees(assignedAgentsFromAPI);
+
+                    // Remove assigned agents from unassigned list (client only)
+                    if (user.role === "client") {
                         const assignedIds = assignedAgentsFromAPI.map(agent => agent.id);
                         setUnassignedEmployees(prev => prev.filter(emp => !assignedIds.includes(emp.id)));
                     }
                 }
-            } catch (error) {
-                console.error("Erreur lors du chargement des zones:", error);
             }
         };
 
-        loadZoneData().then();
-    }, [user?.userId]);
+        loadZoneData();
+    }, [user?.userId, user?.role]);
 
     // Show employee details card
     const handleEmployeeClick = (employee) => {
@@ -234,14 +227,20 @@ const MapContent = () => {
     // End employee card drag
     const handleMouseUp = () => setIsDragging(false);
 
-    // Start employee drag onto map
-    const handleDragStart = (employee) => setDraggingEmployee(employee);
+    // Start employee drag onto map (client only)
+    const handleDragStart = (employee) => {
+        if (user.role === "client") setDraggingEmployee(employee);
+    };
 
-    // End employee drag
-    const handleDragEnd = () => setDraggingEmployee(null);
+    // End employee drag (client only)
+    const handleDragEnd = () => {
+        if (user.role === "client") setDraggingEmployee(null);
+    };
 
-    // Handle employee drop on map
+    // Handle employee drop on map (client only)
     const handleEmployeeDrop = (employee, position, zoneInfo) => {
+        if (user.role !== "client") return;
+
         const zoneInfoToUse = zoneInfo || (zoneData ? {
             serviceOrderId: zoneData.serviceOrder?.id,
             securedZoneId: zoneData.securedZone?.securedZoneId,
@@ -271,8 +270,9 @@ const MapContent = () => {
         setDraggingEmployee(null);
     };
 
-    // Confirm all pending assignments
+    // Confirm all pending assignments (client only)
     const confirmAssignments = async () => {
+        if (user.role !== "client") return;
         if (!pendingAssignments.length) {
             console.log('Aucune affectation à confirmer');
             return;
@@ -332,15 +332,16 @@ const MapContent = () => {
         }
     };
 
-    // Cancel all pending assignments
+    // Cancel all pending assignments (client only)
     const cancelAssignments = () => {
+        if (user.role !== "client") return;
         setPendingAssignments([]);
         setShowPendingAssignments(false);
     };
 
-    // Handle map click for employee drop
+    // Handle map click for employee drop (client only)
     const handleMapClick = (position, zoneInfo) => {
-        if (draggingEmployee) {
+        if (user.role === "client" && draggingEmployee) {
             handleEmployeeDrop(draggingEmployee, position, zoneInfo);
         }
     };
@@ -351,7 +352,7 @@ const MapContent = () => {
             <div className={`${sidebarVisible ? 'w-80' : 'w-0'} transition-all duration-300 ease-in-out bg-white`}>
                 <EmployeeList
                     employees={assignedEmployees}
-                    unassignedEmployees={unassignedEmployees}
+                    unassignedEmployees={user.role === "client" ? unassignedEmployees : []}
                     filterText={filterText}
                     setFilterText={setFilterText}
                     handleEmployeeClick={handleEmployeeClick}
@@ -375,7 +376,7 @@ const MapContent = () => {
                     }
                 </button>
 
-                {draggingEmployee && (
+                {draggingEmployee && user.role === "client" && (
                     <div className="absolute top-2 left-[40%] z-50 bg-blue-500 text-white px-3 py-1.5 rounded-md text-sm shadow-md">
                         Déposez {draggingEmployee.name} sur la carte
                     </div>
@@ -486,8 +487,8 @@ const MapContent = () => {
                                 </tbody>
                             </table>
                         </div>
-                        <div className="mt-3 text-xs text-gray-500 text-right">
-                            Tonnyjoh - 2025-08-01 18:20:43
+                        <div className="mt-3 text-xs capitalize text-gray-500 text-right">
+                            {user?.name}{' '}, {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                         </div>
                     </div>
                 )}
@@ -499,11 +500,12 @@ const MapContent = () => {
                         handleEmployeeClick={handleEmployeeClick}
                         selectedEmployee={selectedEmployee}
                         sidebarVisible={sidebarVisible}
-                        draggingEmployee={draggingEmployee}
-                        onEmployeeDrop={handleEmployeeDrop}
+                        draggingEmployee={user.role === "client" ? draggingEmployee : null}
+                        onEmployeeDrop={user.role === "client" ? handleEmployeeDrop : undefined}
                         onMapClick={handleMapClick}
                         zoneData={zoneData}
                         zoneAssignedAgents={zoneAssignedAgents}
+                        userRole={user.role}
                     />
                 </div>
 

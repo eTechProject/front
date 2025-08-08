@@ -15,7 +15,7 @@ export const useAgent = () => {
         const result = await agentService.getAll(params);
 
         if (result.success) {
-            setAgents(result.data); // result.data est déjà un tableau d'agents
+            setAgents(result.data);
             setError(null);
         } else {
             setAgents([]);

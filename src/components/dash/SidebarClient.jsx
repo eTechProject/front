@@ -1,15 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../../assets/logo48.png';
-import { Map, MessageSquareMore, Settings, ChartNoAxesGantt, X } from 'lucide-react';
+import {
+    Map,
+    Settings,
+    MessageSquareMore,
+    ChartNoAxesGantt,
+    X,
+} from 'lucide-react';
+
 import MapContent from './contents/MapContent/MapContent.jsx';
-import MessagesContentAgent from './contents/agent/MessagesContentAgent.jsx';
-import SettingsContent from './contents/SettingsContent.jsx';
-import ProfileContent from './contents/ProfileContent.jsx';
+import MessagesContent from './contents/client/MessagesContent.jsx';
+import SettingsContent from './contents/SettingsContent';
+import ProfileContent from './contents/ProfileContent';
 import NotificationsPopover from './contents/NotificationsPopover.jsx';
 
-// CSS styles for SidebarAgent
-const sidebarAgentStyles = `
+// Move CSS to a separate file or inline styles
+const sidebarStyles = `
   .content-transition {
     animation-name: fadeIn;
     animation-duration: 0.4s;
@@ -38,7 +45,7 @@ const sidebarAgentStyles = `
   }
 `;
 
-export default function SidebarAgent({ user, logout }) {
+export default function SidebarClient({ user, logout }) {
     const [activeItem, setActiveItem] = useState(() => {
         return localStorage.getItem('activeSidebarItem') || 'map';
     });
@@ -59,7 +66,7 @@ export default function SidebarAgent({ user, logout }) {
             setIndicatorStyle({
                 top: `${offsetTop + offsetHeight / 2 - 16}px`,
                 opacity: 1,
-                transition: 'all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+                transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
             });
         }
     }, [activeItem]);
@@ -73,8 +80,12 @@ export default function SidebarAgent({ user, logout }) {
     const Tooltip = ({ children, text, className = '' }) => (
         <div className={`relative z-[999] group ${className}`}>
             {children}
-            <div className="absolute left-full top-1/2 transform -translate-y-1/2 ml-3 pointer-events-none z-50 group-hover:opacity-100 opacity-0 transition-all duration-200 ease-out hidden lg:block">
-                <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-xl whitespace-nowrap relative">
+            <div
+                className="absolute left-full top-1/2 transform -translate-y-1/2 ml-3 pointer-events-none z-50 group-hover:opacity-100 opacity-0 transition-all duration-300 ease-out hidden lg:block"
+            >
+                <div
+                    className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-xl whitespace-nowrap relative transition-all duration-200 transform group-hover:translate-x-0 -translate-x-1"
+                >
                     {text}
                     <div className="absolute right-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
                 </div>
@@ -99,7 +110,10 @@ export default function SidebarAgent({ user, logout }) {
                         }
             `}
                     >
-                        <Icon size={20} className="transition-transform duration-300 group-hover:scale-110" />
+                        <Icon
+                            size={20}
+                            className="transition-transform duration-300 group-hover:scale-110"
+                        />
                     </button>
                 </Tooltip>
             </div>
@@ -111,7 +125,7 @@ export default function SidebarAgent({ user, logout }) {
             case 'map':
                 return <MapContent />;
             case 'messages':
-                return <MessagesContentAgent />;
+                return <MessagesContent />;
             case 'settings':
                 return <SettingsContent />;
             case 'profile':
@@ -123,7 +137,8 @@ export default function SidebarAgent({ user, logout }) {
 
     return (
         <div className="flex h-screen bg-gray-50">
-            <style>{sidebarAgentStyles}</style>
+            {/* Inject CSS */}
+            <style>{sidebarStyles}</style>
 
             {/* Desktop Sidebar */}
             <div className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30">
@@ -209,12 +224,14 @@ export default function SidebarAgent({ user, logout }) {
 
             {/* Mobile FAB */}
             <div className="lg:hidden fixed bottom-6 left-6 z-50">
+                {/* Menu Items */}
                 <div
                     className={`
             absolute bottom-16 right-1 space-y-3 transition-all duration-300 origin-bottom-right
             ${isFabOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}
           `}
                 >
+                    {/* Profile */}
                     <button
                         onClick={() => handleItemClick('profile')}
                         className={`
@@ -238,6 +255,7 @@ export default function SidebarAgent({ user, logout }) {
                         </div>
                     </button>
 
+                    {/* Menu Items */}
                     {menuItems.map((item, index) => {
                         const Icon = item.icon;
                         const isActive = activeItem === item.id;
@@ -269,6 +287,7 @@ export default function SidebarAgent({ user, logout }) {
                         );
                     })}
 
+                    {/* Logout */}
                     <button
                         onClick={logout}
                         className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all duration-300 flex items-center justify-center hover:scale-110"
@@ -297,6 +316,7 @@ export default function SidebarAgent({ user, logout }) {
                     </button>
                 </div>
 
+                {/* Main FAB */}
                 <button
                     onClick={() => setIsFabOpen(!isFabOpen)}
                     className={`

@@ -1,6 +1,6 @@
+// AuthContext.jsx
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { authService } from '../services/authService';
-import { jwtDecode } from "jwt-decode";
 
 /**
  * AuthContext
@@ -14,7 +14,7 @@ const AuthContext = createContext(undefined);
  * Gère la connexion, la déconnexion, l'inscription, l'erreur, le rôle utilisateur, et la déconnexion automatique à expiration du JWT.
  */
 export const AuthProvider = ({ children }) => {
-    // États principaux
+    // États principaux - maintenant basés uniquement sur le token JWT
     const [user, setUser] = useState(authService.getCurrentUser());
     const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
     const [isLoading, setIsLoading] = useState(false);
@@ -25,40 +25,39 @@ export const AuthProvider = ({ children }) => {
     const logoutTimerRef = useRef(null);
 
     /**
-     * Met à jour l'état d'authentification en fonction du localStorage.
+     * Met à jour l'état d'authentification en fonction du token JWT uniquement.
      * Appelé après login, logout ou synchronisation entre onglets.
      */
     const updateAuthState = useCallback(() => {
         const currentUser = authService.getCurrentUser();
+        const authenticated = authService.isAuthenticated();
+        const role = authService.getUserRole();
+
         setUser(currentUser);
-        setIsAuthenticated(authService.isAuthenticated());
-        setUserRole(authService.getUserRole());
+        setIsAuthenticated(authenticated);
+        setUserRole(role);
     }, []);
 
     /**
      * Programme une déconnexion automatique lorsque le token JWT expire.
-     * Décode le JWT pour obtenir l'expiration (`exp` en secondes UNIX).
+     * Utilise directement le payload du token pour obtenir l'expiration.
      */
     const scheduleAutoLogout = useCallback(() => {
         // Nettoie un éventuel timer précédent
         if (logoutTimerRef.current) {
             clearTimeout(logoutTimerRef.current);
         }
-        const token = localStorage.getItem('token');
-        if (token) {
-            try {
-                const { exp } = jwtDecode(token); // exp en secondes UNIX
-                const expireMs = exp * 1000 - Date.now();
-                if (expireMs > 0) {
-                    // Déconnexion planifiée à expiration exacte du JWT
-                    logoutTimerRef.current = setTimeout(() => {
-                        logout();
-                    }, expireMs);
-                } else {
-                    // Token déjà expiré
+
+        const payload = authService.getTokenPayload();
+        if (payload && payload.exp) {
+            const expireMs = payload.exp * 1000 - Date.now();
+            if (expireMs > 0) {
+                // Déconnexion planifiée à expiration exacte du JWT
+                logoutTimerRef.current = setTimeout(() => {
                     logout();
-                }
-            } catch (e) {
+                }, expireMs);
+            } else {
+                // Token déjà expiré
                 logout();
             }
         }
@@ -141,7 +140,7 @@ export const AuthProvider = ({ children }) => {
 
     /**
      * Fonction de déconnexion utilisateur.
-     * Nettoie le localStorage, met à jour l'état et annule le timer de déconnexion automatique.
+     * Nettoie le localStorage (token uniquement), met à jour l'état et annule le timer.
      */
     const logout = useCallback(async () => {
         setIsLoading(true);
@@ -162,12 +161,20 @@ export const AuthProvider = ({ children }) => {
     const clearError = useCallback(() => setError(null), []);
 
     /**
+     * Nouvelle fonction pour obtenir les données fraîches du token
+     */
+    const refreshTokenData = useCallback(() => {
+        updateAuthState();
+        scheduleAutoLogout();
+    }, [updateAuthState, scheduleAutoLogout]);
+
+    /**
      * Synchronise l'état d'auth entre différents onglets du navigateur.
      * Met à jour l'état et reprogramme la déconnexion si besoin.
      */
     useEffect(() => {
         const handleStorageChange = (e) => {
-            if (e.key === 'token' || e.key === 'user') {
+            if (e.key === 'token') {
                 updateAuthState();
                 scheduleAutoLogout();
             }
@@ -176,10 +183,25 @@ export const AuthProvider = ({ children }) => {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, [updateAuthState, scheduleAutoLogout]);
 
+    // Vérification initiale au montage du composant
+    useEffect(() => {
+        updateAuthState();
+    }, [updateAuthState]);
+
     // Vérification des rôles d'utilisateur
     const isAdmin = userRole === "admin";
     const isAgent = userRole === "agent";
     const isClient = userRole === "client";
+
+    // Nouvelle méthode pour obtenir l'ID crypté
+    const getUserId = useCallback(() => {
+        return authService.getUserId();
+    }, []);
+
+    // Méthode pour vérifier si le token expire bientôt
+    const isTokenExpiringSoon = useCallback((minutes = 5) => {
+        return authService.isTokenExpiringSoon(minutes);
+    }, []);
 
     return (
         <AuthContext.Provider value={{
@@ -194,7 +216,10 @@ export const AuthProvider = ({ children }) => {
             login,
             register,
             logout,
-            clearError
+            clearError,
+            getUserId,
+            isTokenExpiringSoon,
+            refreshTokenData
         }}>
             {children}
         </AuthContext.Provider>

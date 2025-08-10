@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
-import { adminService } from '../services/adminService';
+import { adminAgentService } from '../../services/admin/adminAgentService.js';
 
-// Hook pour la gestion des agents par l'admin
-export const useAdmin = () => {
+export const useAgent = () => {
     const [agents, setAgents] = useState([]);
+    const [agentTasks, setAgentTasks] = useState([]);
     const [pagination, setPagination] = useState({
         total: 0,
         page: 1,
@@ -17,7 +17,7 @@ export const useAdmin = () => {
         setIsLoading(true);
         setError(null);
 
-        const result = await adminService.getAllAgents(params);
+        const result = await adminAgentService.getAllAgents(params);
         if (result.success) {
             setAgents(result.data);
             if (result.pagination) {
@@ -37,7 +37,7 @@ export const useAdmin = () => {
         setIsLoading(true);
         setError(null);
 
-        const result = await adminService.searchAgents(params);
+        const result = await adminAgentService.searchAgents(params);
 
         if (result.success) {
             setAgents(result.data);
@@ -55,7 +55,7 @@ export const useAdmin = () => {
         setIsLoading(true);
         setError(null);
 
-        const result = await adminService.getAgent(id);
+        const result = await adminAgentService.getAgent(id);
         setIsLoading(false);
 
         if (!result.success) {
@@ -70,7 +70,7 @@ export const useAdmin = () => {
         setIsLoading(true);
         setError(null);
 
-        const result = await adminService.createAgent(agent);
+        const result = await adminAgentService.createAgent(agent);
 
         if (result.success) {
             setAgents(prev => [...prev, result.data]);
@@ -86,7 +86,7 @@ export const useAdmin = () => {
         setIsLoading(true);
         setError(null);
 
-        const result = await adminService.updateAgent(id, agent);
+        const result = await adminAgentService.updateAgent(id, agent);
 
         if (result.success) {
             setAgents(prev =>
@@ -106,7 +106,7 @@ export const useAdmin = () => {
         setIsLoading(true);
         setError(null);
 
-        const result = await adminService.removeAgent(id);
+        const result = await adminAgentService.removeAgent(id);
 
         if (result.success) {
             setAgents(prev => prev.filter(a => a.agentId !== id));
@@ -117,8 +117,26 @@ export const useAdmin = () => {
         return result;
     }, []);
 
+    const getAgentTasks = useCallback(async (agentId) => {
+        setIsLoading(true);
+        setError(null);
+        setAgentTasks([]);
+
+        const result = await adminAgentService.getAgentTasks(agentId);
+
+        if (result.success) {
+            setAgentTasks(result.data.tasks);
+            setError(null);
+        } else {
+            setError(result.error);
+        }
+        setIsLoading(false);
+        return result;
+    }, []);
+
     return {
         agents,
+        agentTasks,
         pagination,
         isLoading,
         error,
@@ -128,5 +146,6 @@ export const useAdmin = () => {
         createAgent,
         updateAgent,
         removeAgent,
+        getAgentTasks
     };
 };

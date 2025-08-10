@@ -1,15 +1,15 @@
 import { Routes, Route } from 'react-router-dom';
-import LandingPage from "../pages/LandingPage.jsx";
-import AuthPage from "../pages/AuthPage.jsx";
-import ForgotPasswordPage from "../pages/ForgotPasswordPage.jsx";
-import ResetPasswordPage from "../pages/ResetPasswordPage.jsx";
-import NotFound from "../useTools/NotFound.jsx";
-import Unauthorized from "../useTools/Unauthorized.jsx";
-import { useAuth } from '../context/AuthContext';
-import ProtectedRoleRoute from "./ProtectedRoleRoute.jsx";
-import DashboardAdminPage from "../pages/dashboard/DashboardAdminPage.jsx";
-import DashboardAgentPage from "../pages/dashboard/DashboardAgentPage.jsx";
-import DashboardClientPage from "../pages/dashboard/DashboardClientPage.jsx";
+import {useAuth} from "@/context/AuthContext.jsx";
+import LandingPage from "@/pages/landing/LandingPage.jsx";
+import AuthPage from "@/pages/auth/AuthPage.jsx";
+import ForgotPasswordPage from "@/pages/auth/password/ForgotPasswordPage.jsx";
+import ResetPasswordPage from "@/pages/auth/password/ResetPasswordPage.jsx";
+import Unauthorized from "@/pages/errors/Unauthorized.jsx";
+import ProtectedRoleRoute from "@/routes/ProtectedRoleRoute.jsx";
+import DashboardClientPage from "@/pages/dashboard/DashboardClientPage.jsx";
+import DashboardAgentPage from "@/pages/dashboard/DashboardAgentPage.jsx";
+import DashboardAdminPage from "@/pages/dashboard/DashboardAdminPage.jsx";
+import NotFound from "@/pages/errors/NotFound.jsx";
 
 
 const RouterConfig = () => {

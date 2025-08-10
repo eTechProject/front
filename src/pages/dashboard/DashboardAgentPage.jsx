@@ -1,7 +1,6 @@
-import {useAuth} from "../../context/AuthContext.jsx";
 import {Link} from "react-router-dom";
-import SidebarClient from "../../components/dash/SidebarClient.jsx";
-import SidebarAgent from "../../components/dash/SidebarAgent.jsx";
+import SidebarAgent from "@/components/layout/sidebars/SidebarAgent.jsx";
+import {useAuth} from "@/context/AuthContext.jsx";
 
 export default function DashboardAgentPage() {
     const { user, isAuthenticated, isLoading, logout } = useAuth();

@@ -1,6 +1,6 @@
-import {useAuth} from "../../context/AuthContext.jsx";
 import {Link} from "react-router-dom";
-import AdminSidebar from "../../components/dash/AdminSidebar.jsx";
+import AdminSidebar from "@/components/layout/sidebars/AdminSidebar.jsx";
+import {useAuth} from "@/context/AuthContext.jsx";
 
 export default function DashboardAdminPage() {
     const {user, isAuthenticated, isLoading, logout} = useAuth();

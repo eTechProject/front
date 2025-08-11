@@ -5,7 +5,6 @@ import ZoneForm from "@/components/features/map/ui/ZoneForm.jsx";
 import ZonePanel from "@/components/features/map/ui/ZonePanel.jsx";
 import ZonePanelToggle from "@/components/features/map/ui/ZonePanelToggle.jsx";
 import {isPointInPolygon} from "@/utils/geoUtils.js";
-import toast from "react-hot-toast";
 
 /**
  * Composant principal de la carte.
@@ -43,10 +42,11 @@ const MapView = ({
     const [currentLayer, setCurrentLayer] = useState(null);
     const [currentZoneInfo, setCurrentZoneInfo] = useState(null);
     const [isZoneLocked, setIsZoneLocked] = useState(false);
-    const [currentBounds, setCurrentBounds] = useState(null);
     const [isDragOver, setIsDragOver] = useState(false);
     const [dropPosition, setDropPosition] = useState(null);
     const [isValidDropLocation, setIsValidDropLocation] = useState(true);
+    // État pour les agents temporaires
+    const [tempAssignedAgents, setTempAssignedAgents] = useState([]);
 
     const { user } = useAuth();
     const { sendZone, isLoading, error, success } = useZone();
@@ -55,6 +55,33 @@ const MapView = ({
     const MAX_ZOOM = 19;
     const INITIAL_ZOOM = 13;
     const INITIAL_CENTER = [-18.9146, 47.5309]; // Antananarivo
+
+    // État pour le formulaire de zone
+    const [zoneFormData, setZoneFormData] = useState({
+        name: '',
+        description: '',
+        clientId: user?.userId,
+        coordinates: [],
+        type: 'Polygone',
+    });
+
+    // Fonction pour obtenir tous les agents (officiels + temporaires)
+    const getAllZoneAgents = () => {
+        return [...zoneAssignedAgents, ...tempAssignedAgents];
+    };
+
+    // Helper function pour les couleurs de statut
+    const getStatusColorHex = (status) => {
+        const statusMap = {
+            'inactif': '#ef4444',
+            'occupé': '#ef4444',
+            'actif': '#3b82f6',
+            'en mission': '#3b82f6',
+            'disponible': '#22c55e',
+            'pending': '#eab308'
+        };
+        return statusMap[status?.toLowerCase()] || '#eab308';
+    };
 
     // Initialisation de la carte
     const initializeMap = () => {
@@ -91,27 +118,22 @@ const MapView = ({
             window.L.control.layers(baseMapsRef.current, {}, { position: 'topright' })
                 .addTo(mapInstanceRef.current);
 
-            // Groupe pour les éléments dessinés
             drawnItemsRef.current = new window.L.FeatureGroup();
             mapInstanceRef.current.addLayer(drawnItemsRef.current);
 
-            // Initialisation des contrôles de dessin (client uniquement)
             if (userRole === 'client') {
                 initializeDrawControl();
             }
 
-            // Écouteurs d'événements
             mapInstanceRef.current.on('click', (e) => {
                 if (userRole === 'client' && onMapClick) {
                     onMapClick(e.latlng, currentZoneInfo);
                 }
             });
 
-            // Ajout des marqueurs
             addEmployeeMarkers();
             setMapIsReady(true);
 
-            // Dessin de la zone existante si disponible
             if (zoneData && drawnZones.length === 0) {
                 drawExistingZone(zoneData);
             }
@@ -166,7 +188,6 @@ const MapView = ({
         drawControlRef.current = new window.L.Control.Draw(drawOptions);
         mapInstanceRef.current.addControl(drawControlRef.current);
 
-        // Gestion des événements de dessin
         mapInstanceRef.current.on(window.L.Draw.Event.CREATED, (e) => {
             if (drawnZones.length > 0) return;
             const layer = e.layer;
@@ -220,7 +241,6 @@ const MapView = ({
     const lockViewToZone = (coordinates) => {
         if (!mapInstanceRef.current || !coordinates || coordinates.length === 0) return;
         const bounds = window.L.latLngBounds(coordinates.map(coord => [coord[0], coord[1]]));
-        setCurrentBounds(bounds);
         mapInstanceRef.current.fitBounds(bounds, {
             padding: [50, 50],
             maxZoom: 18,
@@ -236,7 +256,6 @@ const MapView = ({
         mapInstanceRef.current.setMaxBounds(null);
         mapInstanceRef.current.setMinZoom(3);
         setIsZoneLocked(false);
-        setCurrentBounds(null);
     };
 
     // Dessin d'une zone existante
@@ -306,8 +325,10 @@ const MapView = ({
         });
         zoneAgentMarkersRef.current = [];
 
-        // Ajout des nouveaux marqueurs
-        zoneAssignedAgents.forEach(agent => {
+        // Utiliser tous les agents (officiels + temporaires)
+        const allAgents = getAllZoneAgents();
+
+        allAgents.forEach(agent => {
             try {
                 if (!agent?.name || !agent.position) return;
                 const position = [agent.position.lat, agent.position.lng];
@@ -321,6 +342,7 @@ const MapView = ({
                         color: white; font-weight: bold; font-size: 12px;
                         border: 2px solid white;
                         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        ${agent.isTemporary ? 'opacity: 0.8; border-color: #fbbf24;' : ''}
                     ">${agent.avatar}</div>`,
                     className: '',
                     iconSize: [32, 32],
@@ -330,15 +352,19 @@ const MapView = ({
                 const marker = window.L.marker(position, { icon: customIcon })
                     .addTo(mapInstanceRef.current);
 
+                const statusLabel = agent.isTemporary ? 'En cours d\'assignation...' : agent.status;
+                const statusColor = agent.isTemporary ? '#fbbf24' : getStatusColorHex(agent.status);
+
                 marker.bindPopup(`
                     <div style="text-align: center; padding: 8px;">
                         <strong>${agent.name}</strong><br>
                         <small>${agent.role || 'Agent assigné'}</small><br>
                         <span style="
-                            background: ${getStatusColorHex(agent.status)};
+                            background: ${statusColor};
                             color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;
-                        ">${agent.status}</span>
+                        ">${statusLabel}</span>
                         ${agent.taskDescription ? `<br><small class="text-gray-500">${agent.taskDescription}</small>` : ''}
+                        ${agent.isTemporary ? '<br><small class="text-orange-600">⏳ Assignation en cours</small>' : ''}
                     </div>
                 `);
 
@@ -359,7 +385,6 @@ const MapView = ({
     const addEmployeeMarkers = () => {
         if (!window.L || !mapInstanceRef.current) return;
 
-        // Nettoyage des marqueurs existants
         markersRef.current.forEach(marker => {
             if (mapInstanceRef.current.hasLayer(marker)) {
                 mapInstanceRef.current.removeLayer(marker);
@@ -367,7 +392,6 @@ const MapView = ({
         });
         markersRef.current = [];
 
-        // Ajout des nouveaux marqueurs
         employees.forEach(employee => {
             if (!employee.position) return;
             const customIcon = window.L.divIcon({
@@ -420,7 +444,6 @@ const MapView = ({
         const y = e.clientY - rect.top;
         const point = mapInstanceRef.current.containerPointToLatLng([x, y]);
 
-        // Vérification de la position
         const currentZone = drawnZones[0];
         const isInsideZone = isPointInPolygon(
             { lat: point.lat, lng: point.lng },
@@ -438,7 +461,7 @@ const MapView = ({
         setDropPosition(null);
     };
 
-    const handleDrop = (e) => {
+    const handleDrop = async (e) => {
         if (userRole !== "client") return;
         e.preventDefault();
         setIsDragOver(false);
@@ -450,7 +473,6 @@ const MapView = ({
         const y = e.clientY - rect.top;
         const point = mapInstanceRef.current.containerPointToLatLng([x, y]);
 
-        // Validation de la position
         const currentZone = drawnZones[0];
         const isInsideZone = isPointInPolygon(
             { lat: point.lat, lng: point.lng },
@@ -458,41 +480,62 @@ const MapView = ({
         );
 
         if (!isInsideZone) {
-            toast.error("L'affectation n'est pas autorisée en dehors de la zone définie.",{
-                position: "top-right"
-            });
             setDropPosition(null);
             setIsValidDropLocation(false);
             return;
         }
 
         const zoneInfo = currentZoneInfo || null;
+        let employeeToAssign = null;
+
         try {
             const data = e.dataTransfer.getData('application/json');
             if (data) {
-                const employee = JSON.parse(data);
+                employeeToAssign = JSON.parse(data);
+            } else if (draggingEmployee) {
+                employeeToAssign = draggingEmployee;
+            }
+
+            if (employeeToAssign) {
+                // Créer un agent temporaire immédiatement visible
+                const tempAgent = {
+                    ...employeeToAssign,
+                    position: { lat: point.lat, lng: point.lng },
+                    isTemporary: true,
+                    tempId: Date.now()
+                };
+
+                setTempAssignedAgents(prev => [...prev, tempAgent]);
+
+                // Appeler la fonction d'assignation du parent
                 if (onEmployeeDrop) {
-                    onEmployeeDrop(employee, point, zoneInfo);
+                    try {
+                        await onEmployeeDrop(employeeToAssign, point, zoneInfo);
+
+                        // Retirer l'agent temporaire après succès
+                        setTimeout(() => {
+                            setTempAssignedAgents(prev =>
+                                prev.filter(agent => agent.tempId !== tempAgent.tempId)
+                            );
+                        }, 1000);
+
+                    } catch (error) {
+                        // En cas d'erreur, retirer l'agent temporaire
+                        setTempAssignedAgents(prev =>
+                            prev.filter(agent => agent.tempId !== tempAgent.tempId)
+                        );
+                    }
                 }
-            } else if (draggingEmployee && onEmployeeDrop) {
-                onEmployeeDrop(draggingEmployee, point, zoneInfo);
             }
         } catch (err) {
             console.error("Erreur lors du traitement du drop:", err);
         }
+
         setDropPosition(null);
         setIsValidDropLocation(true);
     };
 
     // Gestion du formulaire de zone
-    const [zoneFormData, setZoneFormData] = useState({
-        name: '',
-        description: '',
-        clientId: user?.userId,
-        coordinates: [],
-        type: 'Polygone',
-    });
-
     const saveZone = async () => {
         if (!zoneFormData.name) return;
         const zoneDataToSend = {
@@ -551,24 +594,10 @@ const MapView = ({
         lockViewToZone(zone.coordinates);
     };
 
-    // Helper function pour les couleurs de statut
-    const getStatusColorHex = (status) => {
-        const statusMap = {
-            'inactif': '#ef4444',
-            'occupé': '#ef4444',
-            'actif': '#3b82f6',
-            'en mission': '#3b82f6',
-            'disponible': '#22c55e',
-            'pending': '#eab308'
-        };
-        return statusMap[status?.toLowerCase()] || '#eab308';
-    };
-
     // Effets
     useEffect(() => {
         if (mapInstanceRef.current) return;
 
-        // Chargement des scripts Leaflet
         if (!document.querySelector('link[href*="leaflet.css"]')) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
@@ -637,10 +666,16 @@ const MapView = ({
     }, [selectedEmployee]);
 
     useEffect(() => {
-        if (mapIsReady && zoneAssignedAgents.length > 0) {
+        if (mapIsReady) {
             addZoneAgentsToMap();
         }
-    }, [zoneAssignedAgents, mapIsReady]);
+    }, [zoneAssignedAgents, tempAssignedAgents, mapIsReady]);
+
+    useEffect(() => {
+        if (mapInstanceRef.current) {
+            addEmployeeMarkers();
+        }
+    }, [employees]);
 
     useEffect(() => {
         if (mapInstanceRef.current && userRole === "client") {
@@ -653,6 +688,18 @@ const MapView = ({
             drawExistingZone(zoneData);
         }
     }, [zoneData, mapIsReady]);
+
+    useEffect(() => {
+        if (zoneAssignedAgents.length > 0) {
+            setTempAssignedAgents(prev =>
+                prev.filter(tempAgent =>
+                    !zoneAssignedAgents.some(officialAgent =>
+                        officialAgent.id === tempAgent.id
+                    )
+                )
+            );
+        }
+    }, [zoneAssignedAgents]);
 
     return (
         <div
@@ -667,11 +714,11 @@ const MapView = ({
                 <div className="absolute top-3 right-16 flex gap-2 z-[999]">
                     <button
                         onClick={unlockView}
-                        className="bg-white p-2 rounded hover:bg-gray-100 flex items-center"
+                        className="bg-white p-2 rounded hover:bg-gray-100 flex items-center shadow-md"
                         title="Déverrouiller la vue"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V7z" clipRule="evenodd" />
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                         </svg>
                     </button>
                 </div>
@@ -696,35 +743,7 @@ const MapView = ({
                         <p className="text-sm font-medium">
                             {isValidDropLocation ? 'Déposer ici' : 'Hors zone - Non autorisé'}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                            {dropPosition?.lat.toFixed(6)}, {dropPosition?.lng.toFixed(6)}
-                        </p>
-                        {currentZoneInfo && (
-                            <p className="text-xs text-blue-600 mt-1">
-                                Zone: {currentZoneInfo.zoneName}
-                            </p>
-                        )}
                     </div>
-                </div>
-            )}
-
-            {isDragOver && dropPosition && (
-                <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-md shadow-md z-50 text-xs text-gray-700">
-                    <div className="font-medium">Affectation d'agent</div>
-                    <div>Lat: {dropPosition.lat.toFixed(6)}, Lng: {dropPosition.lng.toFixed(6)}</div>
-                    <div className="mt-1 text-gray-500">
-                        Agent: {draggingEmployee?.name || 'Non assigné'} (ID: {draggingEmployee?.id})
-                    </div>
-                    {currentZoneInfo && (
-                        <>
-                            <div className="mt-1 text-blue-600">
-                                Service ID: {currentZoneInfo.serviceOrderId}
-                            </div>
-                            <div className="text-blue-600">
-                                Zone ID: {currentZoneInfo.securedZoneId}
-                            </div>
-                        </>
-                    )}
                 </div>
             )}
 

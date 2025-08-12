@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Edit, Camera, Mail, User, Phone, CheckCircle2, Info } from 'lucide-react';
-import { useAuth } from "../../../context/AuthContext.jsx";
-import { useUser } from "../../../hooks/features/user/useUser.js";
+import { Edit, Camera, Mail, User, Phone, CheckCircle2, Lock, Info, AlertCircle } from 'lucide-react';
+import {useAuth} from "@/context/AuthContext.jsx";
+import {authService} from "@/services/auth/authService.js";
+import {userService} from "@/services/features/user/userService.js";
 
 const PASSWORD_REQUIREMENTS = [
     { id: 1, text: "Au moins 8 caractères", regex: /.{8,}/ },
@@ -29,29 +30,43 @@ const NotificationComponent = ({ notification, onClose }) => {
     );
 };
 
-const ProfileField = ({ label, value, onChange, name, type = "text", disabled, placeholder }) => (
+const ValidationErrors = ({ errors }) => {
+    if (!errors || Object.keys(errors).length === 0) return null;
+
+    return (
+        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-red-600" />
+                <span className="text-sm font-medium text-red-800">Erreurs de validation :</span>
+            </div>
+            <ul className="space-y-1">
+                {Object.entries(errors).map(([field, fieldErrors]) => (
+                    <li key={field} className="text-sm text-red-700">
+                        <span className="font-medium capitalize">{field}:</span>{' '}
+                        {Array.isArray(fieldErrors) ? fieldErrors.join(', ') : fieldErrors}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+const ProfileField = ({ label, value, onChange, name, type = "text", disabled, placeholder, hasError }) => (
     <div className="space-y-1">
         <label className="text-sm font-medium text-gray-700">{label}</label>
-        {type === "textarea" ? (
-            <textarea
-                name={name}
-                value={value || ''}
-                onChange={onChange}
-                disabled={disabled}
-                placeholder={placeholder}
-                className="w-full px-3 py-2 text-sm border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-50 disabled:text-gray-600 border-gray-300 min-h-[60px]"
-            />
-        ) : (
-            <input
-                type={type}
-                name={name}
-                value={value || ''}
-                onChange={onChange}
-                disabled={disabled}
-                placeholder={placeholder}
-                className="w-full px-3 py-2 text-sm border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-50 disabled:text-gray-600 border-gray-300"
-            />
-        )}
+        <input
+            type={type}
+            name={name}
+            value={value || ''}
+            onChange={onChange}
+            disabled={disabled}
+            placeholder={placeholder}
+            className={`w-full px-3 py-2 text-sm border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-50 disabled:text-gray-600 ${
+                hasError
+                    ? 'border-red-300 bg-red-50'
+                    : 'border-gray-300'
+            }`}
+        />
     </div>
 );
 
@@ -98,7 +113,8 @@ const PasswordMatchIndicator = ({ password, confirmPassword }) => {
 
 export default function ProfileContent() {
     const { user } = useAuth();
-    const { updateProfile, updatePassword } = useUser();
+
+    const [localUserData, setLocalUserData] = useState(null);
 
     const [notification, setNotification] = useState({ show: false, type: '', message: '' });
     const [isEditing, setIsEditing] = useState(false);
@@ -107,10 +123,11 @@ export default function ProfileContent() {
         name: '',
         email: '',
         phone: '',
-        avatar: null,
-        bio: ''
+        avatarUrl: null
     });
+    const [avatarFile, setAvatarFile] = useState(null);
     const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
         newPassword: '',
         confirmPassword: ''
     });
@@ -119,14 +136,20 @@ export default function ProfileContent() {
         PASSWORD_REQUIREMENTS.map(req => ({ ...req, isValid: false }))
     );
 
+    // États pour les erreurs serveur
+    const [profileErrors, setProfileErrors] = useState({});
+    const [passwordErrors, setPasswordErrors] = useState({});
+
+    const currentUser = localUserData || user;
+
     useEffect(() => {
         if (user) {
+            setLocalUserData(user);
             setFormData({
                 name: user.name || '',
                 email: user.email || '',
                 phone: user.phone || '',
-                avatar: user.avatar || null,
-                bio: user.bio || ''
+                avatarUrl: user.avatar || null
             });
         }
     }, [user]);
@@ -141,7 +164,15 @@ export default function ProfileContent() {
     const handleInputChange = useCallback((e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-    }, []);
+        // Nettoyer les erreurs pour ce champ quand l'utilisateur tape
+        if (profileErrors[name]) {
+            setProfileErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
+    }, [profileErrors]);
 
     const handlePasswordChange = useCallback((e) => {
         const { name, value } = e.target;
@@ -158,37 +189,117 @@ export default function ProfileContent() {
 
             return newData;
         });
-    }, []);
+
+        // Nettoyer les erreurs pour ce champ quand l'utilisateur tape
+        if (passwordErrors[name] || passwordErrors[name === 'currentPassword' ? 'current_password' : name]) {
+            setPasswordErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                delete newErrors[name === 'currentPassword' ? 'current_password' : name];
+                return newErrors;
+            });
+        }
+    }, [passwordErrors]);
 
     const handleAvatarUpload = useCallback((e) => {
         const file = e.target.files[0];
         if (file) {
+            setAvatarFile(file);
             const reader = new FileReader();
             reader.onload = (evt) => {
-                setFormData(prev => ({ ...prev, avatar: evt.target.result }));
+                setFormData(prev => ({ ...prev, avatarUrl: evt.target.result }));
             };
             reader.readAsDataURL(file);
         }
     }, []);
 
     const handleSave = useCallback(async () => {
+        if (!user?.userId) {
+            showNotification('error', 'Utilisateur non identifié');
+            return;
+        }
+
         setIsLoading(true);
+        setProfileErrors({});
+
         try {
-            const result = await updateProfile(formData);
-            if (result?.success || result === true) {
-                setIsEditing(false);
-                showNotification('success', 'Profil mis à jour avec succès !');
-            } else {
-                showNotification('error', 'Échec de la mise à jour');
+            // Update profile data using userService directly
+            const profileResult = await userService.updateProfile(user.userId, {
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone
+            });
+
+            if (!profileResult.success) {
+                // Afficher les erreurs de validation détaillées
+                if (profileResult.details && Object.keys(profileResult.details).length > 0) {
+                    setProfileErrors(profileResult.details);
+                }
+                showNotification('error', profileResult.error || 'Échec de la mise à jour du profil');
+                return;
             }
-        } catch {
+
+            // Mise à jour instantanée avec les données du serveur
+            if (profileResult.data) {
+                setLocalUserData(prev => ({
+                    ...prev,
+                    ...profileResult.data,
+                    userId: prev?.userId || user.userId,
+                    role: prev?.role || user.role,
+                    verified: prev?.verified || user.verified,
+                    createdAt: prev?.createdAt || user.createdAt,
+                    avatar: prev?.avatar // L'avatar sera mis à jour séparément si nécessaire
+                }));
+            }
+
+            // Update avatar if a new file was selected
+            let avatarResult = { success: true };
+            if (avatarFile) {
+                avatarResult = await userService.updateAvatar(avatarFile);
+                if (!avatarResult.success) {
+                    showNotification('error', avatarResult.error || 'Échec de la mise à jour de l\'avatar');
+                    return;
+                }
+
+                if (avatarResult.data && avatarResult.data.avatarUrl) {
+                    setLocalUserData(prev => ({
+                        ...prev,
+                        avatar: avatarResult.data.avatarUrl
+                    }));
+                    setFormData(prev => ({
+                        ...prev,
+                        avatarUrl: avatarResult.data.avatarUrl
+                    }));
+                }
+            }
+
+            // Refresh user data
+            const refreshResult = await authService.refreshUserData(user.userId);
+
+            setIsEditing(false);
+            setAvatarFile(null);
+            setProfileErrors({});
+            showNotification('success', 'Profil mis à jour avec succès !');
+        } catch(error) {
+            console.log(error)
             showNotification('error', 'Erreur lors de la mise à jour');
         } finally {
             setIsLoading(false);
         }
-    }, [formData, updateProfile, showNotification]);
+    }, [formData, avatarFile, user, showNotification]);
 
     const handlePasswordSubmit = useCallback(async () => {
+        console.log('handlePasswordSubmit called')
+        if (!user?.userId) {
+            showNotification('error', 'Utilisateur non identifié');
+            return;
+        }
+
+        if (!passwordData.currentPassword) {
+            showNotification('error', 'Veuillez entrer votre mot de passe actuel');
+            return;
+        }
+
         const allValid = passwordValidations.every(req => req.isValid);
         if (!allValid) {
             showNotification('error', 'Le mot de passe ne remplit pas tous les critères requis');
@@ -201,33 +312,42 @@ export default function ProfileContent() {
         }
 
         setIsLoading(true);
+        setPasswordErrors({});
+
         try {
-            const result = await updatePassword({
+            const result = await userService.updatePassword(user.userId, {
+                currentPassword: passwordData.currentPassword,
                 newPassword: passwordData.newPassword
             });
 
-            if (result?.success) {
+            if (result.success) {
                 showNotification('success', 'Mot de passe mis à jour avec succès');
                 setPasswordData({
+                    currentPassword: '',
                     newPassword: '',
                     confirmPassword: ''
                 });
+                setPasswordErrors({});
                 setShowPasswordForm(false);
+
             } else {
-                showNotification('error', result?.message || 'Échec de la mise à jour du mot de passe');
+                if (result.details && Object.keys(result.details).length > 0) {
+                    setPasswordErrors(result.details);
+                }
+                showNotification('error', result.error || 'Échec de la mise à jour du mot de passe');
             }
-        } catch (error) {
+        } catch {
             showNotification('error', 'Erreur lors de la mise à jour du mot de passe');
         } finally {
             setIsLoading(false);
         }
-    }, [passwordData, passwordValidations, showNotification, updatePassword]);
+    }, [passwordData, passwordValidations, user, showNotification]);
 
-    const formattedDate = user && user.createdAt
-        ? new Date(user.createdAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
+    const formattedDate = currentUser && currentUser.createdAt
+        ? new Date(currentUser.createdAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
         : 'Inconnue';
 
-    if (!user) {
+    if (!currentUser) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
@@ -251,11 +371,11 @@ export default function ProfileContent() {
                     {/* Avatar */}
                     <div className="relative">
                         <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br bg-zinc-900 flex items-center justify-center text-3xl">
-                            {formData.avatar ? (
-                                <img src={formData.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                            {formData.avatarUrl ? (
+                                <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                             ) : (
                                 <span className="text-white font-bold">
-                                    {formData.name?.charAt(0)?.toUpperCase() || user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                    {formData.name?.charAt(0)?.toUpperCase() || currentUser.name?.charAt(0)?.toUpperCase() || 'U'}
                                 </span>
                             )}
                         </div>
@@ -276,12 +396,12 @@ export default function ProfileContent() {
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-2xl font-semibold capitalize text-gray-900 truncate">
-                                {user.name || 'Nom non défini'}
+                                {currentUser.name || 'Nom non défini'}
                             </h2>
-                            <span className={`px-2 py-1 text-xs rounded font-medium border ${user.role === 'admin' ? 'bg-blue-100 text-blue-600 border-blue-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>
-                                {user.role?.charAt(0).toUpperCase() + user.role?.slice(1) || "Rôle"}
+                            <span className={`px-2 py-1 text-xs rounded font-medium border ${currentUser.role === 'admin' ? 'bg-blue-100 text-blue-600 border-blue-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>
+                                {currentUser.role?.charAt(0).toUpperCase() + currentUser.role?.slice(1) || "Rôle"}
                             </span>
-                            {user.verified && (
+                            {currentUser.verified && (
                                 <span className="flex items-center gap-1 px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">
                                     <CheckCircle2 className="w-4 h-4" /> Vérifié
                                 </span>
@@ -290,12 +410,12 @@ export default function ProfileContent() {
                         <div className="flex flex-wrap gap-4 text-gray-500 mt-2 text-sm items-center">
                             <div className="flex capitalize items-center gap-1">
                                 <Mail className="w-4 h-4" />
-                                <span>{user.email}</span>
+                                <span>{currentUser.email}</span>
                             </div>
-                            {(user.phone || formData.phone) && (
+                            {(currentUser.phone || formData.phone) && (
                                 <div className="flex items-center gap-1">
                                     <Phone className="w-4 h-4" />
-                                    <span>{user.phone || formData.phone}</span>
+                                    <span>{currentUser.phone || formData.phone}</span>
                                 </div>
                             )}
                             <div className="flex items-center gap-1">
@@ -330,6 +450,7 @@ export default function ProfileContent() {
                                 onChange={handleInputChange}
                                 disabled={isLoading}
                                 placeholder="Entrez votre nom"
+                                hasError={profileErrors.name}
                             />
                             <ProfileField
                                 label="Adresse email"
@@ -339,6 +460,7 @@ export default function ProfileContent() {
                                 onChange={handleInputChange}
                                 disabled={isLoading}
                                 placeholder="Votre email"
+                                hasError={profileErrors.email}
                             />
                             <ProfileField
                                 label="Téléphone"
@@ -348,16 +470,12 @@ export default function ProfileContent() {
                                 onChange={handleInputChange}
                                 disabled={isLoading}
                                 placeholder="Votre numéro de téléphone"
+                                hasError={profileErrors.phone}
                             />
-                            <ProfileField
-                                label="Bio"
-                                name="bio"
-                                type="textarea"
-                                value={formData.bio}
-                                onChange={handleInputChange}
-                                disabled={isLoading}
-                                placeholder="Décrivez-vous en quelques mots"
-                            />
+
+                            {/* Afficher les erreurs de validation du profil */}
+                            <ValidationErrors errors={profileErrors} />
+
                             <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={handleSave}
@@ -367,7 +485,12 @@ export default function ProfileContent() {
                                     {isLoading ? 'Enregistrement...' : 'Enregistrer'}
                                 </button>
                                 <button
-                                    onClick={() => setIsEditing(false)}
+                                    onClick={() => {
+                                        setIsEditing(false);
+                                        setAvatarFile(null);
+                                        setProfileErrors({});
+                                        setFormData(prev => ({ ...prev, avatarUrl: currentUser.avatar || null }));
+                                    }}
                                     disabled={isLoading}
                                     className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors duration-200"
                                 >
@@ -379,19 +502,15 @@ export default function ProfileContent() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-8">
                             <div>
                                 <span className="block text-xs text-gray-400 mb-1">Nom</span>
-                                <span className="block font-medium text-gray-900">{user.name || <span className="text-gray-400">Non défini</span>}</span>
+                                <span className="block font-medium text-gray-900">{currentUser.name || <span className="text-gray-400">Non défini</span>}</span>
                             </div>
                             <div>
                                 <span className="block text-xs text-gray-400 mb-1">Adresse email</span>
-                                <span className="block font-medium text-gray-900">{user.email || <span className="text-gray-400">Non défini</span>}</span>
+                                <span className="block font-medium text-gray-900">{currentUser.email || <span className="text-gray-400">Non défini</span>}</span>
                             </div>
                             <div>
                                 <span className="block text-xs text-gray-400 mb-1">Téléphone</span>
-                                <span className="block font-medium text-gray-900">{user.phone || <span className="text-gray-400">Non défini</span>}</span>
-                            </div>
-                            <div>
-                                <span className="block text-xs text-gray-400 mb-1">Bio</span>
-                                <span className="block font-medium text-gray-900">{user.bio || <span className="text-gray-400">Aucune bio renseignée</span>}</span>
+                                <span className="block font-medium text-gray-900">{currentUser.phone || <span className="text-gray-400">Non défini</span>}</span>
                             </div>
                         </div>
                     )}
@@ -401,10 +520,7 @@ export default function ProfileContent() {
                 <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                            </svg>
+                            <Lock className="w-5 h-5 text-orange-400" />
                             Sécurité du compte
                         </h3>
                         {!showPasswordForm && (
@@ -421,6 +537,18 @@ export default function ProfileContent() {
                         <div className="space-y-4">
                             <div>
                                 <ProfileField
+                                    label="Mot de passe actuel"
+                                    name="currentPassword"
+                                    type="password"
+                                    value={passwordData.currentPassword}
+                                    onChange={handlePasswordChange}
+                                    disabled={isLoading}
+                                    placeholder="Entrez votre mot de passe actuel"
+                                    hasError={passwordErrors.current_password}
+                                />
+                            </div>
+                            <div>
+                                <ProfileField
                                     label="Nouveau mot de passe"
                                     name="newPassword"
                                     type="password"
@@ -428,13 +556,13 @@ export default function ProfileContent() {
                                     onChange={handlePasswordChange}
                                     disabled={isLoading}
                                     placeholder="Entrez votre nouveau mot de passe"
+                                    hasError={passwordErrors.new_password}
                                 />
                                 <PasswordStrengthIndicator
                                     password={passwordData.newPassword}
                                     validations={passwordValidations}
                                 />
                             </div>
-
                             <div>
                                 <ProfileField
                                     label="Confirmer le nouveau mot de passe"
@@ -451,6 +579,9 @@ export default function ProfileContent() {
                                 />
                             </div>
 
+                            {/* Afficher les erreurs de validation du mot de passe */}
+                            <ValidationErrors errors={passwordErrors} />
+
                             <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={handlePasswordSubmit}
@@ -460,7 +591,15 @@ export default function ProfileContent() {
                                     {isLoading ? 'Enregistrement...' : 'Mettre à jour le mot de passe'}
                                 </button>
                                 <button
-                                    onClick={() => setShowPasswordForm(false)}
+                                    onClick={() => {
+                                        setShowPasswordForm(false);
+                                        setPasswordErrors({});
+                                        setPasswordData({
+                                            currentPassword: '',
+                                            newPassword: '',
+                                            confirmPassword: ''
+                                        });
+                                    }}
                                     disabled={isLoading}
                                     className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors duration-200"
                                 >

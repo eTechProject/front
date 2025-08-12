@@ -1,7 +1,9 @@
 const ENDPOINTS = {
     USER: {
-        PROFILE: '/user/profile',
-        AVATAR: '/user/avatar',
+        PROFILE: (userId) => `/users/${userId}`,
+        UPDATE_PROFILE: (userId) => `/users/${userId}`,
+        UPDATE_PASSWORD: (userId) => `/users/${userId}/password`,
+        AVATAR: '/users/upload-picture',
     },
     AGENT: {
         GET_TASKS_MESSAGE: (agentId) => `/agent/${agentId}/assigned-tasks`,

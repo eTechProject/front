@@ -1,8 +1,9 @@
 import ENDPOINTS from "@/services/config/endpoints.js";
 import apiClient from "@/services/config/api.js";
 
+
 export const userService = {
-    // Récupérer le profil utilisateur courant
+    // Récupérer le profil utilisateur
     getProfile: async () => {
         try {
             const response = await apiClient.get(ENDPOINTS.USER.PROFILE);
@@ -19,10 +20,14 @@ export const userService = {
         }
     },
 
-    // Mettre à jour le profil (nom, email, téléphone...)
-    updateProfile: async (profile) => {
+    // Mettre à jour le profil
+    updateProfile: async (userId, profileData) => {
         try {
-            const response = await apiClient.put(ENDPOINTS.USER.PROFILE, profile);
+            const response = await apiClient.put(ENDPOINTS.USER.UPDATE_PROFILE(userId), {
+                name: profileData.name,
+                email: profileData.email,
+                phone: profileData.phone
+            });
             return {
                 success: true,
                 data: response.data
@@ -36,12 +41,35 @@ export const userService = {
         }
     },
 
-    // Mettre à jour l’avatar (upload image)
+    // Mettre à jour le mot de passe
+    updatePassword: async (userId, passwordData) => {
+        try {
+            const response = await apiClient.put(
+                ENDPOINTS.USER.UPDATE_PASSWORD(userId),
+                {
+                    current_password: passwordData.currentPassword,
+                    new_password: passwordData.newPassword
+                }
+            );
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.message || "Erreur lors du changement de mot de passe",
+                details: error.response?.data?.errors || {}
+            };
+        }
+    },
+
+    // Mettre à jour l'avatar
     updateAvatar: async (avatarFile) => {
         try {
             const formData = new FormData();
-            formData.append("avatar", avatarFile);
-            const response = await apiClient.post(ENDPOINTS.USER.AVATAR, formData, {
+            formData.append("picture", avatarFile);
+            const response = await apiClient.put(ENDPOINTS.USER.AVATAR, formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
             return {
@@ -51,7 +79,7 @@ export const userService = {
         } catch (error) {
             return {
                 success: false,
-                error: error.response?.data?.message || "Erreur lors du changement d’avatar",
+                error: error.response?.data?.message || "Erreur lors du changement d'avatar",
                 details: error.response?.data?.errors || {}
             };
         }

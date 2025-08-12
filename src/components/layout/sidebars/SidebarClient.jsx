@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import logo from '../../../assets/logo48.png';
+import logo from '@/assets/logo48.png';
+import './sidebar.css';
 import {
     Map,
     Settings,
@@ -8,42 +9,14 @@ import {
     ChartNoAxesGantt,
     X,
 } from 'lucide-react';
+import NotificationsPopover from "@/components/features/shared/NotificationsPopover.jsx";
+import MapContent from "@/components/features/map/MapContent.jsx";
+import ProfileContent from "@/components/features/shared/ProfileContent.jsx";
+import SettingsContent from "@/components/features/shared/SettingsContent.jsx";
+import MessagesContent from "@/components/features/dashboard/client/MessagesContent.jsx";
+import Tooltip from "@/components/common/ui/Tooltip.jsx";
 
-import MapContent from '../../features/map/MapContent.jsx';
-import MessagesContent from '../../features/dashboard/client/MessagesContent.jsx';
-import SettingsContent from '../../features/shared/SettingsContent.jsx';
-import ProfileContent from '../../features/shared/ProfileContent.jsx';
-import NotificationsPopover from '../../features/shared/NotificationsPopover.jsx';
 
-// Move CSS to a separate file or inline styles
-const sidebarStyles = `
-  .content-transition {
-    animation-name: fadeIn;
-    animation-duration: 0.4s;
-    animation-timing-function: ease-out;
-    animation-fill-mode: forwards;
-  }
-
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-`;
 
 export default function SidebarClient({ user, logout }) {
     const [activeItem, setActiveItem] = useState(() => {
@@ -76,22 +49,6 @@ export default function SidebarClient({ user, logout }) {
         localStorage.setItem('activeSidebarItem', itemId);
         setIsFabOpen(false);
     };
-
-    const Tooltip = ({ children, text, className = '' }) => (
-        <div className={`relative z-[999] group ${className}`}>
-            {children}
-            <div
-                className="absolute left-full top-1/2 transform -translate-y-1/2 ml-3 pointer-events-none z-50 group-hover:opacity-100 opacity-0 transition-all duration-300 ease-out hidden lg:block"
-            >
-                <div
-                    className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-xl whitespace-nowrap relative transition-all duration-200 transform group-hover:translate-x-0 -translate-x-1"
-                >
-                    {text}
-                    <div className="absolute right-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
-                </div>
-            </div>
-        </div>
-    );
 
     const MenuItem = ({ item }) => {
         const Icon = item.icon;
@@ -137,8 +94,6 @@ export default function SidebarClient({ user, logout }) {
 
     return (
         <div className="flex h-screen bg-gray-50">
-            {/* Inject CSS */}
-            <style>{sidebarStyles}</style>
 
             {/* Desktop Sidebar */}
             <div className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30">

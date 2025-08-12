@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, {useState, useRef, useEffect, useContext} from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/logo48.png';
-import { Map, MessageSquareMore, Settings, ChartNoAxesGantt, X } from 'lucide-react';
+import { Map, MessageSquareMore, Settings, ChartNoAxesGantt, X, MapPinned } from 'lucide-react';
 
 import MapContent from "@/components/features/map/MapContent.jsx";
 import ProfileContent from "@/components/features/shared/ProfileContent.jsx";
@@ -10,17 +10,21 @@ import MessagesContentAgent from "@/components/features/dashboard/agent/Messages
 import NotificationsPopover from "@/components/features/shared/NotificationsPopover.jsx";
 import './sidebar.css';
 import Tooltip from "@/components/common/ui/Tooltip.jsx";
+import GPSTracker from "@/components/features/dashboard/agent/GPSTracker.jsx";
+import {GeolocationContext} from "@/context/GeolocationContext.jsx";
 
 export default function SidebarAgent({ user, logout }) {
     const [activeItem, setActiveItem] = useState(() => {
         return localStorage.getItem('activeSidebarItem') || 'map';
     });
+    const {isActive}= useContext(GeolocationContext)
     const [indicatorStyle, setIndicatorStyle] = useState({});
     const [isFabOpen, setIsFabOpen] = useState(false);
     const itemsRef = useRef({});
 
     const menuItems = [
         { id: 'map', label: 'Map', icon: Map },
+        { id: 'locations', label: 'Me localiser', icon: MapPinned },
         { id: 'messages', label: 'Messages', icon: MessageSquareMore },
         { id: 'settings', label: 'Paramètres', icon: Settings },
     ];
@@ -77,6 +81,8 @@ export default function SidebarAgent({ user, logout }) {
                 return <SettingsContent />;
             case 'profile':
                 return <ProfileContent user={user} />;
+            case 'locations':
+                return <GPSTracker />;
             default:
                 return <MapContent />;
         }
@@ -151,6 +157,9 @@ export default function SidebarAgent({ user, logout }) {
                                 }
                 `}
                             >
+                                {isActive&&(
+                                    <div className="bg-green-500 w-3 h-3 rounded-full absolute top-0 right-0"></div>
+                                )}
                                 <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-inner transition-transform duration-300 hover:scale-105">
                                     {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </div>
@@ -193,6 +202,9 @@ export default function SidebarAgent({ user, logout }) {
                             animationFillMode: 'both',
                         }}
                     >
+                        {isActive&&(
+                            <div className="bg-green-500 w-3 h-3 rounded-full absolute top-0 right-0"></div>
+                        )}
                         <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-transform duration-300 hover:scale-110">
                             {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>

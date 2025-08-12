@@ -4,7 +4,7 @@ import { useZone } from "@/hooks/features/zone/useZone.js";
 import ZoneForm from "@/components/features/map/ui/ZoneForm.jsx";
 import ZonePanel from "@/components/features/map/ui/ZonePanel.jsx";
 import ZonePanelToggle from "@/components/features/map/ui/ZonePanelToggle.jsx";
-import {isPointInPolygon} from "@/utils/geoUtils.js";
+import { isPointInPolygon } from "@/utils/geoUtils.js";
 
 /**
  * Composant principal de la carte.
@@ -12,6 +12,7 @@ import {isPointInPolygon} from "@/utils/geoUtils.js";
  * - Permet de créer/éditer/supprimer des zones (clients uniquement)
  * - Permet de placer des employés sur la carte via drag & drop (clients uniquement)
  * - Gère l'affichage du panneau des zones et du formulaire de zone
+ * - Inclut une fonctionnalité de géolocalisation
  */
 const MapView = ({
                      mapRef,
@@ -33,6 +34,7 @@ const MapView = ({
     const drawControlRef = useRef(null);
     const drawnItemsRef = useRef(null);
     const baseMapsRef = useRef({});
+    const userLocationMarkerRef = useRef(null);
 
     // États
     const [mapIsReady, setMapIsReady] = useState(false);
@@ -45,8 +47,9 @@ const MapView = ({
     const [isDragOver, setIsDragOver] = useState(false);
     const [dropPosition, setDropPosition] = useState(null);
     const [isValidDropLocation, setIsValidDropLocation] = useState(true);
-    // État pour les agents temporaires
     const [tempAssignedAgents, setTempAssignedAgents] = useState([]);
+    const [userLocation, setUserLocation] = useState(null);
+    const [geolocationError, setGeolocationError] = useState(null);
 
     const { user } = useAuth();
     const { sendZone, isLoading, error, success } = useZone();
@@ -81,6 +84,82 @@ const MapView = ({
             'pending': '#eab308'
         };
         return statusMap[status?.toLowerCase()] || '#eab308';
+    };
+
+    // Gestion de la géolocalisation
+    const handleGeolocation = () => {
+        if (!navigator.geolocation) {
+            setGeolocationError("La géolocalisation n'est pas supportée par ce navigateur.");
+            return;
+        }
+
+        setGeolocationError(null);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                const newPosition = { lat: latitude, lng: longitude };
+                setUserLocation(newPosition);
+
+                if (mapInstanceRef.current) {
+                    // Centrer la carte sur la position de l'utilisateur
+                    mapInstanceRef.current.setView([latitude, longitude], 16);
+
+                    // Supprimer l'ancien marqueur s'il existe
+                    if (userLocationMarkerRef.current) {
+                        mapInstanceRef.current.removeLayer(userLocationMarkerRef.current);
+                    }
+
+                    // Créer un nouveau marqueur pour la position de l'utilisateur
+                    const userIcon = window.L.divIcon({
+                        html: `
+                            <div style="
+                                background-color: #3b82f6;
+                                width: 24px; 
+                                height: 24px; 
+                                border-radius: 50%;
+                                border: 2px solid white;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" viewBox="0 0 24 24">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                </svg>
+                            </div>
+                        `,
+                        className: '',
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    });
+
+                    userLocationMarkerRef.current = window.L.marker([latitude, longitude], { icon: userIcon })
+                        .addTo(mapInstanceRef.current)
+                        .bindPopup('Votre position actuelle')
+                        .openPopup();
+                }
+            },
+            (error) => {
+                let errorMessage = "Impossible d'obtenir votre position.";
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = "Permission de géolocalisation refusée.";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = "Position indisponible.";
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = "Délai d'attente dépassé pour la géolocalisation.";
+                        break;
+                }
+                setGeolocationError(errorMessage);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
     };
 
     // Initialisation de la carte
@@ -710,8 +789,18 @@ const MapView = ({
         >
             <div ref={mapRef} className="w-full h-full"></div>
 
-            {isZoneLocked && (
-                <div className="absolute top-3 right-16 flex gap-2 z-[999]">
+            {/* Bouton de géolocalisation */}
+            <div className="absolute top-3 right-16 flex gap-2 z-[999]">
+                <button
+                    onClick={handleGeolocation}
+                    className="bg-white p-2 rounded hover:bg-gray-100 flex items-center shadow-md"
+                    title="Localiser ma position"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                </button>
+                {isZoneLocked && (
                     <button
                         onClick={unlockView}
                         className="bg-white p-2 rounded hover:bg-gray-100 flex items-center shadow-md"
@@ -721,6 +810,13 @@ const MapView = ({
                             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                         </svg>
                     </button>
+                )}
+            </div>
+
+            {/* Affichage des erreurs de géolocalisation */}
+            {geolocationError && (
+                <div className="absolute top-16 right-16 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded z-[1000]">
+                    {geolocationError}
                 </div>
             )}
 

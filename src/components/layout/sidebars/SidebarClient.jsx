@@ -171,7 +171,7 @@ export default function SidebarClient({ user, logout }) {
             </div>
 
             {/* Main content */}
-            <div className="flex-1 p-4 lg:p-8">
+            <div className="flex-1 p-2 lg:p-8">
                 <div className="bg-white rounded-2xl shadow-sm h-full p-4 lg:p-8 relative overflow-auto content-transition">
                     {renderContent()}
                 </div>

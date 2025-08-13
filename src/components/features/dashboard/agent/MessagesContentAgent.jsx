@@ -364,9 +364,9 @@ export default function MessagesContentAgent() {
                         </div>
 
                         {/* Input message */}
-                        <div className="bg-white border-t border-gray-100 px-4 lg:px-6 py-3 lg:py-4">
-                            <form onSubmit={handleSendMessage} className="flex gap-2 lg:gap-3">
-                                <input
+                        <div className="bg-white border-t flex justify-end border-gray-100 px-4 lg:px-6 py-3 lg:py-4">
+                            <form onSubmit={handleSendMessage} className="flex w-[85%] lg:w-full gap-2 lg:gap-3">
+                            <input
                                     type="text"
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}

@@ -29,7 +29,7 @@ const ContactPage = () => {
         setResult("Envoi en cours...");
 
         const formDataToSend = new FormData();
-        formDataToSend.append("access_key", "YOUR_ACCESS_KEY_HERE");
+        formDataToSend.append("access_key", "d10b68c3-ac7f-4fe1-b93d-6c4c1bca19a6");
         formDataToSend.append("name", formData.name);
         formDataToSend.append("email", formData.email);
         formDataToSend.append("phone", formData.phone);

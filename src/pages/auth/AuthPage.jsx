@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import logo from "../../assets/logo128-U.png";
-import {useAuth} from "@/context/AuthContext.jsx";
+import { useAuth } from "@/context/AuthContext.jsx";
 import BackButtonHome from "@/components/common/navigation/BackHomeButton.jsx";
 import InputField from "@/components/common/ui/InputField.jsx";
 import PasswordInputField from "@/components/common/ui/PasswordInputField.jsx";
@@ -72,7 +72,8 @@ const LoadingSpinner = () => (
 
 const AuthPage = () => {
     const navigate = useNavigate();
-    const { login, register, isLoading, error, clearError } = useAuth();
+    const location = useLocation();
+    const { login, register, isLoading, error, clearError, intendedUrl, setIntendedRedirect } = useAuth();
     const [isRightPanelActive, setIsRightPanelActive] = useState(false);
     const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
     const [notification, setNotification] = useState({ show: false, type: '', message: '' });
@@ -92,6 +93,15 @@ const AuthPage = () => {
         rememberMe: false
     });
     const [loginErrors, setLoginErrors] = useState({});
+
+    // Check for intended URL in query parameters on component mount
+    useEffect(() => {
+        const queryParams = new URLSearchParams(location.search);
+        const intended = queryParams.get('intended');
+        if (intended) {
+            setIntendedRedirect(intended);
+        }
+    }, [location.search, setIntendedRedirect]);
 
     // Show notification when error changes
     useEffect(() => {
@@ -206,7 +216,6 @@ const AuthPage = () => {
         }
     }, [registerForm, register, validateField, showNotification]);
 
-    // Uniquement la partie handleLoginSubmit à modifier
     const handleLoginSubmit = useCallback(async (e) => {
         e.preventDefault();
         const errors = {};
@@ -227,19 +236,24 @@ const AuthPage = () => {
             if (result.success) {
                 showNotification('success', `Connexion réussie avec ${loginForm.email}!`);
 
-                // Redirection basée sur le rôle
+                // Redirect based on intendedUrl or role
                 setTimeout(() => {
-                    switch(result.role) {
-                        case 'admin':
-                            navigate('/admin/dashboard');
-                            break;
-                        case 'agent':
-                            navigate('/agent/dashboard');
-                            break;
-                        case 'client':
-                        default:
-                            navigate('/client/dashboard');
-                            break;
+                    if (intendedUrl) {
+                        navigate(intendedUrl);
+                        setIntendedRedirect(null); // Clear intended URL after redirect
+                    } else {
+                        switch (result.role) {
+                            case 'admin':
+                                navigate('/admin/dashboard');
+                                break;
+                            case 'agent':
+                                navigate('/agent/dashboard');
+                                break;
+                            case 'client':
+                            default:
+                                navigate('/client/dashboard');
+                                break;
+                        }
                     }
                 }, 1500);
             } else if (result.details) {
@@ -248,7 +262,7 @@ const AuthPage = () => {
         } catch (err) {
             showNotification('error', 'Une erreur est survenue lors de la connexion');
         }
-    }, [loginForm, login, navigate, validateField, showNotification]);
+    }, [loginForm, login, navigate, validateField, showNotification, intendedUrl, setIntendedRedirect]);
 
     // Toggle between login/register on mobile
     const togglePanel = useCallback(() => {

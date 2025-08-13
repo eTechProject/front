@@ -11,7 +11,7 @@ import {
     Settings,
     LogOut,
     ChartNoAxesGantt,
-    X,
+    X, Package,
 } from 'lucide-react';
 import DashboardContent from "@/components/features/dashboard/admin/DashboardContent.jsx";
 import AgentsContent from "@/components/features/dashboard/admin/AgentsContent.jsx";
@@ -21,6 +21,7 @@ import ReportsContent from "@/components/features/dashboard/admin/ReportsContent
 import SettingsContent from "@/components/features/shared/SettingsContent.jsx";
 import ProfileContent from "@/components/features/shared/ProfileContent.jsx";
 import Tooltip from "@/components/common/ui/Tooltip.jsx";
+import PackContent from "@/components/features/dashboard/admin/PackContent.jsx";
 
 
 export default function AdminSidebar({ user, logout }) {
@@ -37,6 +38,7 @@ export default function AdminSidebar({ user, logout }) {
         { id: 'clients', label: 'Clients', icon: UserRound },
         { id: 'orders', label: 'Commandes', icon: ClipboardList },
         { id: 'reports', label: 'Rapports', icon: BarChart2 },
+        { id: 'packs', label: 'Packs', icon: Package },
         { id: 'settings', label: 'Paramètres', icon: Settings },
     ];
 
@@ -100,6 +102,8 @@ export default function AdminSidebar({ user, logout }) {
                 return <ReportsContent />;
             case 'settings':
                 return <SettingsContent />;
+            case 'packs':
+                return <PackContent />
             case 'profile':
                 return <ProfileContent user={user} />;
             default:

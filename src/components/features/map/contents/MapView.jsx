@@ -29,8 +29,8 @@ const MapView = ({
                  }) => {
     // Références
     const mapInstanceRef = useRef(null);
-    const markersRef = useRef([]);
-    const zoneAgentMarkersRef = useRef([]);
+    const markersRef = useRef([]); // Structure: [{employeeId, marker, employee}, ...]
+    const zoneAgentMarkersRef = useRef([]); // Structure: [{agentId, marker, agent}, ...]
     const drawControlRef = useRef(null);
     const drawnItemsRef = useRef(null);
     const baseMapsRef = useRef({});
@@ -58,6 +58,25 @@ const MapView = ({
     const MAX_ZOOM = 19;
     const INITIAL_ZOOM = 13;
     const INITIAL_CENTER = [-18.9146, 47.5309]; // Antananarivo
+
+    // Ajouter les styles d'animation pour les marqueurs
+    useEffect(() => {
+        if (!document.getElementById('marker-animations')) {
+            const style = document.createElement('style');
+            style.id = 'marker-animations';
+            style.textContent = `
+                @keyframes pulse {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.15); }
+                    100% { transform: scale(1); }
+                }
+                .marker-updating {
+                    animation: pulse 1s ease-in-out;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }, []);
 
     // État pour le formulaire de zone
     const [zoneFormData, setZoneFormData] = useState({
@@ -392,123 +411,279 @@ const MapView = ({
         }
     };
 
-    // Ajout des agents de zone à la carte
+    // Ajout des agents de zone à la carte avec mise à jour optimisée
     const addZoneAgentsToMap = () => {
         if (!mapInstanceRef.current) return;
-
-        // Nettoyage des marqueurs existants
-        zoneAgentMarkersRef.current.forEach(marker => {
-            if (mapInstanceRef.current.hasLayer(marker)) {
-                mapInstanceRef.current.removeLayer(marker);
-            }
-        });
-        zoneAgentMarkersRef.current = [];
 
         // Utiliser tous les agents (officiels + temporaires)
         const allAgents = getAllZoneAgents();
 
+        // Créer une map des agents actuels pour comparaison
+        const currentAgentIds = new Set(allAgents.map(agent => agent.id || agent.tempId));
+        
+        // Supprimer les marqueurs des agents qui ne sont plus présents
+        zoneAgentMarkersRef.current = zoneAgentMarkersRef.current.filter(markerData => {
+            if (!currentAgentIds.has(markerData.agentId)) {
+                if (mapInstanceRef.current.hasLayer(markerData.marker)) {
+                    mapInstanceRef.current.removeLayer(markerData.marker);
+                }
+                return false;
+            }
+            return true;
+        });
+
+        // Créer une map des marqueurs existants
+        const existingMarkers = new Map(
+            zoneAgentMarkersRef.current.map(markerData => [markerData.agentId, markerData])
+        );
+
         allAgents.forEach(agent => {
             try {
                 if (!agent?.name || !agent.position) return;
+                
+                const agentId = agent.id || agent.tempId;
                 const position = [agent.position.lat, agent.position.lng];
                 const agentColor = agent.routeColor || '#' + Math.floor(Math.random() * 16777215).toString(16);
-
-                const customIcon = window.L.divIcon({
-                    html: `<div style="
-                        background-color: ${agentColor};
-                        width: 32px; height: 32px; border-radius: 50%;
-                        display: flex; align-items: center; justify-content: center;
-                        color: white; font-weight: bold; font-size: 12px;
-                        border: 2px solid white;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                        ${agent.isTemporary ? 'opacity: 0.8; border-color: #fbbf24;' : ''}
-                    ">${agent.avatar}</div>`,
-                    className: '',
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16]
-                });
-
-                const marker = window.L.marker(position, { icon: customIcon })
-                    .addTo(mapInstanceRef.current);
-
-                const statusLabel = agent.isTemporary ? 'En cours d\'assignation...' : agent.status;
-                const statusColor = agent.isTemporary ? '#fbbf24' : getStatusColorHex(agent.status);
-
-                marker.bindPopup(`
-                    <div style="text-align: center; padding: 8px;">
-                        <strong>${agent.name}</strong><br>
-                        <small>${agent.role || 'Agent assigné'}</small><br>
-                        <span style="
-                            background: ${statusColor};
-                            color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;
-                        ">${statusLabel}</span>
-                        ${agent.taskDescription ? `<br><small class="text-gray-500">${agent.taskDescription}</small>` : ''}
-                        ${agent.isTemporary ? '<br><small class="text-orange-600">⏳ Assignation en cours</small>' : ''}
-                    </div>
-                `);
-
-                marker.on('click', () => {
-                    if (handleEmployeeClick) {
-                        handleEmployeeClick(agent);
+                
+                const existingMarkerData = existingMarkers.get(agentId);
+                
+                if (existingMarkerData) {
+                    // Mettre à jour la position du marqueur existant avec animation
+                    const currentLatLng = existingMarkerData.marker.getLatLng();
+                    const newLatLng = window.L.latLng(position[0], position[1]);
+                    
+                    // Vérifier si la position a vraiment changé
+                    const hasPositionChanged = Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 || 
+                                             Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001;
+                    
+                    if (hasPositionChanged) {
+                        // Animation fluide de la position
+                        animateMarkerToPosition(existingMarkerData.marker, newLatLng);
+                        console.log(`📍 Position updated for agent ${agent.name}:`, position);
                     }
-                });
+                    
+                    // Mettre à jour les données de l'agent
+                    existingMarkerData.agent = agent;
+                    
+                    // Mettre à jour le popup si nécessaire
+                    updateMarkerPopup(existingMarkerData.marker, agent);
+                    
+                } else {
+                    // Créer un nouveau marqueur
+                    const customIcon = window.L.divIcon({
+                        html: `<div style="
+                            background-color: ${agentColor};
+                            width: 32px; height: 32px; border-radius: 50%;
+                            display: flex; align-items: center; justify-content: center;
+                            color: white; font-weight: bold; font-size: 12px;
+                            border: 2px solid white;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                            ${agent.isTemporary ? 'opacity: 0.8; border-color: #fbbf24;' : ''}
+                            transition: all 0.3s ease;
+                        ">${agent.avatar}</div>`,
+                        className: '',
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16]
+                    });
 
-                zoneAgentMarkersRef.current.push(marker);
+                    const marker = window.L.marker(position, { icon: customIcon })
+                        .addTo(mapInstanceRef.current);
+
+                    updateMarkerPopup(marker, agent);
+
+                    marker.on('click', () => {
+                        if (handleEmployeeClick) {
+                            handleEmployeeClick(agent);
+                        }
+                    });
+
+                    // Ajouter le nouveau marqueur à la référence
+                    zoneAgentMarkersRef.current.push({
+                        agentId: agentId,
+                        marker: marker,
+                        agent: agent
+                    });
+
+                    console.log(`✨ New marker created for agent ${agent.name}:`, position);
+                }
             } catch (error) {
                 console.error("Erreur lors de l'ajout de l'agent sur la carte:", error);
             }
         });
     };
 
-    // Ajout des employés à la carte
+    // Fonction pour animer le déplacement d'un marqueur vers une nouvelle position
+    const animateMarkerToPosition = (marker, newLatLng, duration = 1000) => {
+        const startLatLng = marker.getLatLng();
+        const startTime = Date.now();
+        
+        // Ajouter un effet de pulsation pendant l'animation
+        const markerElement = marker.getElement();
+        if (markerElement) {
+            const iconDiv = markerElement.querySelector('div');
+            if (iconDiv) {
+                iconDiv.classList.add('marker-updating');
+            }
+        }
+        
+        // Fonction d'interpolation (easing)
+        const easeInOutQuad = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            if (progress < 1) {
+                const easedProgress = easeInOutQuad(progress);
+                const currentLat = startLatLng.lat + (newLatLng.lat - startLatLng.lat) * easedProgress;
+                const currentLng = startLatLng.lng + (newLatLng.lng - startLatLng.lng) * easedProgress;
+                
+                marker.setLatLng([currentLat, currentLng]);
+                requestAnimationFrame(animate);
+            } else {
+                marker.setLatLng(newLatLng);
+                
+                // Retirer l'effet de pulsation après un délai
+                setTimeout(() => {
+                    if (markerElement) {
+                        const iconDiv = markerElement.querySelector('div');
+                        if (iconDiv) {
+                            iconDiv.classList.remove('marker-updating');
+                        }
+                    }
+                }, 500);
+            }
+        };
+        
+        requestAnimationFrame(animate);
+    };
+
+    // Fonction pour mettre à jour le popup d'un marqueur
+    const updateMarkerPopup = (marker, agent) => {
+        const statusLabel = agent.isTemporary ? 'En cours d\'assignation...' : agent.status;
+        const statusColor = agent.isTemporary ? '#fbbf24' : getStatusColorHex(agent.status);
+        
+        const popupContent = `
+            <div style="text-align: center; padding: 8px;">
+                <strong>${agent.name}</strong><br>
+                <small>${agent.role || 'Agent assigné'}</small><br>
+                <span style="
+                    background: ${statusColor};
+                    color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;
+                ">${statusLabel}</span>
+                ${agent.taskDescription ? `<br><small class="text-gray-500">${agent.taskDescription}</small>` : ''}
+                ${agent.isTemporary ? '<br><small class="text-orange-600">⏳ Assignation en cours</small>' : ''}
+                ${agent.lastLocationUpdate ? `<br><small class="text-gray-400">Dernière mise à jour: ${new Date(agent.lastLocationUpdate).toLocaleTimeString()}</small>` : ''}
+            </div>
+        `;
+        
+        marker.bindPopup(popupContent);
+    };
+
+    // Ajout des employés à la carte avec mise à jour optimisée
     const addEmployeeMarkers = () => {
         if (!window.L || !mapInstanceRef.current) return;
 
-        markersRef.current.forEach(marker => {
-            if (mapInstanceRef.current.hasLayer(marker)) {
-                mapInstanceRef.current.removeLayer(marker);
+        // Créer une map des employés actuels pour comparaison
+        const currentEmployeeIds = new Set(employees.map(employee => employee.id).filter(Boolean));
+        
+        // Supprimer les marqueurs des employés qui ne sont plus présents
+        markersRef.current = markersRef.current.filter(markerData => {
+            if (!currentEmployeeIds.has(markerData.employeeId)) {
+                if (mapInstanceRef.current.hasLayer(markerData.marker)) {
+                    mapInstanceRef.current.removeLayer(markerData.marker);
+                }
+                return false;
             }
+            return true;
         });
-        markersRef.current = [];
+
+        // Créer une map des marqueurs existants
+        const existingMarkers = new Map(
+            markersRef.current.map(markerData => [markerData.employeeId, markerData])
+        );
 
         employees.forEach(employee => {
             if (!employee.position) return;
-            const customIcon = window.L.divIcon({
-                html: `<div style="
-                    background-color: ${employee.routeColor || '#888'};
-                    width: 32px; height: 32px; border-radius: 50%;
-                    display: flex; align-items: center; justify-content: center;
-                    color: white; font-weight: bold; font-size: 12px;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                ">${employee.avatar || ''}</div>`,
-                className: '',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
-            });
+            
+            const existingMarkerData = existingMarkers.get(employee.id);
+            
+            if (existingMarkerData) {
+                // Mettre à jour la position du marqueur existant avec animation
+                const currentLatLng = existingMarkerData.marker.getLatLng();
+                const newLatLng = window.L.latLng(employee.position.lat, employee.position.lng);
+                
+                // Vérifier si la position a vraiment changé
+                const hasPositionChanged = Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 || 
+                                         Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001;
+                
+                if (hasPositionChanged) {
+                    // Animation fluide de la position
+                    animateMarkerToPosition(existingMarkerData.marker, newLatLng);
+                    console.log(`📍 Position updated for employee ${employee.name}:`, [employee.position.lat, employee.position.lng]);
+                }
+                
+                // Mettre à jour les données de l'employé
+                existingMarkerData.employee = employee;
+                
+                // Mettre à jour le popup si nécessaire
+                updateEmployeeMarkerPopup(existingMarkerData.marker, employee);
+                
+            } else {
+                // Créer un nouveau marqueur
+                const customIcon = window.L.divIcon({
+                    html: `<div style="
+                        background-color: ${employee.routeColor || '#888'};
+                        width: 32px; height: 32px; border-radius: 50%;
+                        display: flex; align-items: center; justify-content: center;
+                        color: white; font-weight: bold; font-size: 12px;
+                        border: 2px solid white;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        transition: all 0.3s ease;
+                    ">${employee.avatar || ''}</div>`,
+                    className: '',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
 
-            const marker = window.L.marker(
-                [employee.position.lat, employee.position.lng],
-                { icon: customIcon }
-            ).addTo(mapInstanceRef.current);
+                const marker = window.L.marker(
+                    [employee.position.lat, employee.position.lng],
+                    { icon: customIcon }
+                ).addTo(mapInstanceRef.current);
 
-            marker.bindPopup(`
-                <div style="text-align: center; padding: 8px;">
-                    <strong>${employee.name}</strong><br>
-                    <small>${employee.role}</small><br>
-                    <span style="
-                        background: ${getStatusColorHex(employee.status)};
-                        color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;
-                    ">${employee.status}</span>
-                </div>
-            `);
+                updateEmployeeMarkerPopup(marker, employee);
 
-            marker.on('click', () => {
-                handleEmployeeClick(employee);
-            });
+                marker.on('click', () => {
+                    handleEmployeeClick(employee);
+                });
 
-            markersRef.current.push(marker);
+                // Ajouter le nouveau marqueur à la référence
+                markersRef.current.push({
+                    employeeId: employee.id,
+                    marker: marker,
+                    employee: employee
+                });
+
+                console.log(`✨ New marker created for employee ${employee.name}:`, [employee.position.lat, employee.position.lng]);
+            }
         });
+    };
+
+    // Fonction pour mettre à jour le popup d'un marqueur d'employé
+    const updateEmployeeMarkerPopup = (marker, employee) => {
+        const popupContent = `
+            <div style="text-align: center; padding: 8px;">
+                <strong>${employee.name}</strong><br>
+                <small>${employee.role}</small><br>
+                <span style="
+                    background: ${getStatusColorHex(employee.status)};
+                    color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;
+                ">${employee.status}</span>
+                ${employee.lastLocationUpdate ? `<br><small class="text-gray-400">Dernière mise à jour: ${new Date(employee.lastLocationUpdate).toLocaleTimeString()}</small>` : ''}
+            </div>
+        `;
+        
+        marker.bindPopup(popupContent);
     };
 
     // Gestion du drag & drop
@@ -746,12 +921,14 @@ const MapView = ({
 
     useEffect(() => {
         if (mapIsReady) {
+            console.log('🗺️ Zone agents changed, updating map markers:', zoneAssignedAgents.length, 'agents');
             addZoneAgentsToMap();
         }
     }, [zoneAssignedAgents, tempAssignedAgents, mapIsReady]);
 
     useEffect(() => {
         if (mapInstanceRef.current) {
+            console.log('🗺️ Employees changed, updating map markers:', employees.length, 'employees');
             addEmployeeMarkers();
         }
     }, [employees]);

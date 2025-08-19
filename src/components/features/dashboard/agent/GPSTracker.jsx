@@ -1,9 +1,9 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { MapPin } from 'lucide-react';
 import { GeolocationContext } from '@/context/GeolocationContext.jsx';
 
 const GPSTracker = () => {
-    const { location, error, isActive, toggleTracking } = useContext(GeolocationContext);
+    const { location, error, isActive, isUploading, currentTask, toggleTracking } = useContext(GeolocationContext);
 
     return (
         <div className="h-full flex items-center justify-center p-8">
@@ -56,6 +56,19 @@ const GPSTracker = () => {
                         <div className="text-xs text-gray-500 mt-2 space-y-1">
                             <div>{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</div>
                             <div>±{location.accuracy?.toFixed(0)}m</div>
+                            <div className="mt-2 flex items-center justify-center gap-1">
+                                {isUploading ? (
+                                    <div className="flex items-center gap-1 text-blue-500 font-medium">
+                                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                        <span>Envoi en cours...</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-1 text-green-500">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                        <span>Synchronisé</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -70,7 +83,13 @@ const GPSTracker = () => {
                 <div className="text-xs text-gray-400 text-center max-w-xs">
                     Cliquez pour démarrer/arrêter le suivi GPS
                     <br />
-                    <span className="text-gray-300">Coordonnées visibles dans la console</span>
+                    <span className="text-gray-300">Position envoyée toutes les 5 secondes</span>
+                    {currentTask && (
+                        <>
+                            <br />
+                            <span className="text-blue-400">Tâche: {currentTask.id || currentTask.taskId || 'N/A'}</span>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

@@ -18,75 +18,105 @@ import { useEffect, useRef, useCallback } from 'react';
         }) {
             const eventSourceRef = useRef(null);
             const reconnectTimeoutRef = useRef(null);
+            const isConnectingRef = useRef(false);
 
             // Callback stabilisé pour la gestion des messages
             const handleMessage = useCallback((event) => {
+                console.log('📨 Message Mercure reçu:', event);
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('📨 Données parsées:', data);
                     onMessage?.(data);
                 } catch (error) {
                     console.error('Erreur lors du parsing du message Mercure:', error);
                 }
             }, [onMessage]);
 
-            // Fonction de nettoyage
-            const cleanup = useCallback(() => {
-                if (reconnectTimeoutRef.current) {
-                    clearTimeout(reconnectTimeoutRef.current);
-                    reconnectTimeoutRef.current = null;
-                }
-                if (eventSourceRef.current) {
-                    eventSourceRef.current.close();
-                    eventSourceRef.current = null;
-                }
-            }, []);
-
             useEffect(() => {
                 // Validation des paramètres requis
                 if (!topic || !mercureUrl || !onMessage) {
                     console.log('Abonnement Mercure ignoré: paramètres manquants');
-                    return cleanup;
+                    return;
                 }
 
-                cleanup();
+                // Éviter les connexions multiples
+                if (isConnectingRef.current) {
+                    return;
+                }
 
-                try {
-                    const url = new URL(mercureUrl);
-                    url.searchParams.append('topic', topic);
+                // Fonction de nettoyage locale
+                const cleanup = () => {
+                    if (reconnectTimeoutRef.current) {
+                        clearTimeout(reconnectTimeoutRef.current);
+                        reconnectTimeoutRef.current = null;
+                    }
+                    if (eventSourceRef.current) {
+                        eventSourceRef.current.close();
+                        eventSourceRef.current = null;
+                    }
+                    isConnectingRef.current = false;
+                };
 
-                    console.log(`Connexion Mercure au topic: ${topic}`);
+                // Fonction de connexion
+                const connect = () => {
+                    if (isConnectingRef.current) return;
+                    
+                    isConnectingRef.current = true;
+                    cleanup();
 
-                    // Options EventSource avec authentification si nécessaire
-                    const options = token ? {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    } : undefined;
+                    try {
+                        const url = new URL(mercureUrl);
+                        url.searchParams.append('topic', topic);
 
-                    const eventSource = new EventSource(url, options);
+                        console.log(`Connexion Mercure au topic: ${topic}`);
+                        console.log('Token utilisé:', token ? 'Oui' : 'Non');
+                        console.log('URL complète:', url.toString());
 
-                    // Gestionnaires d'événements
-                    eventSource.onopen = () => console.log('Connexion Mercure établie');
-                    eventSource.onmessage = handleMessage;
-                    eventSource.onerror = (error) => {
-                        console.error('Erreur de connexion Mercure:', error);
+                        // Options EventSource avec authentification si nécessaire
+                        const options = token ? {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        } : undefined;
 
-                        // Tentative de reconnexion après délai
-                        reconnectTimeoutRef.current = setTimeout(() => {
+                        const eventSource = new EventSource(url, options);
+
+                        // Gestionnaires d'événements
+                        eventSource.onopen = () => {
+                            console.log('Connexion Mercure établie');
+                            isConnectingRef.current = false;
+                        };
+                        
+                        eventSource.onmessage = handleMessage;
+                        
+                        eventSource.onerror = (error) => {
+                            console.error('Erreur de connexion Mercure:', error);
+                            isConnectingRef.current = false;
+
+                            // Fermer la connexion défaillante
                             if (eventSourceRef.current === eventSource) {
-                                console.log('Tentative de reconnexion Mercure...');
-                                cleanup();
+                                eventSource.close();
+                                eventSourceRef.current = null;
                             }
-                        }, reconnectDelay);
-                    };
 
-                    eventSourceRef.current = eventSource;
+                            // Tentative de reconnexion après délai
+                            if (!reconnectTimeoutRef.current) {
+                                reconnectTimeoutRef.current = setTimeout(() => {
+                                    reconnectTimeoutRef.current = null;
+                                    console.log('Tentative de reconnexion Mercure...');
+                                    connect();
+                                }, reconnectDelay);
+                            }
+                        };
 
-                } catch (error) {
-                    console.error('Erreur lors de la création de la connexion Mercure:', error);
-                }
+                        eventSourceRef.current = eventSource;
+
+                    } catch (error) {
+                        console.error('Erreur lors de la création de la connexion Mercure:', error);
+                        isConnectingRef.current = false;
+                    }
+                };
+
+                connect();
 
                 return cleanup;
-            }, [topic, mercureUrl, token, handleMessage, cleanup, reconnectDelay]);
-
-            // Nettoyage au démontage
-            useEffect(() => cleanup, [cleanup]);
+            }, [topic, mercureUrl, token, handleMessage, reconnectDelay]);
         }

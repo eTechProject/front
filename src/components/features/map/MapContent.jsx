@@ -1,10 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Menu, Info, X, Check } from 'lucide-react';
 import { useAuth } from "@/context/AuthContext.jsx";
 import { useZone } from "@/hooks/features/zone/useZone.js";
 import EmployeeCard from "@/components/features/map/ui/EmployeeCard.jsx";
 import MapView from "@/components/features/map/contents/MapView.jsx";
 import EmployeeList from "@/components/features/map/contents/EmployeeList.jsx";
+import useMercureSubscription from "@/hooks/features/messaging/useMercureSubscription.js";
+import { messageService } from "@/services/features/messaging/messageService.js";
 
 const MapContent = () => {
     // UI States
@@ -39,6 +41,11 @@ const MapContent = () => {
 
     // Zone operations hook
     const { getAvailableAgent, sendAssignment, getZone, getZoneByAgent, isLoading, error, success } = useZone();
+
+    // Mercure configuration
+    const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:3000/.well-known/mercure';
+    const [mercureToken, setMercureToken] = useState(null);
+    const [locationTopic, setLocationTopic] = useState(null);
 
     // Format date to French locale
     const formatDate = (date) => date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -76,6 +83,86 @@ const MapContent = () => {
         return null;
     };
 
+    // Handle real-time location updates from Mercure
+    const handleLocationUpdate = useCallback((data) => {
+        try {
+            console.log('🔄 Received real-time location update:', data);
+            
+            // Extract location data from the payload
+            const { agent_id, latitude, longitude, accuracy, speed, battery_level, recorded_at, is_significant, reason } = data;
+            
+            if (!agent_id || latitude === undefined || longitude === undefined) {
+                console.warn('❌ Invalid location data received:', data);
+                return;
+            }
+
+            console.log(`📍 Processing location update for agent ID: ${agent_id}`);
+            console.log('📍 New position:', { latitude, longitude });
+            
+            let agentUpdated = false;
+            
+            // Update the assigned employees list with new position
+            setAssignedEmployees(prevEmployees => {
+                const updatedEmployees = prevEmployees.map(employee => {
+                    // Match by encrypted agent ID (agent_id from Mercure = employee.id from backend)
+                    if (employee.id === agent_id) {
+                        const newPosition = {
+                            lat: parseFloat(latitude),
+                            lng: parseFloat(longitude)
+                        };
+
+                        console.log(`✅ Updating position for agent ${employee.name} (Encrypted ID: ${employee.id}):`, newPosition);
+                        agentUpdated = true;
+
+                        return {
+                            ...employee,
+                            position: newPosition,
+                            lastLocationUpdate: recorded_at,
+                            accuracy: accuracy,
+                            speed: speed,
+                            batteryLevel: battery_level,
+                            isSignificant: is_significant,
+                            locationReason: reason
+                        };
+                    }
+                    return employee;
+                });
+                
+                return updatedEmployees;
+            });
+
+            // Also update zone assigned agents if needed
+            setZoneAssignedAgents(prevAgents => {
+                const updatedAgents = prevAgents.map(agent => {
+                    if (agent.id === agent_id) {
+                        console.log(`✅ Updating zone agent position for ${agent.name}`);
+                        agentUpdated = true;
+                        return {
+                            ...agent,
+                            position: {
+                                lat: parseFloat(latitude),
+                                lng: parseFloat(longitude)
+                            },
+                            lastLocationUpdate: recorded_at
+                        };
+                    }
+                    return agent;
+                });
+                
+                return updatedAgents;
+            });
+
+            if (!agentUpdated) {
+                console.log(`⚠️ No agent found with ID ${agent_id} to update`);
+            } else {
+                console.log(`🎯 Successfully processed location update for agent ID: ${agent_id}`);
+            }
+
+        } catch (error) {
+            console.error('❌ Error handling location update:', error);
+        }
+    }, []); // No dependencies needed since we use functional state updates
+
     // Load available agents from API (client only)
     useEffect(() => {
         if (user?.role !== "client") return;
@@ -91,7 +178,7 @@ const MapContent = () => {
                     role: 'Agent de terrain',
                     status: 'Disponible',
                     routeColor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
-                    position: null,
+                    position: agent.currentPosition,
                     phone: agent.user.phone || 'Non renseigné',
                 }));
 
@@ -119,10 +206,12 @@ const MapContent = () => {
             }
 
             if (result.success && result.data) {
+                console.log('Zone data received:', result.data);
                 setZoneData(result.data);
 
                 // Format assigned agents if available
                 if (result.data.assignedAgents?.length > 0) {
+                    console.log('Assigned agents from API:', result.data.assignedAgents);
                     const formattedZoneAgents = result.data.assignedAgents
                         .filter(assignedAgent => assignedAgent.agent?.user)
                         .map(assignedAgent => {
@@ -133,7 +222,15 @@ const MapContent = () => {
 
                             // Get position from task or current position
                             let position = null;
-                            if (assignedAgent.task?.assignPosition &&
+                            if (assignedAgent.currentPosition && 
+                                typeof assignedAgent.currentPosition === 'object' &&
+                                assignedAgent.currentPosition.latitude !== undefined && 
+                                assignedAgent.currentPosition.longitude !== undefined) {
+                                    position = {
+                                        lat: assignedAgent.currentPosition.latitude,
+                                        lng: assignedAgent.currentPosition.longitude,
+                                };
+                            } else  if (assignedAgent.task?.assignPosition &&
                                 Array.isArray(assignedAgent.task.assignPosition) &&
                                 assignedAgent.task.assignPosition.length === 2) {
                                 position = {
@@ -142,17 +239,10 @@ const MapContent = () => {
                                 };
                             } else if (assignedAgent.task?.description) {
                                 position = extractCoordinates(assignedAgent.task.description);
-                            } else if (assignedAgent.currentPosition &&
-                                Array.isArray(assignedAgent.currentPosition) &&
-                                assignedAgent.currentPosition.length === 2) {
-                                position = {
-                                    lat: assignedAgent.currentPosition[0],
-                                    lng: assignedAgent.currentPosition[1]
-                                };
                             }
 
                             return {
-                                id: agent.agentId,
+                                id: agent.agentId, // This is already encrypted (from backend)
                                 assignmentId: assignedAgent.id,
                                 name: name,
                                 avatar: initials,
@@ -191,6 +281,51 @@ const MapContent = () => {
 
         loadZoneData();
     }, [user?.userId, user?.role]);
+
+    // Setup Mercure token and location topic
+    useEffect(() => {
+        const setupMercureSubscription = async () => {
+            if (!zoneData?.serviceOrder?.id) return;
+
+            const orderId = zoneData.serviceOrder.id;
+            const expectedTopic = `order/${orderId}/agents/location`;
+
+            // Skip if we already have the correct token and topic for this order
+            if (locationTopic === expectedTopic && mercureToken) {
+                console.log('Mercure subscription already set up for this order');
+                return;
+            }
+
+            try {
+                // Get Mercure token
+                const tokenResult = await messageService.getMercureToken();
+                if (tokenResult.success) {
+                    setMercureToken(tokenResult.token);
+                    setLocationTopic(expectedTopic);
+                    
+                    console.log(`Setting up location tracking for topic: ${expectedTopic}`);
+                    console.log('Zone service order data:', zoneData.serviceOrder);
+                    console.log('Current assigned employees:', assignedEmployees.map(emp => ({ id: emp.id, name: emp.name })));
+                    console.log('Current zone assigned agents:', zoneAssignedAgents.map(agent => ({ id: agent.id, name: agent.name })));
+                } else {
+                    console.error('Failed to get Mercure token:', tokenResult.error);
+                }
+            } catch (error) {
+                console.error('Error setting up Mercure subscription:', error);
+            }
+        };
+
+        setupMercureSubscription();
+    }, [zoneData?.serviceOrder?.id, locationTopic, mercureToken]); // Include current state to avoid redundant calls
+
+    // Subscribe to location updates via Mercure
+    useMercureSubscription({
+        topic: locationTopic,
+        mercureUrl: MERCURE_URL,
+        token: mercureToken,
+        onMessage: handleLocationUpdate,
+        reconnectDelay: 3000
+    });
 
     // Show employee details card
     const handleEmployeeClick = (employee) => {

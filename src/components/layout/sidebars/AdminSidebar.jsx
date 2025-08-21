@@ -6,22 +6,22 @@ import {
     LayoutDashboard,
     ShieldUser,
     UserRound,
-    ClipboardList,
+    Wallet,
     BarChart2,
     Settings,
     LogOut,
     ChartNoAxesGantt,
-    X, Package,
+    X, Package,History
 } from 'lucide-react';
 import DashboardContent from "@/components/features/dashboard/admin/DashboardContent.jsx";
 import AgentsContent from "@/components/features/dashboard/admin/AgentsContent.jsx";
 import ClientsContent from "@/components/features/dashboard/admin/ClientsContent.jsx";
-import OrdersContent from "@/components/features/dashboard/admin/OrdersContent.jsx";
-import ReportsContent from "@/components/features/dashboard/admin/ReportsContent.jsx";
 import SettingsContent from "@/components/features/shared/SettingsContent.jsx";
 import ProfileContent from "@/components/features/shared/ProfileContent.jsx";
 import Tooltip from "@/components/common/ui/Tooltip.jsx";
 import PackContent from "@/components/features/dashboard/admin/PackContent.jsx";
+import SubscriptionContent from "@/components/features/dashboard/admin/SubscriptionContent.jsx";
+import PaymentContent from "@/components/features/dashboard/admin/PaymentContent.jsx";
 
 
 export default function AdminSidebar({ user, logout }) {
@@ -36,8 +36,8 @@ export default function AdminSidebar({ user, logout }) {
         { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
         { id: 'agents', label: 'Agents', icon: ShieldUser },
         { id: 'clients', label: 'Clients', icon: UserRound },
-        { id: 'orders', label: 'Commandes', icon: ClipboardList },
-        { id: 'reports', label: 'Rapports', icon: BarChart2 },
+        { id: 'subs', label: 'Abonnements', icon: Wallet },
+        { id: 'histories', label: 'Historiques', icon: History },
         { id: 'packs', label: 'Packs', icon: Package },
         { id: 'settings', label: 'Paramètres', icon: Settings },
     ];
@@ -96,10 +96,10 @@ export default function AdminSidebar({ user, logout }) {
                 return <AgentsContent />;
             case 'clients':
                 return <ClientsContent />;
-            case 'orders':
-                return <OrdersContent />;
-            case 'reports':
-                return <ReportsContent />;
+            case 'subs':
+                return <SubscriptionContent />;
+            case 'histories':
+                return <PaymentContent />;
             case 'settings':
                 return <SettingsContent />;
             case 'packs':

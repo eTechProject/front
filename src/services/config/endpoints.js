@@ -41,6 +41,14 @@ const ENDPOINTS = {
             PUBLIC_DETAIL: id => `/public/pack/${id}`,
             CREATE: '/admin/pack',
         },
+        PAYMENTS: {
+            LIST: '/admin/payments',
+            DETAIL: id => `/admin/payments/${id}`,
+            UPDATE_STATUS: id => `/admin/payment/${id}/status`,
+        },
+        PAYMENT_HISTORY: {
+            LIST: '/admin/payment-history',
+        },
     },
     ASSIGNMENT: {
         ASSIGN_AGENT: '/client/assign-agents',
@@ -52,6 +60,9 @@ const ENDPOINTS = {
         CONVERSATION: (senderId, receiverId) =>
             `/messages/conversation?sender_id=${senderId}&receiver_id=${receiverId}`,
         MERCURE_TOKEN: '/messages/mercure-token',
+    },
+    CLIENT: {
+        DASHBOARD: (clientId) => `/client/${clientId}/dashboard`,
     },
 };
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { PlusCircle, Trash2, Edit, Search, Eye, Package, X, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { PlusCircle, Trash2, Edit, Eye, Package, X, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePack } from "@/hooks/features/admin/usePack.js";
@@ -21,7 +21,7 @@ function Modal({ open, onClose, children }) {
     );
 }
 
-function Avatar({size = "h-10 w-10" }) {
+function Avatar({ size = "h-10 w-10" }) {
     return (
         <div className={`${size} rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-medium`}>
             <Package size={size.includes("12") ? 24 : 20} />
@@ -30,8 +30,6 @@ function Avatar({size = "h-10 w-10" }) {
 }
 
 export default function PackContent() {
-    const [searchTerm, setSearchTerm] = useState("");
-    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [modals, setModals] = useState({
         form: false,
@@ -61,22 +59,10 @@ export default function PackContent() {
     } = usePack();
 
     const limit = 20;
-    const isSearchMode = debouncedSearchTerm.length >= 3;
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (searchTerm.length >= 3 || searchTerm.length === 0) {
-                setDebouncedSearchTerm(searchTerm);
-                setCurrentPage(1);
-            }
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    useEffect(() => {
-        const params = isSearchMode ? { description: debouncedSearchTerm } : { page: currentPage, limit };
-        fetchPacks(params).then();
-    }, [fetchPacks, currentPage, debouncedSearchTerm]);
+    React.useEffect(() => {
+        fetchPacks({ page: currentPage, limit }).then();
+    }, [fetchPacks, currentPage]);
 
     const toggleModal = (modalName, state = null) => {
         setModals(prev => ({ ...prev, [modalName]: state ?? !prev[modalName] }));
@@ -120,21 +106,19 @@ export default function PackContent() {
         e.preventDefault();
         setFormErrors({});
         setIsSubmitting(true);
-
         const payload = {
             nbAgents: parseInt(form.nbAgents) || null,
             prix: parseFloat(form.prix) || null,
             description: form.descriptions.filter(d => d.trim() !== "").join(", "),
         };
-
         try {
             const res = modalMode === "ajouter"
                 ? await createPack(payload)
                 : await updatePack(selectedPack.id, payload);
-
             if (res.success) {
                 toast.success(modalMode === "ajouter" ? "Pack ajouté !" : "Modifications enregistrées !");
                 toggleModal("form", false);
+                fetchPacks({ page: currentPage, limit });
             } else {
                 if (res.details) setFormErrors(res.details);
                 toast.error(res.error || "Erreur lors de l'enregistrement");
@@ -153,6 +137,7 @@ export default function PackContent() {
             if (res.success) {
                 toast.success("Pack supprimé !");
                 toggleModal("delete", false);
+                fetchPacks({ page: currentPage, limit });
             } else {
                 toast.error(res.error || "Erreur lors de la suppression");
             }
@@ -198,7 +183,6 @@ export default function PackContent() {
                 <div className="flex flex-col items-center">
                     <Package size={48} className="text-gray-300 mb-4" />
                     <p className="text-lg font-medium">Aucun pack trouvé</p>
-                    <p className="text-sm">Essayez de modifier vos critères de recherche</p>
                 </div>
             </td>
         </tr>
@@ -217,30 +201,8 @@ export default function PackContent() {
                         <span>Ajouter un pack</span>
                     </button>
                 </div>
-
                 <div className="bg-white shadow-sm rounded-xl overflow-hidden">
-                    <div className="p-4 sm:p-6">
-                        <div className="relative w-full max-w-md">
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                <Search className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                                type="text"
-                                className="block w-full pl-10 pr-3 py-3 border border-gray-100 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
-                                placeholder="Rechercher par description... (min. 3 caractères)"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            {searchTerm.length > 0 && searchTerm.length < 3 && (
-                                <div className="absolute top-full left-0 mt-1 text-xs text-gray-500">
-                                    Tapez au moins 3 caractères pour rechercher
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
                     {error && <div className="p-8 text-center text-red-400">{error}</div>}
-
                     <div className="hidden lg:block overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
@@ -269,9 +231,9 @@ export default function PackContent() {
                                         <div className="text-sm text-gray-500 line-clamp-2">
                                             {pack.description?.split(", ").map((item, i) => (
                                                 <span key={i}>
-                                                    {i > 0 && ", "}
+                                                        {i > 0 && ", "}
                                                     {item}
-                                                </span>
+                                                    </span>
                                             )) || 'N/A'}
                                         </div>
                                     </td>
@@ -287,7 +249,6 @@ export default function PackContent() {
                             </tbody>
                         </table>
                     </div>
-
                     <div className="lg:hidden">
                         {packs.map((pack) => (
                             <div key={pack.id} className="p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors">
@@ -319,12 +280,10 @@ export default function PackContent() {
                                 <div className="flex flex-col items-center">
                                     <Package size={48} className="text-gray-300 mb-4" />
                                     <p className="text-lg font-medium">Aucun pack trouvé</p>
-                                    <p className="text-sm">Essayez de modifier vos critères de recherche</p>
                                 </div>
                             </div>
                         )}
                     </div>
-
                     <div className="px-4 sm:px-6 py-4 border-t bg-gray-50">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
                             <div className="text-sm text-gray-500 text-center sm:text-left">
@@ -335,14 +294,14 @@ export default function PackContent() {
                                 <button
                                     className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     onClick={handlePrevPage}
-                                    disabled={pagination.page <= 1 || isSearchMode}
+                                    disabled={pagination.page <= 1}
                                 >
                                     Précédent
                                 </button>
                                 <button
                                     className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     onClick={handleNextPage}
-                                    disabled={pagination.page >= pagination.pages || isSearchMode}
+                                    disabled={pagination.page >= pagination.pages}
                                 >
                                     Suivant
                                 </button>
@@ -351,13 +310,11 @@ export default function PackContent() {
                     </div>
                 </div>
             </div>
-
             <Modal open={modals.form} onClose={() => toggleModal("form", false)}>
                 <form onSubmit={handleFormSubmit} className="space-y-4">
                     <h2 className="text-xl font-semibold mb-4 pr-8">
                         {modalMode === "ajouter" ? "Ajouter un pack" : "Modifier le pack"}
                     </h2>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="sm:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Nombre d'agents</label>
@@ -371,7 +328,6 @@ export default function PackContent() {
                             />
                             {formErrors.nbAgents && <div className="text-xs text-red-500 mt-1">{formErrors.nbAgents}</div>}
                         </div>
-
                         <div className="sm:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Prix</label>
                             <input
@@ -385,7 +341,6 @@ export default function PackContent() {
                             />
                             {formErrors.prix && <div className="text-xs text-red-500 mt-1">{formErrors.prix}</div>}
                         </div>
-
                         <div className="sm:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Descriptions (une par ligne)
@@ -442,7 +397,6 @@ export default function PackContent() {
                             )}
                         </div>
                     </div>
-
                     <div className="pt-4 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
                         <button
                             type="button"
@@ -463,7 +417,6 @@ export default function PackContent() {
                     </div>
                 </form>
             </Modal>
-
             <Modal open={modals.details} onClose={() => toggleModal("details", false)}>
                 {selectedPack && (
                     <div className="space-y-4">
@@ -493,7 +446,6 @@ export default function PackContent() {
                     </div>
                 )}
             </Modal>
-
             <Modal open={modals.delete} onClose={() => toggleModal("delete", false)}>
                 <div className="space-y-4">
                     <h2 className="text-xl font-semibold mb-2 text-red-600 pr-8">Supprimer le pack</h2>

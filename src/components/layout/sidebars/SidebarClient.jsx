@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, {useState, useRef, useEffect} from 'react';
+import {Link} from 'react-router-dom';
 import logo from '@/assets/logo48.png';
 import './sidebar.css';
 import {
@@ -7,7 +7,7 @@ import {
     Settings,
     MessageSquareMore,
     ChartNoAxesGantt,
-    X,
+    X, LayoutDashboard, PiggyBank
 } from 'lucide-react';
 import NotificationsPopover from "@/components/features/shared/NotificationsPopover.jsx";
 import MapContent from "@/components/features/map/MapContent.jsx";
@@ -15,10 +15,11 @@ import ProfileContent from "@/components/features/shared/ProfileContent.jsx";
 import SettingsContent from "@/components/features/shared/SettingsContent.jsx";
 import MessagesContent from "@/components/features/dashboard/client/MessagesContent.jsx";
 import Tooltip from "@/components/common/ui/Tooltip.jsx";
+import DashboardContent from "@/components/features/dashboard/client/DashboardContent.jsx";
+import PaymentContent from "@/components/features/dashboard/client/PaymentContent.jsx";
 
 
-
-export default function SidebarClient({ user, logout }) {
+export default function SidebarClient({user, logout}) {
     const [activeItem, setActiveItem] = useState(() => {
         return localStorage.getItem('activeSidebarItem') || 'map';
     });
@@ -27,15 +28,17 @@ export default function SidebarClient({ user, logout }) {
     const itemsRef = useRef({});
 
     const menuItems = [
-        { id: 'map', label: 'Map', icon: Map },
-        { id: 'messages', label: 'Messages', icon: MessageSquareMore },
-        { id: 'settings', label: 'Paramètres', icon: Settings },
+        {id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard},
+        {id: 'payments', label: 'Paiements', icon: PiggyBank},
+        {id: 'map', label: 'Map', icon: Map},
+        {id: 'messages', label: 'Messages', icon: MessageSquareMore},
+        {id: 'settings', label: 'Paramètres', icon: Settings},
     ];
 
     useEffect(() => {
         const element = itemsRef.current[activeItem];
         if (element) {
-            const { offsetTop, offsetHeight } = element;
+            const {offsetTop, offsetHeight} = element;
             setIndicatorStyle({
                 top: `${offsetTop + offsetHeight / 2 - 16}px`,
                 opacity: 1,
@@ -50,7 +53,7 @@ export default function SidebarClient({ user, logout }) {
         setIsFabOpen(false);
     };
 
-    const MenuItem = ({ item }) => {
+    const MenuItem = ({item}) => {
         const Icon = item.icon;
         const isActive = activeItem === item.id;
         return (
@@ -79,16 +82,20 @@ export default function SidebarClient({ user, logout }) {
 
     const renderContent = () => {
         switch (activeItem) {
+            case 'dashboard':
+                return <DashboardContent/>;
             case 'map':
-                return <MapContent />;
+                return <MapContent/>;
+            case 'payments':
+                return <PaymentContent/>;
             case 'messages':
-                return <MessagesContent />;
+                return <MessagesContent/>;
             case 'settings':
-                return <SettingsContent />;
+                return <SettingsContent/>;
             case 'profile':
-                return <ProfileContent user={user} />;
+                return <ProfileContent user={user}/>;
             default:
-                return <MapContent />;
+                return <MapContent/>;
         }
     };
 
@@ -96,7 +103,8 @@ export default function SidebarClient({ user, logout }) {
         <div className="flex h-screen bg-gray-50">
 
             {/* Desktop Sidebar */}
-            <div className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30">
+            <div
+                className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30">
                 <div
                     className="absolute -left-4 w-1 h-10 bg-gradient-to-b from-orange-400 to-orange-500 rounded-r-full"
                     style={{
@@ -121,12 +129,12 @@ export default function SidebarClient({ user, logout }) {
 
                 <nav className="flex-1 flex flex-col items-center space-y-4">
                     {menuItems.slice(0, -1).map((item) => (
-                        <MenuItem key={item.id} item={item} />
+                        <MenuItem key={item.id} item={item}/>
                     ))}
                 </nav>
 
                 <div className="flex flex-col items-center space-y-4">
-                    <MenuItem item={menuItems[menuItems.length - 1]} />
+                    <MenuItem item={menuItems[menuItems.length - 1]}/>
                     <Tooltip text="Déconnexion">
                         <button
                             onClick={logout}
@@ -161,7 +169,8 @@ export default function SidebarClient({ user, logout }) {
                                 }
                 `}
                             >
-                                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-inner transition-transform duration-300 hover:scale-105">
+                                <div
+                                    className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-inner transition-transform duration-300 hover:scale-105">
                                     {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </div>
                             </button>
@@ -172,7 +181,8 @@ export default function SidebarClient({ user, logout }) {
 
             {/* Main content */}
             <div className="flex-1 p-2 lg:p-8">
-                <div className="bg-white rounded-2xl shadow-sm h-full p-4 lg:p-8 relative overflow-auto content-transition">
+                <div
+                    className="bg-white rounded-2xl shadow-sm h-full p-4 lg:p-8 relative overflow-auto content-transition">
                     {renderContent()}
                 </div>
             </div>
@@ -205,7 +215,8 @@ export default function SidebarClient({ user, logout }) {
                             animationFillMode: 'both',
                         }}
                     >
-                        <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-transform duration-300 hover:scale-110">
+                        <div
+                            className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-transform duration-300 hover:scale-110">
                             {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>
                     </button>
@@ -281,7 +292,7 @@ export default function SidebarClient({ user, logout }) {
           `}
                 >
                     {isFabOpen ? (
-                        <X size={24} className="transition-transform duration-300" />
+                        <X size={24} className="transition-transform duration-300"/>
                     ) : (
                         <ChartNoAxesGantt
                             size={24}
@@ -291,7 +302,7 @@ export default function SidebarClient({ user, logout }) {
                 </button>
             </div>
 
-            <NotificationsPopover />
+            <NotificationsPopover/>
         </div>
     );
 }

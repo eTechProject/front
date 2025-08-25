@@ -58,6 +58,7 @@ const ENDPOINTS = {
     MESSAGE: {
         SEND: '/messages',
         GET: encryptedOrderId => `/messages/${encryptedOrderId}`,
+        SEND_GROUP: '/messages/multi',
         CONVERSATION: (senderId, receiverId) =>
             `/messages/conversation?sender_id=${senderId}&receiver_id=${receiverId}`,
         MERCURE_TOKEN: '/messages/mercure-token',

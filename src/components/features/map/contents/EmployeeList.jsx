@@ -8,7 +8,8 @@ import {
     GripHorizontal,
     MapPin,
     Calendar,
-    ChevronDown
+    ChevronDown,
+    RefreshCw
 } from 'lucide-react';
 
 /**
@@ -25,9 +26,17 @@ const EmployeeList = ({
                           formatDate = (date) => date.toLocaleDateString('fr-FR'),
                           onDragStart = () => {},
                           onDragEnd = () => {},
+                          onReloadData = () => {},
                       }) => {
     const [showUnassigned, setShowUnassigned] = useState(false);
     const [isExpanded, setIsExpanded] = useState(true);
+
+    // Auto-basculement vers les agents assignés quand plus d'agents non affectés
+    React.useEffect(() => {
+        if (showUnassigned && filteredUnassignedEmployees().length === 0 && unassignedEmployees.length === 0) {
+            setShowUnassigned(false);
+        }
+    }, [unassignedEmployees, showUnassigned]);
 
     // Filtrer la recherche
     const filteredEmployees = useCallback(() =>
@@ -60,6 +69,24 @@ const EmployeeList = ({
         if (onDragStart) onDragStart(employee);
         setTimeout(() => document.body.removeChild(dragPreview), 0);
     }, [onDragStart]);
+
+    const EmployeeListSkeleton = () => (
+        <div className="p-2 space-y-2 overflow-hidden">
+            {[...Array(3)].map((_, index) => (
+                <div key={index} className="flex items-center p-3 rounded-lg border border-gray-100 animate-pulse">
+                    <div className="relative mr-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-200"></div>
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-gray-200"></div>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                        <div className="h-4 w-1/2 bg-gray-200 rounded"></div>
+                        <div className="h-3 w-1/3 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="h-5 w-16 bg-gray-200 rounded-full ml-2"></div>
+                </div>
+            ))}
+        </div>
+    );
 
     return (
         <div className="flex flex-col h-full bg-white border-r border-gray-200 shadow-sm">
@@ -142,9 +169,34 @@ const EmployeeList = ({
                 {/* Employee List */}
                 <div className="p-2 space-y-2 overflow-y-auto">
                     {currentEmployees.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500 text-sm">
-                            {showUnassigned ? 'Aucun agent disponible' : 'Aucun agent en mission'}
-                        </div>
+                        showUnassigned && unassignedEmployees.length === 0 ? (
+                            // Tous les agents ont été assignés
+                            <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-4">
+                                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                                    <Users className="text-green-600" size={24} />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        Tous les agents ont été affectés !
+                                    </h3>
+                                    <p className="text-sm text-gray-500 max-w-xs">
+                                        Parfait ! Tous vos agents sont maintenant assignés à leurs missions.
+                                    </p>
+                                </div>
+                                {onReloadData && (
+                                    <button
+                                        onClick={onReloadData}
+                                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white
+                                            rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm"
+                                    >
+                                        <RefreshCw size={16} />
+                                        <span>Recharger les données</span>
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <EmployeeListSkeleton />
+                        )
                     ) : (
                         currentEmployees.map((employee, index) => (
                             <div
@@ -198,6 +250,16 @@ const EmployeeList = ({
                     )}
                 </div>
             </div>
+
+            {/* Success notification quand basculement automatique */}
+            {unassignedEmployees.length === 0 && employees.length > 0 && !showUnassigned && (
+                <div className="px-4 py-2 bg-green-50 border-t border-green-100">
+                    <div className="flex items-center space-x-2 text-green-700 text-xs">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span>Tous les agents ont été affectés avec succès</span>
+                    </div>
+                </div>
+            )}
             <style>
                 {`
                 @keyframes fadeIn {

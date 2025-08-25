@@ -247,7 +247,7 @@ export default function DraggableNotificationsPopover() {
                 ref={buttonRef}
                 className={`
                     relative bg-white shadow-md w-12 h-12 rounded-full flex items-center justify-center 
-                    transition-all duration-200 z-[999] group will-change-transform border border-gray-200
+                    transition-all duration-200 z-[50] group will-change-transform border border-gray-200
                     touch-none select-none
                     ${isDragging && !open ? 'shadow-lg scale-110' : ''}
                     ${!isDragging && !open ? 'hover:shadow-lg hover:scale-105 active:scale-110' : ''}

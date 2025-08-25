@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { MessageSquareText, ArrowLeft, Search } from "lucide-react";
+import {MessageSquareText, ArrowLeft, Search, Send} from "lucide-react";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { useMessages } from "@/hooks/features/messaging/useMessage.js";
 import {useZone} from "@/hooks/features/zone/useZone.js";
@@ -320,12 +320,12 @@ export default function MessagesContent() {
                 ) : (
                     <>
                         {/* Header conversation */}
-                        <div className="border-b border-gray-100 px-4 lg:px-6 py-3 lg:py-4 flex items-center gap-3 bg-white">
+                        <div className="border-b border-gray-100 px-4 lg:px-6 py-3 lg:py-4 flex items-center gap-3 ">
                             <button
                                 onClick={handleBackToList}
-                                className="lg:hidden p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg -ml-1"
+                                className="lg:hidden absolute z-[500] right-4 p-1.5 text-gray-600 -ml-1 hover:text-gray-900 hover:bg-gray-100"
                             >
-                                <ArrowLeft className="w-5 h-5" />
+                                <ArrowLeft className="w-6 h-6" />
                             </button>
                             <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-sm lg:text-base shadow-sm flex-shrink-0">
                                 {selectedUser.user.username.charAt(0).toUpperCase()}
@@ -334,16 +334,7 @@ export default function MessagesContent() {
                                 <div className="text-sm lg:text-base font-semibold text-gray-900 truncate">
                                     {selectedUser.user.username}
                                 </div>
-                                <div className={`text-xs ${selectedUser.user.isOnline ? 'text-green-500' : 'text-gray-400'}`}>
-                                    {selectedUser.user.isOnline ? 'En ligne' : 'Hors ligne'}
-                                </div>
                             </div>
-                            {conversationTopic && mercureToken && (
-                                <div className="flex items-center text-xs text-green-500" title="Messages en temps réel activés">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
-                                    <span className="hidden sm:inline">Temps réel</span>
-                                </div>
-                            )}
                         </div>
 
                         {/* Messages */}
@@ -390,7 +381,7 @@ export default function MessagesContent() {
 
                         {/* Input message */}
                         <div className="bg-white border-t flex justify-end border-gray-100 px-4 lg:px-6 py-3 lg:py-4">
-                            <form onSubmit={handleSendMessage} className="flex w-[85%] lg:w-full gap-2 lg:gap-3">
+                            <form onSubmit={handleSendMessage} className="flex w-[87%] lg:w-full gap-2 lg:gap-3">
                                 <input
                                     type="text"
                                     value={newMessage}
@@ -403,13 +394,13 @@ export default function MessagesContent() {
                                 <button
                                     type="submit"
                                     disabled={!newMessage.trim() || sendingMessage}
-                                    className="bg-gray-900 text-white rounded-lg px-4 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-gray-300 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
+                                    className="bg-gray-900 text-white rounded-lg px-3 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-zinc-200 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
                                 >
                                     <span className="hidden sm:inline">
                                         {sendingMessage ? 'Envoi...' : 'Envoyer'}
                                     </span>
                                     <span className="sm:hidden">
-                                        {sendingMessage ? '...' : '↗'}
+                                        {sendingMessage ? '...' : <Send className="w-4 h-4"/>}
                                     </span>
                                 </button>
                             </form>

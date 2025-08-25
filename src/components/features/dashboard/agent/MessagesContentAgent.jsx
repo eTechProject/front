@@ -1,5 +1,5 @@
 import React, {useState, useRef, useEffect, useCallback, useMemo} from 'react';
-import {MessageSquareText, ArrowLeft, Search} from "lucide-react";
+import {MessageSquareText, ArrowLeft, Search, Send} from "lucide-react";
 import {useAuth} from "@/context/AuthContext.jsx";
 import {useMessages} from "@/hooks/features/messaging/useMessage.js";
 import {useAgentTasks} from "@/hooks/features/agent/useAgentTasks.js";
@@ -214,7 +214,7 @@ export default function MessagesContentAgent() {
                         <MessageSquareText className="w-5 h-5 lg:w-6 lg:h-6"/>
                         Clients
                     </h1>
-                    <p className="text-gray-600 mb-4 text-sm lg:text-base">Gérez vos clients</p>
+                    <p className="text-gray-600 mb-4 text-sm lg:text-base">Vos clients</p>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"/>
                         <input
@@ -293,7 +293,7 @@ export default function MessagesContentAgent() {
                             className="border-b border-gray-100 px-4 lg:px-6 py-3 lg:py-4 flex items-center gap-3 bg-white">
                             <button
                                 onClick={handleBackToList}
-                                className="lg:hidden p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg -ml-1"
+                                className="lg:hidden p-1.5 absolute z-[500] right-4 text-gray-600 hover:text-gray-900 hover:bg-gray-100 -ml-1"
                             >
                                 <ArrowLeft className="w-5 h-5"/>
                             </button>
@@ -307,13 +307,6 @@ export default function MessagesContentAgent() {
                                 </div>
                                 <div className="text-xs text-gray-400">{selectedClient.user.email}</div>
                             </div>
-                            {conversationTopic && mercureToken && (
-                                <div className="flex items-center text-xs text-green-500"
-                                     title="Messages en temps réel activés">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
-                                    <span className="hidden sm:inline">Temps réel</span>
-                                </div>
-                            )}
                         </div>
 
                         {/* Messages */}
@@ -365,7 +358,7 @@ export default function MessagesContentAgent() {
 
                         {/* Input message */}
                         <div className="bg-white border-t flex justify-end border-gray-100 px-4 lg:px-6 py-3 lg:py-4">
-                            <form onSubmit={handleSendMessage} className="flex w-[85%] lg:w-full gap-2 lg:gap-3">
+                            <form onSubmit={handleSendMessage} className="flex w-[87%] lg:w-full gap-2 lg:gap-3">
                             <input
                                     type="text"
                                     value={newMessage}
@@ -378,13 +371,13 @@ export default function MessagesContentAgent() {
                                 <button
                                     type="submit"
                                     disabled={!newMessage.trim() || sendingMessage}
-                                    className="bg-gray-900 text-white rounded-lg px-4 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-gray-300 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
+                                    className="bg-gray-900 text-white rounded-lg px-3 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-zinc-200 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
                                 >
                                     <span className="hidden sm:inline">
                                         {sendingMessage ? 'Envoi...' : 'Envoyer'}
                                     </span>
                                     <span className="sm:hidden">
-                                        {sendingMessage ? '...' : '↗'}
+                                        {sendingMessage ? '...' : <Send className="w-4 h-4"/>}
                                     </span>
                                 </button>
                             </form>

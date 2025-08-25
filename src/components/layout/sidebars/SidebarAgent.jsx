@@ -170,14 +170,14 @@ export default function SidebarAgent({ user, logout }) {
             </div>
 
             {/* Main content */}
-            <div className="flex-1 p-4 lg:p-8">
-                <div className="bg-white rounded-2xl shadow-sm h-full p-4 lg:p-8 relative overflow-auto content-transition">
-                    {renderContent()}
-                </div>
+            <div
+                className="bg-white w-screen h-full relative overflow-auto content-transition">
+                {renderContent()}
             </div>
 
+
             {/* Mobile FAB */}
-            <div className="lg:hidden fixed bottom-6 left-6 z-50">
+            <div className="lg:hidden fixed bottom-3 left-3 z-50">
                 <div
                     className={`
             absolute bottom-16 right-1 space-y-3 transition-all duration-300 origin-bottom-right
@@ -272,7 +272,7 @@ export default function SidebarAgent({ user, logout }) {
                 <button
                     onClick={() => setIsFabOpen(!isFabOpen)}
                     className={`
-            w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-xl 
+            w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-xl 
             flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95
             ${isFabOpen ? 'rotate-90 bg-gradient-to-br from-orange-600 to-orange-700' : 'rotate-0'}
           `}

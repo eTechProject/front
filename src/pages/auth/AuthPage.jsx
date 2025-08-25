@@ -309,7 +309,7 @@ const AuthPage = () => {
                     onClose={handleCloseNotification}
                 />
 
-                <div className={`relative overflow-hidden w-full max-w-5xl min-h-[34rem] bg-white rounded-3xl shadow-2xl transition-all duration-600 ${isRightPanelActive ? 'right-panel-active' : ''}`}>
+                <div className={`relative overflow-hidden w-full max-w-5xl min-h-[34rem] bg-white rounded-3xl transition-all duration-600 ${isRightPanelActive ? 'right-panel-active' : ''}`}>
                     {/* Desktop View - Two Panels */}
                     {!isMobileView && (
                         <>

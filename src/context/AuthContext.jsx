@@ -43,10 +43,10 @@ export const AuthProvider = ({ children }) => {
             const expireMs = payload.exp * 1000 - Date.now();
             if (expireMs > 0) {
                 logoutTimerRef.current = setTimeout(() => {
-                    logout();
+                    refreshAccessToken();
                 }, expireMs);
             } else {
-                logout();
+                refreshAccessToken();
             }
         }
     }, []);

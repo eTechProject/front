@@ -26,6 +26,13 @@ export const authService = {
                 localStorage.setItem('token', response.data.token);
                 localStorage.setItem('user', JSON.stringify(response.data.user));
             }
+            // Store refresh token and its expiration if present
+            if (response.data.refresh_token) {
+                localStorage.setItem('refresh_token', response.data.refresh_token);
+            }
+            if (response.data.refresh_token_expires_at) {
+                localStorage.setItem('refresh_token_expires_at', response.data.refresh_token_expires_at);
+            }
             return {
                 success: true,
                 data: response.data
@@ -34,6 +41,36 @@ export const authService = {
             return {
                 success: false,
                 error: error.response?.data?.message || 'Erreur lors de la connexion',
+                details: error.response?.data?.errors || {}
+            };
+        }
+    },
+    refreshToken: async () => {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) {
+            return { success: false, error: 'Aucun refresh token disponible' };
+        }
+        try {
+            const response = await apiClient.post(ENDPOINTS.AUTH.REFRESH_TOKEN, {
+                refresh_token: refreshToken
+            });
+            if (response.data.token) {
+                localStorage.setItem('token', response.data.token);
+            }
+            if (response.data.refresh_token) {
+                localStorage.setItem('refresh_token', response.data.refresh_token);
+            }
+            if (response.data.refresh_token_expires_at) {
+                localStorage.setItem('refresh_token_expires_at', response.data.refresh_token_expires_at);
+            }
+            if (response.data.user) {
+                localStorage.setItem('user', JSON.stringify(response.data.user));
+            }
+            return { success: true, data: response.data };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Erreur lors du rafraîchissement du token',
                 details: error.response?.data?.errors || {}
             };
         }
@@ -47,6 +84,8 @@ export const authService = {
         } finally {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('refresh_token_expires_at');
         }
     },
 

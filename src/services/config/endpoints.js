@@ -21,6 +21,7 @@ const ENDPOINTS = {
     AUTH: {
         REGISTER: '/register',
         LOGIN: '/login_check',
+        REFRESH_TOKEN: '/token/refresh',
     },
     ADMIN: {
         AGENTS: {

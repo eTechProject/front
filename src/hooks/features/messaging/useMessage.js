@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { messageService } from '@/services/features/messaging/messageService.js';
 
 export const useMessages = () => {
@@ -6,6 +6,11 @@ export const useMessages = () => {
     const [error, setError] = useState(null);
     const [messages, setMessages] = useState([]);
     const [success, setSuccess] = useState(false);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMoreMessages, setHasMoreMessages] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [conversationParams, setConversationParams] = useState(null);
 
     const sendMessage = async (messageData, addToLocalState = false) => {
         setIsLoading(true);
@@ -19,14 +24,13 @@ export const useMessages = () => {
                 ...result.data,
                 _forceCurrentUser: true
             };
-            setMessages(prev => [ ...(prev || []), newMessage ]);
+            setMessages(prev => [...(prev || []), newMessage]);
         } else if (!result.success) {
             setError(result.error);
         }
         return result;
     };
 
-    // Nouvelle fonction pour l'envoi de message groupé
     const sendGroupMessage = async (messageData) => {
         setIsLoading(true);
         setError(null);
@@ -49,6 +53,9 @@ export const useMessages = () => {
         setSuccess(result.success);
         if (result.success) {
             setMessages(result.messages || []);
+            // Mettre à jour les métadonnées de pagination
+            setCurrentPage(result.page || 1);
+            setHasMoreMessages(result.page < result.pages);
         } else {
             setError(result.error);
         }
@@ -56,12 +63,29 @@ export const useMessages = () => {
     };
 
     const getConversationMessages = async (senderId, receiverId, params = {}) => {
-        setIsLoading(true);
+        const isInitialLoad = !conversationParams ||
+            conversationParams.senderId !== senderId ||
+            conversationParams.receiverId !== receiverId;
+
+        if (isInitialLoad) {
+            setIsLoading(true);
+            setMessages([]);
+            setCurrentPage(1);
+            setHasMoreMessages(true);
+            setConversationParams({ senderId, receiverId });
+        } else {
+            setIsLoadingMore(true);
+        }
+
         setError(null);
         setSuccess(false);
+
         const result = await messageService.getConversationMessages(senderId, receiverId, params);
+
         setIsLoading(false);
+        setIsLoadingMore(false);
         setSuccess(result.success);
+
         if (result.success) {
             const messagesWithSenderInfo = (result.messages || []).map(message => {
                 if (String(message.sender_id) === String(senderId)) {
@@ -69,12 +93,34 @@ export const useMessages = () => {
                 }
                 return message;
             });
-            setMessages(messagesWithSenderInfo);
+
+            if (isInitialLoad) {
+                setMessages(messagesWithSenderInfo);
+            } else {
+                // Pour l'infinite scroll, ajouter les anciens messages au début
+                setMessages(prev => [...messagesWithSenderInfo, ...prev]);
+            }
+
+            setCurrentPage(result.page || 1);
+            setHasMoreMessages(result.page < result.pages);
         } else {
             setError(result.error);
         }
         return result;
     };
+
+    const loadMoreMessages = useCallback(async () => {
+        if (!conversationParams || !hasMoreMessages || isLoadingMore) {
+            return;
+        }
+
+        const nextPage = currentPage + 1;
+        return getConversationMessages(
+            conversationParams.senderId,
+            conversationParams.receiverId,
+            { page: nextPage, limit: 20 }
+        );
+    }, [conversationParams, hasMoreMessages, isLoadingMore, currentPage]);
 
     const getMercureToken = async () => {
         setIsLoading(true);
@@ -105,11 +151,26 @@ export const useMessages = () => {
         });
     };
 
+    // Fonction pour réinitialiser l'état lors du changement de conversation
+    const resetConversation = useCallback(() => {
+        setMessages([]);
+        setCurrentPage(1);
+        setHasMoreMessages(true);
+        setConversationParams(null);
+        setError(null);
+        setSuccess(false);
+    }, []);
+
     return {
         isLoading,
         error,
         success,
         messages,
+        isLoadingMore,
+        hasMoreMessages,
+        currentPage,
+        loadMoreMessages,
+        resetConversation,
         sendMessage,
         sendGroupMessage,
         getMessages,

@@ -1,17 +1,90 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { MessageSquareText, ArrowLeft, Search } from "lucide-react";
+import { MessageSquareText, ArrowLeft, Search, Users, Send } from "lucide-react";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { useMessages } from "@/hooks/features/messaging/useMessage.js";
 import {useZone} from "@/hooks/features/zone/useZone.js";
 import generateConversationTopic from "@/utils/generateConversationTopic.js";
 import useMercureSubscription from "@/hooks/features/messaging/useMercureSubscription.js";
+import toast from "react-hot-toast";
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
 const MESSAGES_LIMIT = 20;
 const TOKEN_REFRESH_BUFFER = 60;
 
+// Composant GroupComposer sorti du composant principal pour éviter les re-renders
+const GroupComposer = React.memo(({
+                                      selectedAgents,
+                                      agentUsers,
+                                      newMessage,
+                                      setNewMessage,
+                                      sendingMessage,
+                                      onSendMessage,
+                                      onClose
+                                  }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden">
+            <div className="p-4 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Message groupé
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                    Envoyé à {selectedAgents.length} agent{selectedAgents.length > 1 ? 's' : ''}
+                </p>
+            </div>
+
+            <div className="p-4 max-h-32 overflow-y-auto">
+                <div className="space-y-2">
+                    {selectedAgents.map(agentId => {
+                        const agent = agentUsers.find(a => a.user.id === agentId);
+                        return agent ? (
+                            <div key={agentId} className="flex items-center gap-2 text-sm">
+                                <div className="w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-semibold">
+                                    {agent.user.username.charAt(0).toUpperCase()}
+                                </div>
+                                <span>{agent.user.username}</span>
+                            </div>
+                        ) : null;
+                    })}
+                </div>
+            </div>
+
+            <form onSubmit={onSendMessage} className="p-4 border-t border-gray-100">
+                <textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Tapez votre message groupé..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm resize-none"
+                    rows={3}
+                    disabled={sendingMessage}
+                    autoFocus
+                />
+                <div className="flex justify-end gap-2 mt-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={sendingMessage}
+                        className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm disabled:opacity-50"
+                    >
+                        Annuler
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={!newMessage.trim() || sendingMessage}
+                        className="bg-gray-900 text-white rounded-lg px-4 py-2 font-medium shadow hover:bg-gray-800 transition disabled:bg-gray-300 disabled:text-gray-400 text-sm flex items-center gap-2"
+                    >
+                        <Send className="w-4 h-4" />
+                        {sendingMessage ? 'Envoi...' : 'Envoyer à tous'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+));
+
 /**
  * Composant principal de messagerie permettant aux utilisateurs de communiquer avec les agents
+ * Inclut maintenant la fonctionnalité de messages groupés
  */
 export default function MessagesContent() {
     // États principaux
@@ -24,6 +97,11 @@ export default function MessagesContent() {
     const [sendingMessage, setSendingMessage] = useState(false);
     const [mercureToken, setMercureToken] = useState(null);
 
+    // Nouveaux états pour les messages groupés
+    const [isGroupMode, setIsGroupMode] = useState(false);
+    const [selectedAgents, setSelectedAgents] = useState([]);
+    const [showGroupComposer, setShowGroupComposer] = useState(false);
+
     // Refs
     const messagesEndRef = useRef(null);
     const addMercureMessageRef = useRef();
@@ -34,6 +112,7 @@ export default function MessagesContent() {
     const {
         messages,
         sendMessage,
+        sendGroupMessage,
         isLoading: messagesLoading,
         getConversationMessages,
         getMercureToken,
@@ -47,7 +126,7 @@ export default function MessagesContent() {
     const agentUsers = useMemo(() => {
         return (assignedAgents || []).map(agent => ({
             user: {
-                id: agent.agent.agentId,
+                id: agent.agent.user.userId,
                 encryptedId: agent.agent.user.encryptedId,
                 username: agent.agent.user.name || 'Agent',
                 isOnline: agent.status === 'actif',
@@ -167,7 +246,80 @@ export default function MessagesContent() {
         }
     }, [sortedMessages]);
 
-    // Handlers
+    // Handlers pour les messages groupés (stabilisés avec useCallback)
+    const handleToggleGroupMode = useCallback(() => {
+        setIsGroupMode(!isGroupMode);
+        setSelectedAgents([]);
+        setShowGroupComposer(false);
+    }, [isGroupMode]);
+
+    const handleSelectAgent = useCallback((agentId) => {
+        setSelectedAgents(prev => {
+            if (prev.includes(agentId)) {
+                return prev.filter(id => id !== agentId);
+            } else {
+                return [...prev, agentId];
+            }
+        });
+    }, []);
+
+    const handleSelectAllAgents = useCallback(() => {
+        if (selectedAgents.length === agentUsers.length) {
+            setSelectedAgents([]);
+        } else {
+            setSelectedAgents(agentUsers.map(agent => agent.user.id));
+        }
+    }, [selectedAgents.length, agentUsers]);
+
+    const handleOpenGroupComposer = useCallback(() => {
+        if (selectedAgents.length === 0) {
+            toast.error('Veuillez sélectionner au moins un agent');
+            return;
+        }
+        setShowGroupComposer(true);
+    }, [selectedAgents.length]);
+
+    const handleSendGroupMessage = useCallback(async (e) => {
+        e.preventDefault();
+        if (!newMessage.trim() || selectedAgents.length === 0 || sendingMessage) return;
+
+        const messageContent = newMessage;
+        setNewMessage('');
+        setSendingMessage(true);
+
+        try {
+            const result = await sendGroupMessage({
+                order_id: serviceOrder?.id,
+                sender_id: user.userId,
+                receiver_ids: selectedAgents,
+                content: messageContent
+            });
+
+            if (result.success) {
+                setShowGroupComposer(false);
+                setSelectedAgents([]);
+                setIsGroupMode(false);
+            } else {
+                setNewMessage(messageContent);
+                toast.error(result.error || 'Erreur lors de l\'envoi du message groupé');
+            }
+
+        } catch (err) {
+            console.error('Erreur lors de l\'envoi du message groupé:', err);
+            setNewMessage(messageContent);
+            toast.error('Erreur lors de l\'envoi du message groupé');
+        } finally {
+            setSendingMessage(false);
+        }
+    }, [newMessage, selectedAgents, sendingMessage, serviceOrder, user, sendGroupMessage]);
+
+    // Handler pour fermer le composer groupé
+    const handleCloseGroupComposer = useCallback(() => {
+        setShowGroupComposer(false);
+        setNewMessage('');
+    }, []);
+
+    // Handlers existants (stabilisés)
     const handleSelectUser = useCallback((userData) => {
         setSelectedUser(userData);
     }, []);
@@ -199,10 +351,31 @@ export default function MessagesContent() {
         }
     }, [newMessage, selectedUser, sendingMessage, serviceOrder, user, sendMessage]);
 
-    const LoadingSpinner = () => (
-        <div className="p-6 text-center">
-            <div className="animate-spin rounded-full h-6 w-6 lg:h-8 lg:w-8 border-b-2 border-gray-400 mx-auto"></div>
-            <p className="text-gray-500 mt-2 text-sm">Chargement des agents...</p>
+    const AgentListSkeleton = () => (
+        <div className="space-y-2 p-4">
+            {[...Array(3)].map((_, index) => (
+                <div key={index} className="flex items-center gap-3 p-4 border-b border-gray-50 animate-pulse">
+                    <div className="h-10 w-10 rounded-full bg-gray-200"></div>
+                    <div className="flex-1 space-y-2">
+                        <div className="h-4 w-1/2 bg-gray-200 rounded"></div>
+                        <div className="h-3 w-3/4 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="h-5 w-16 bg-gray-200 rounded-full"></div>
+                </div>
+            ))}
+        </div>
+    );
+
+    const MessagesSkeleton = () => (
+        <div className="space-y-3 px-4 lg:px-6 py-3 lg:py-4">
+            {[...Array(4)].map((_, index) => (
+                <div key={index} className={`flex ${index % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                    <div className="max-w-[85%] lg:max-w-[80%] px-3 lg:px-4 py-2 lg:py-2.5 rounded-2xl bg-gray-200 animate-pulse">
+                        <div className="h-4 w-40 bg-gray-300 rounded"></div>
+                        <div className="h-3 w-20 bg-gray-300 rounded mt-2"></div>
+                    </div>
+                </div>
+            ))}
         </div>
     );
 
@@ -220,6 +393,12 @@ export default function MessagesContent() {
                 <div className="break-words whitespace-pre-wrap text-sm">
                     {message.content}
                 </div>
+                {message.is_group_message && (
+                    <div className="text-xs mt-1 opacity-60 flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        Message groupé
+                    </div>
+                )}
                 <div className="text-xs mt-1 text-right opacity-70">
                     {message.sent_at && new Date(message.sent_at).toLocaleTimeString('fr-FR', {
                         hour: '2-digit',
@@ -231,7 +410,7 @@ export default function MessagesContent() {
     );
 
     return (
-        <div className="absolute inset-0 flex bg-[#f7f7f8] rounded-xl overflow-hidden">
+        <div className="absolute inset-0 flex bg-[#f7f7f8] rounded-xl border border-gray-100 overflow-hidden">
             {/* Liste des agents */}
             <div className={`
                 ${selectedUser ? 'hidden lg:flex' : 'flex lg:flex'}
@@ -244,7 +423,50 @@ export default function MessagesContent() {
                         <MessageSquareText className="w-5 h-5 lg:w-6 lg:h-6"/>
                         <span>Messagerie</span>
                     </h1>
-                    <p className="text-gray-600 mb-4 text-sm lg:text-base">Gérez vos agents</p>
+
+                    {/* Bouton pour activer le mode groupé */}
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-gray-600 text-sm lg:text-base">
+                            {isGroupMode ? 'Sélectionnez les agents' : 'Gérez vos agents'}
+                        </p>
+                        <button
+                            onClick={handleToggleGroupMode}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                isGroupMode
+                                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            <Users className="w-3 h-3" />
+                            {isGroupMode ? 'Annuler' : 'Groupé'}
+                        </button>
+                    </div>
+
+                    {/* Contrôles pour le mode groupé */}
+                    {isGroupMode && (
+                        <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-blue-900">
+                                    {selectedAgents.length} agent{selectedAgents.length > 1 ? 's' : ''} sélectionné{selectedAgents.length > 1 ? 's' : ''}
+                                </span>
+                                <button
+                                    onClick={handleSelectAllAgents}
+                                    className="text-xs text-blue-600 hover:text-blue-800"
+                                >
+                                    {selectedAgents.length === agentUsers.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+                                </button>
+                            </div>
+                            {selectedAgents.length > 0 && (
+                                <button
+                                    onClick={handleOpenGroupComposer}
+                                    className="w-full bg-blue-600 text-white rounded-lg px-3 py-2 text-sm font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                                >
+                                    Composer message
+                                </button>
+                            )}
+                        </div>
+                    )}
+
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -260,7 +482,7 @@ export default function MessagesContent() {
                 {/* Liste */}
                 <div className="flex-1 overflow-y-auto">
                     {isLoading ? (
-                        <LoadingSpinner />
+                        <AgentListSkeleton />
                     ) : filteredAgents.length === 0 ? (
                         <EmptyState
                             message={searchTerm
@@ -272,10 +494,32 @@ export default function MessagesContent() {
                         filteredAgents.map((userData) => (
                             <div
                                 key={userData.user.id}
-                                className="cursor-pointer transition-colors hover:bg-gray-50 border-b border-gray-50 last:border-b-0"
-                                onClick={() => handleSelectUser(userData)}
+                                className={`cursor-pointer transition-colors border-b border-gray-50 last:border-b-0 ${
+                                    isGroupMode
+                                        ? selectedAgents.includes(userData.user.id)
+                                            ? 'bg-blue-50 hover:bg-blue-100'
+                                            : 'hover:bg-gray-50'
+                                        : 'hover:bg-gray-50'
+                                }`}
+                                onClick={() => isGroupMode
+                                    ? handleSelectAgent(userData.user.id)
+                                    : handleSelectUser(userData)
+                                }
                             >
                                 <div className="flex items-center gap-3 p-4">
+                                    {isGroupMode && (
+                                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                                            selectedAgents.includes(userData.user.id)
+                                                ? 'bg-blue-600 border-blue-600'
+                                                : 'border-gray-300'
+                                        }`}>
+                                            {selectedAgents.includes(userData.user.id) && (
+                                                <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="relative flex-shrink-0">
                                         <div className="h-10 w-10 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-sm shadow-sm">
                                             {userData.user.username.charAt(0).toUpperCase()}
@@ -323,9 +567,9 @@ export default function MessagesContent() {
                         <div className="border-b border-gray-100 px-4 lg:px-6 py-3 lg:py-4 flex items-center gap-3 bg-white">
                             <button
                                 onClick={handleBackToList}
-                                className="lg:hidden p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg -ml-1"
+                                className="lg:hidden p-1.5 absolute z-[500] right-4 text-gray-600 hover:text-gray-900 hover:bg-gray-100 -ml-1"
                             >
-                                <ArrowLeft className="w-5 h-5" />
+                                <ArrowLeft className="w-5 h-5"/>
                             </button>
                             <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-sm lg:text-base shadow-sm flex-shrink-0">
                                 {selectedUser.user.username.charAt(0).toUpperCase()}
@@ -334,24 +578,13 @@ export default function MessagesContent() {
                                 <div className="text-sm lg:text-base font-semibold text-gray-900 truncate">
                                     {selectedUser.user.username}
                                 </div>
-                                <div className={`text-xs ${selectedUser.user.isOnline ? 'text-green-500' : 'text-gray-400'}`}>
-                                    {selectedUser.user.isOnline ? 'En ligne' : 'Hors ligne'}
-                                </div>
                             </div>
-                            {conversationTopic && mercureToken && (
-                                <div className="flex items-center text-xs text-green-500" title="Messages en temps réel activés">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
-                                    <span className="hidden sm:inline">Temps réel</span>
-                                </div>
-                            )}
                         </div>
 
                         {/* Messages */}
                         <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3 lg:py-4 space-y-3">
                             {messagesLoading && !sortedMessages.length && (
-                                <div className="flex items-center justify-center h-full text-gray-400 italic text-sm">
-                                    Chargement...
-                                </div>
+                                <MessagesSkeleton />
                             )}
                             {!messagesLoading && sortedMessages.length === 0 && (
                                 <div className="flex items-center justify-center h-full text-gray-300 italic text-sm">
@@ -390,7 +623,7 @@ export default function MessagesContent() {
 
                         {/* Input message */}
                         <div className="bg-white border-t flex justify-end border-gray-100 px-4 lg:px-6 py-3 lg:py-4">
-                            <form onSubmit={handleSendMessage} className="flex w-[85%] lg:w-full gap-2 lg:gap-3">
+                            <form onSubmit={handleSendMessage} className="flex w-[87%] lg:w-full gap-2 lg:gap-3">
                                 <input
                                     type="text"
                                     value={newMessage}
@@ -403,13 +636,13 @@ export default function MessagesContent() {
                                 <button
                                     type="submit"
                                     disabled={!newMessage.trim() || sendingMessage}
-                                    className="bg-gray-900 text-white rounded-lg px-4 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-gray-300 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
+                                    className="bg-gray-900 text-white rounded-lg px-3 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-zinc-200 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
                                 >
                                     <span className="hidden sm:inline">
                                         {sendingMessage ? 'Envoi...' : 'Envoyer'}
                                     </span>
                                     <span className="sm:hidden">
-                                        {sendingMessage ? '...' : '↗'}
+                                        {sendingMessage ? '...' : <Send className="w-4 h-4"/>}
                                     </span>
                                 </button>
                             </form>
@@ -417,6 +650,19 @@ export default function MessagesContent() {
                     </>
                 )}
             </div>
+
+            {/* Modal pour composer un message groupé */}
+            {showGroupComposer && (
+                <GroupComposer
+                    selectedAgents={selectedAgents}
+                    agentUsers={agentUsers}
+                    newMessage={newMessage}
+                    setNewMessage={setNewMessage}
+                    sendingMessage={sendingMessage}
+                    onSendMessage={handleSendGroupMessage}
+                    onClose={handleCloseGroupComposer}
+                />
+            )}
         </div>
     );
 }

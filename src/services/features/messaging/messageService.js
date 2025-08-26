@@ -14,6 +14,20 @@ export const messageService = {
             };
         }
     },
+
+    sendGroupMessage: async (messageData) => {
+        try {
+            const response = await apiClient.post(ENDPOINTS.MESSAGE.SEND_GROUP, messageData);
+            return { success: true, data: response.data };
+        } catch (error) {
+            return {
+                success: false,
+                statusCode: error.response?.status,
+                error: error.response?.data?.error || 'Erreur lors de l\'envoi du message groupé'
+            };
+        }
+    },
+
     getMessages: async (encryptedOrderId, params = {}) => {
         try {
             const url = ENDPOINTS.MESSAGE.GET(encryptedOrderId);

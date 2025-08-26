@@ -26,6 +26,20 @@ export const useMessages = () => {
         return result;
     };
 
+    // Nouvelle fonction pour l'envoi de message groupé
+    const sendGroupMessage = async (messageData) => {
+        setIsLoading(true);
+        setError(null);
+        setSuccess(false);
+        const result = await messageService.sendGroupMessage(messageData);
+        setIsLoading(false);
+        setSuccess(result.success);
+        if (!result.success) {
+            setError(result.error);
+        }
+        return result;
+    };
+
     const getMessages = async (encryptedOrderId, params = {}) => {
         setIsLoading(true);
         setError(null);
@@ -76,16 +90,14 @@ export const useMessages = () => {
     const addMercureMessage = (newMessage) => {
         setMessages(prevMessages => {
             const existingIds = (prevMessages || []).map(msg => msg.id);
-            // Check if message already exists by ID
             if (newMessage.id && !existingIds.includes(newMessage.id)) {
-                const sortedMessages = [...(prevMessages || []), newMessage].sort((a, b) => 
+                const sortedMessages = [...(prevMessages || []), newMessage].sort((a, b) =>
                     new Date(a.sent_at) - new Date(b.sent_at)
                 );
                 return sortedMessages;
             } else if (!newMessage.id) {
-                // Handle messages without ID (should not happen but just in case)
                 console.warn('Message received without ID:', newMessage);
-                return [...(prevMessages || []), newMessage].sort((a, b) => 
+                return [...(prevMessages || []), newMessage].sort((a, b) =>
                     new Date(a.sent_at) - new Date(b.sent_at)
                 );
             }
@@ -99,6 +111,7 @@ export const useMessages = () => {
         success,
         messages,
         sendMessage,
+        sendGroupMessage,
         getMessages,
         getConversationMessages,
         getMercureToken,

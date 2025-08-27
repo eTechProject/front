@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useImperativeHandle } from 'react';
 import { useAuth } from "@/context/AuthContext.jsx";
 import { useZone } from "@/hooks/features/zone/useZone.js";
 import ZoneForm from "@/components/features/map/ui/ZoneForm.jsx";
@@ -14,20 +14,20 @@ import { isPointInPolygon } from "@/utils/geoUtils.js";
  * - Gère l'affichage du panneau des zones et du formulaire de zone
  * - Inclut une fonctionnalité de géolocalisation
  */
-const MapView = ({
-                     mapRef,
-                     employees,
-                     handleEmployeeClick,
-                     selectedEmployee,
-                     sidebarVisible,
-                     draggingEmployee,
-                     onEmployeeDrop,
-                     onMapClick,
-                     zoneData,
-                     zoneAssignedAgents = [],
-                     userRole,
-                 }) => {
+const MapView = React.forwardRef(({
+                                      employees,
+                                      handleEmployeeClick,
+                                      selectedEmployee,
+                                      sidebarVisible,
+                                      draggingEmployee,
+                                      onEmployeeDrop,
+                                      onMapClick,
+                                      zoneData,
+                                      zoneAssignedAgents = [],
+                                      userRole,
+                                  }, ref) => {
     // Références
+    const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const markersRef = useRef([]); // Structure: [{employeeId, marker, employee}, ...]
     const zoneAgentMarkersRef = useRef([]); // Structure: [{agentId, marker, agent}, ...]
@@ -58,6 +58,49 @@ const MapView = ({
     const MAX_ZOOM = 19;
     const INITIAL_ZOOM = 13;
     const INITIAL_CENTER = [-18.9146, 47.5309]; // Antananarivo
+
+    // Exposer les méthodes utiles via la ref
+    useImperativeHandle(ref, () => ({
+        // Convertir les coordonnées d'écran vers lat/lng
+        convertScreenToLatLng: (screenX, screenY) => {
+            if (!mapInstanceRef.current) return null;
+
+            try {
+                // Obtenir le conteneur de la carte
+                const mapContainer = mapRef.current;
+                if (!mapContainer) return null;
+
+                const rect = mapContainer.getBoundingClientRect();
+
+                // Convertir les coordonnées d'écran en coordonnées relatives au conteneur
+                const containerX = screenX - rect.left;
+                const containerY = screenY - rect.top;
+
+                // Utiliser la méthode Leaflet pour convertir
+                const point = window.L.point(containerX, containerY);
+                const latLng = mapInstanceRef.current.containerPointToLatLng(point);
+
+                console.log('🗺️ Screen to LatLng conversion:', {
+                    screen: { x: screenX, y: screenY },
+                    container: { x: containerX, y: containerY },
+                    latLng: { lat: latLng.lat, lng: latLng.lng }
+                });
+
+                return { lat: latLng.lat, lng: latLng.lng };
+            } catch (error) {
+                console.error('Erreur lors de la conversion des coordonnées:', error);
+                return null;
+            }
+        },
+
+        // Exposer d'autres méthodes utiles
+        getMap: () => mapInstanceRef.current,
+        fitBounds: (bounds) => {
+            if (mapInstanceRef.current && bounds) {
+                mapInstanceRef.current.fitBounds(bounds);
+            }
+        }
+    }), []);
 
     // Ajouter les styles d'animation pour les marqueurs
     useEffect(() => {
@@ -224,6 +267,8 @@ const MapView = ({
             }
 
             mapInstanceRef.current.on('click', (e) => {
+                console.log('🗺️ Map clicked at:', e.latlng);
+
                 if (userRole === 'client' && onMapClick) {
                     onMapClick(e.latlng, currentZoneInfo);
                 }
@@ -420,7 +465,7 @@ const MapView = ({
 
         // Créer une map des agents actuels pour comparaison
         const currentAgentIds = new Set(allAgents.map(agent => agent.id || agent.tempId));
-        
+
         // Supprimer les marqueurs des agents qui ne sont plus présents
         zoneAgentMarkersRef.current = zoneAgentMarkersRef.current.filter(markerData => {
             if (!currentAgentIds.has(markerData.agentId)) {
@@ -440,34 +485,34 @@ const MapView = ({
         allAgents.forEach(agent => {
             try {
                 if (!agent?.name || !agent.position) return;
-                
+
                 const agentId = agent.id || agent.tempId;
                 const position = [agent.position.lat, agent.position.lng];
                 const agentColor = agent.routeColor || '#' + Math.floor(Math.random() * 16777215).toString(16);
-                
+
                 const existingMarkerData = existingMarkers.get(agentId);
-                
+
                 if (existingMarkerData) {
                     // Mettre à jour la position du marqueur existant avec animation
                     const currentLatLng = existingMarkerData.marker.getLatLng();
                     const newLatLng = window.L.latLng(position[0], position[1]);
-                    
+
                     // Vérifier si la position a vraiment changé
-                    const hasPositionChanged = Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 || 
-                                             Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001;
-                    
+                    const hasPositionChanged = Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 ||
+                        Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001;
+
                     if (hasPositionChanged) {
                         // Animation fluide de la position
                         animateMarkerToPosition(existingMarkerData.marker, newLatLng);
                         console.log(`📍 Position updated for agent ${agent.name}:`, position);
                     }
-                    
+
                     // Mettre à jour les données de l'agent
                     existingMarkerData.agent = agent;
-                    
+
                     // Mettre à jour le popup si nécessaire
                     updateMarkerPopup(existingMarkerData.marker, agent);
-                    
+
                 } else {
                     // Créer un nouveau marqueur
                     const customIcon = window.L.divIcon({
@@ -516,7 +561,7 @@ const MapView = ({
     const animateMarkerToPosition = (marker, newLatLng, duration = 1000) => {
         const startLatLng = marker.getLatLng();
         const startTime = Date.now();
-        
+
         // Ajouter un effet de pulsation pendant l'animation
         const markerElement = marker.getElement();
         if (markerElement) {
@@ -525,24 +570,24 @@ const MapView = ({
                 iconDiv.classList.add('marker-updating');
             }
         }
-        
+
         // Fonction d'interpolation (easing)
         const easeInOutQuad = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-        
+
         const animate = () => {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
-            
+
             if (progress < 1) {
                 const easedProgress = easeInOutQuad(progress);
                 const currentLat = startLatLng.lat + (newLatLng.lat - startLatLng.lat) * easedProgress;
                 const currentLng = startLatLng.lng + (newLatLng.lng - startLatLng.lng) * easedProgress;
-                
+
                 marker.setLatLng([currentLat, currentLng]);
                 requestAnimationFrame(animate);
             } else {
                 marker.setLatLng(newLatLng);
-                
+
                 // Retirer l'effet de pulsation après un délai
                 setTimeout(() => {
                     if (markerElement) {
@@ -554,7 +599,7 @@ const MapView = ({
                 }, 500);
             }
         };
-        
+
         requestAnimationFrame(animate);
     };
 
@@ -562,7 +607,7 @@ const MapView = ({
     const updateMarkerPopup = (marker, agent) => {
         const statusLabel = agent.isTemporary ? 'En cours d\'assignation...' : agent.status;
         const statusColor = agent.isTemporary ? '#fbbf24' : getStatusColorHex(agent.status);
-        
+
         const popupContent = `
             <div style="text-align: center; padding: 8px;">
                 <strong>${agent.name}</strong><br>
@@ -576,7 +621,7 @@ const MapView = ({
                 ${agent.lastLocationUpdate ? `<br><small class="text-gray-400">Dernière mise à jour: ${new Date(agent.lastLocationUpdate).toLocaleTimeString()}</small>` : ''}
             </div>
         `;
-        
+
         marker.bindPopup(popupContent);
     };
 
@@ -586,7 +631,7 @@ const MapView = ({
 
         // Créer une map des employés actuels pour comparaison
         const currentEmployeeIds = new Set(employees.map(employee => employee.id).filter(Boolean));
-        
+
         // Supprimer les marqueurs des employés qui ne sont plus présents
         markersRef.current = markersRef.current.filter(markerData => {
             if (!currentEmployeeIds.has(markerData.employeeId)) {
@@ -605,30 +650,30 @@ const MapView = ({
 
         employees.forEach(employee => {
             if (!employee.position) return;
-            
+
             const existingMarkerData = existingMarkers.get(employee.id);
-            
+
             if (existingMarkerData) {
                 // Mettre à jour la position du marqueur existant avec animation
                 const currentLatLng = existingMarkerData.marker.getLatLng();
                 const newLatLng = window.L.latLng(employee.position.lat, employee.position.lng);
-                
+
                 // Vérifier si la position a vraiment changé
-                const hasPositionChanged = Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 || 
-                                         Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001;
-                
+                const hasPositionChanged = Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 ||
+                    Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001;
+
                 if (hasPositionChanged) {
                     // Animation fluide de la position
                     animateMarkerToPosition(existingMarkerData.marker, newLatLng);
                     console.log(`📍 Position updated for employee ${employee.name}:`, [employee.position.lat, employee.position.lng]);
                 }
-                
+
                 // Mettre à jour les données de l'employé
                 existingMarkerData.employee = employee;
-                
+
                 // Mettre à jour le popup si nécessaire
                 updateEmployeeMarkerPopup(existingMarkerData.marker, employee);
-                
+
             } else {
                 // Créer un nouveau marqueur
                 const customIcon = window.L.divIcon({
@@ -682,7 +727,7 @@ const MapView = ({
                 ${employee.lastLocationUpdate ? `<br><small class="text-gray-400">Dernière mise à jour: ${new Date(employee.lastLocationUpdate).toLocaleTimeString()}</small>` : ''}
             </div>
         `;
-        
+
         marker.bindPopup(popupContent);
     };
 
@@ -1008,7 +1053,7 @@ const MapView = ({
                             : 'bg-red-100 border-2 border-red-500'
                     }`}>
                         <div
-                            className="w-12 h-12 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2"
+                            className="w-12 h-12 rounded-full mx-auto flex items-center justify-content text-white font-bold mb-2"
                             style={{ backgroundColor: draggingEmployee?.routeColor || '#4B5563' }}
                         >
                             {draggingEmployee?.avatar || '?'}
@@ -1048,6 +1093,7 @@ const MapView = ({
             )}
         </div>
     );
-};
+});
 
+MapView.displayName = 'MapView';
 export default MapView;

@@ -112,7 +112,7 @@ const PasswordMatchIndicator = ({ password, confirmPassword }) => {
 };
 
 export default function ProfileContent() {
-    const { user } = useAuth();
+    const { user, userRole} = useAuth();
 
     const [localUserData, setLocalUserData] = useState(null);
 
@@ -245,7 +245,7 @@ export default function ProfileContent() {
                     ...prev,
                     ...profileResult.data,
                     userId: prev?.userId || user.userId,
-                    role: prev?.role || user.role,
+                    role: prev?.role || userRole,
                     verified: prev?.verified || user.verified,
                     createdAt: prev?.createdAt || user.createdAt,
                     avatar: prev?.avatar // L'avatar sera mis à jour séparément si nécessaire
@@ -398,8 +398,8 @@ export default function ProfileContent() {
                             <h2 className="text-2xl font-semibold capitalize text-gray-900 truncate">
                                 {currentUser.name || 'Nom non défini'}
                             </h2>
-                            <span className={`px-2 py-1 text-xs rounded font-medium border ${currentUser.role === 'admin' ? 'bg-blue-100 text-blue-600 border-blue-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>
-                                {currentUser.role?.charAt(0).toUpperCase() + currentUser.role?.slice(1) || "Rôle"}
+                            <span className={`px-2 py-1 text-xs rounded font-medium border ${userRole === 'admin' ? 'bg-blue-100 text-blue-600 border-blue-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>
+                                {userRole?.charAt(0).toUpperCase() + userRole?.slice(1) || "Rôle"}
                             </span>
                             {currentUser.verified && (
                                 <span className="flex items-center gap-1 px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded">

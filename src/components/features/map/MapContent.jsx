@@ -26,7 +26,7 @@ const MapContent = () => {
 
     // References and context
     const mapRef = useRef(null);
-    const { user } = useAuth();
+    const { user, userRole } = useAuth();
 
     // Zone data states
     const [zoneData, setZoneData] = useState(null);
@@ -77,7 +77,7 @@ const MapContent = () => {
 
     // Load available agents from API (client only)
     useEffect(() => {
-        if (user?.role !== "client") return;
+        if (userRole !== "client") return;
         const fetchAgents = async () => {
             const result = await getAvailableAgent();
             if (result.success && result.data?.length > 0) {
@@ -101,7 +101,7 @@ const MapContent = () => {
             }
         };
         fetchAgents().then();
-    }, [user?.role]);
+    }, [userRole]);
 
     // Load zone data from API
     useEffect(() => {
@@ -109,9 +109,9 @@ const MapContent = () => {
             if (!user?.userId || zoneLoaded) return;
             setZoneLoaded(true);
             let result;
-            if (user.role === "client") {
+            if (userRole === "client") {
                 result = await getZone(user.userId);
-            } else if (user.role === "agent") {
+            } else if (userRole === "agent") {
                 result = await getZoneByAgent(user.userId);
             }
             if (result.success && result.data) {
@@ -169,7 +169,7 @@ const MapContent = () => {
                         route: []
                     }));
                     setAssignedEmployees(assignedAgentsFromAPI);
-                    if (user.role === "client") {
+                    if (userRole === "client") {
                         const assignedIds = assignedAgentsFromAPI.map(agent => agent.id);
                         setUnassignedEmployees(prev => prev.filter(emp => !assignedIds.includes(emp.id)));
                     }
@@ -177,7 +177,7 @@ const MapContent = () => {
             }
         };
         loadZoneData().then();
-    }, [user?.userId, user?.role]);
+    }, [user?.userId, userRole]);
 
     // Show employee details card
     const handleEmployeeClick = (employee) => {
@@ -216,12 +216,12 @@ const MapContent = () => {
 
     // Start employee drag onto map (client only)
     const handleDragStart = (employee) => {
-        if (user.role === "client") setDraggingEmployee(employee);
+        if (userRole === "client") setDraggingEmployee(employee);
     };
 
     // End employee drag (client only)
     const handleDragEnd = () => {
-        if (user.role === "client") setDraggingEmployee(null);
+        if (userRole === "client") setDraggingEmployee(null);
     };
 
     // Format date to "YYYY-MM-DD HH:mm:ss"
@@ -238,7 +238,7 @@ const MapContent = () => {
 
     // Handle employee drop on map (client only)
     const handleEmployeeDrop = (employee, position, zoneInfo) => {
-        if (user.role !== "client") return;
+        if (userRole !== "client") return;
         const zoneInfoToUse = zoneInfo || (zoneData ? {
             serviceOrderId: zoneData.serviceOrder?.id,
             securedZoneId: zoneData.securedZone?.securedZoneId,
@@ -285,7 +285,7 @@ const MapContent = () => {
 
     // Confirm all pending assignments (client only)
     const confirmAssignments = async () => {
-        if (user.role !== "client") return;
+        if (userRole !== "client") return;
         if (!pendingAssignments.length) {
             console.log('Aucune affectation à confirmer');
             return;
@@ -373,7 +373,7 @@ const MapContent = () => {
 
     // Cancel all pending assignments (client only)
     const cancelAssignments = () => {
-        if (user.role !== "client") return;
+        if (userRole !== "client") return;
         // Restore unassigned employees when canceling
         const canceledEmployees = pendingAssignments.map(assignment => ({
             id: assignment.employeeId,
@@ -396,7 +396,7 @@ const MapContent = () => {
 
     // Handle map click for employee drop (client only)
     const handleMapClick = (position, zoneInfo) => {
-        if (user.role === "client" && draggingEmployee) {
+        if (userRole === "client" && draggingEmployee) {
             handleEmployeeDrop(draggingEmployee, position, zoneInfo);
         }
     };
@@ -520,7 +520,7 @@ const MapContent = () => {
             <div className={`${sidebarVisible ? 'w-80' : 'w-0'} transition-all duration-300 ease-in-out bg-white`}>
                 <EmployeeList
                     employees={assignedEmployees}
-                    unassignedEmployees={user.role === "client" ? unassignedEmployees : []}
+                    unassignedEmployees={userRole === "client" ? unassignedEmployees : []}
                     filterText={filterText}
                     setFilterText={setFilterText}
                     handleEmployeeClick={handleEmployeeClick}
@@ -544,13 +544,13 @@ const MapContent = () => {
                     }
                 </button>
 
-                {draggingEmployee && user.role === "client" && (
+                {draggingEmployee && userRole === "client" && (
                     <div className="absolute top-2 left-[40%] z-50 bg-blue-500 text-white px-3 py-1.5 rounded-md text-sm shadow-md">
                         Déposez {draggingEmployee.name} sur la carte
                     </div>
                 )}
 
-                {user.role === "client" && (
+                {userRole === "client" && (
                     <div className="absolute top-32 left-2 z-[900] flex items-center">
                         {showInstructions ? (
                             <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md text-sm flex items-center space-x-2">
@@ -647,12 +647,12 @@ const MapContent = () => {
                         handleEmployeeClick={handleEmployeeClick}
                         selectedEmployee={selectedEmployee}
                         sidebarVisible={sidebarVisible}
-                        draggingEmployee={user.role === "client" ? draggingEmployee : null}
-                        onEmployeeDrop={user.role === "client" ? handleEmployeeDrop : undefined}
+                        draggingEmployee={userRole === "client" ? draggingEmployee : null}
+                        onEmployeeDrop={userRole === "client" ? handleEmployeeDrop : undefined}
                         onMapClick={handleMapClick}
                         zoneData={zoneData}
                         zoneAssignedAgents={zoneAssignedAgents}
-                        userRole={user.role}
+                        userRole={userRole}
                     />
                 </div>
 

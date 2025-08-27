@@ -278,7 +278,7 @@ export default function SettingsContent() {
         }
     };
 
-    return (<div className="p-4 border rounded-xl">
+    return (<div className="p-4 ">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                     <Settings className="w-6 h-6"/>

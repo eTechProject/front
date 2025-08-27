@@ -1,14 +1,32 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { MessageSquareText, ArrowLeft, Search, Send } from "lucide-react";
+import { MessageSquareText, ArrowLeft, Search, Send, Loader } from "lucide-react";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { useMessages } from "@/hooks/features/messaging/useMessage.js";
 import { useAgentTasks } from "@/hooks/features/agent/useAgentTasks.js";
 import useMercureSubscription from "@/hooks/features/messaging/useMercureSubscription.js";
 import generateConversationTopic from "@/utils/generateConversationTopic.js";
+import { useInfiniteScroll } from "@/hooks/features/messaging/useInfiniteScroll.js";
+import toast from "react-hot-toast";
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
 const MESSAGES_LIMIT = 20;
 const TOKEN_REFRESH_BUFFER = 60;
+
+// Nouveau composant pour l'indicateur de chargement
+const LoadMoreIndicator = ({ isLoading, hasMore }) => {
+    if (!hasMore) return null;
+
+    return (
+        <div className="flex justify-center py-2">
+            {isLoading ? (
+                <div className="flex items-center gap-2 text-gray-500 text-sm">
+                    <Loader className="w-4 h-4 animate-spin" />
+                    <span>Chargement des anciens messages...</span>
+                </div>
+            ) : null}
+        </div>
+    );
+};
 
 export default function MessagesContentAgent() {
     const [selectedClient, setSelectedClient] = useState(null);
@@ -16,10 +34,6 @@ export default function MessagesContentAgent() {
     const [newMessage, setNewMessage] = useState('');
     const [sendingMessage, setSendingMessage] = useState(false);
     const [mercureToken, setMercureToken] = useState(null);
-
-    // Refs
-    const messagesEndRef = useRef(null);
-    const addMercureMessageRef = useRef();
 
     // Hooks
     const { user } = useAuth();
@@ -29,11 +43,24 @@ export default function MessagesContentAgent() {
         messages,
         sendMessage,
         isLoading: messagesLoading,
-        error: messagesError,
         getConversationMessages,
         getMercureToken,
-        addMercureMessage
+        addMercureMessage,
+        isLoadingMore,
+        hasMoreMessages,
+        loadMoreMessages,
+        resetConversation
     } = useMessages();
+
+    // Hook pour l'infinite scroll
+    const { containerRef, scrollToBottom } = useInfiniteScroll(
+        loadMoreMessages,
+        hasMoreMessages,
+        isLoadingMore,
+        [messages.length]
+    );
+
+    const addMercureMessageRef = useRef();
 
     useEffect(() => {
         addMercureMessageRef.current = addMercureMessage;
@@ -82,10 +109,17 @@ export default function MessagesContentAgent() {
             return;
         }
 
+        // Réinitialiser la conversation avant de charger les nouveaux messages
+        resetConversation();
+
         getConversationMessages(agentId, selectedClient.user.id, {
             page: 1,
             limit: MESSAGES_LIMIT
-        }).then();
+        }).then((result) => {
+            if (result.success) {
+                setTimeout(() => scrollToBottom('auto'), 100);
+            }
+        });
     }, [selectedClient, agentId]);
 
     // Gestion du token Mercure
@@ -105,6 +139,7 @@ export default function MessagesContentAgent() {
                 }
             } catch (error) {
                 console.error('Erreur lors de la récupération du token Mercure:', error);
+                toast.error('Erreur de connexion à la messagerie');
             }
         };
 
@@ -130,9 +165,17 @@ export default function MessagesContentAgent() {
         onMessage: handleMercureMessage
     });
 
+    // Auto-scroll pour les nouveaux messages
     useEffect(() => {
         if (sortedMessages.length > 0) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            // Vérifier si l'utilisateur est proche du bas avant de scroller
+            const container = containerRef.current;
+            if (container) {
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+                if (isNearBottom) {
+                    scrollToBottom('smooth');
+                }
+            }
         }
     }, [sortedMessages]);
 
@@ -143,6 +186,7 @@ export default function MessagesContentAgent() {
 
     const handleBackToList = useCallback(() => {
         setSelectedClient(null);
+        resetConversation();
     }, []);
 
     const handleSendMessage = useCallback(async (e) => {
@@ -163,6 +207,7 @@ export default function MessagesContentAgent() {
         } catch (error) {
             console.error('Erreur lors de l\'envoi du message:', error);
             setNewMessage(messageContent);
+            toast.error('Erreur lors de l\'envoi du message');
         } finally {
             setSendingMessage(false);
         }
@@ -330,31 +375,35 @@ export default function MessagesContentAgent() {
                             </div>
                         </div>
 
-                        {/* Messages */}
-                        <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3 lg:py-4 space-y-3">
+                        {/* Messages avec infinite scroll */}
+                        <div
+                            ref={containerRef}
+                            className="flex-1 overflow-y-auto px-4 lg:px-6 py-3 lg:py-4 space-y-3"
+                        >
+                            {/* Indicateur de chargement en haut */}
+                            <LoadMoreIndicator isLoading={isLoadingMore} hasMore={hasMoreMessages} />
+
                             {messagesLoading && !sortedMessages.length && (
                                 <MessagesSkeleton />
                             )}
-                            {messagesError && !sortedMessages.length && (
-                                <div className="flex items-center justify-center h-full text-red-400 italic text-sm">
-                                    {messagesError}
-                                </div>
-                            )}
-                            {!messagesLoading && !sortedMessages.length && (
+                            {!messagesLoading && sortedMessages.length === 0 && (
                                 <div className="flex items-center justify-center h-full text-gray-300 italic text-sm">
                                     Aucun message pour l'instant...
                                 </div>
                             )}
 
-                            {sortedMessages.map((message, index) => (
-                                <MessageBubble
-                                    key={message.id || index}
-                                    message={message}
-                                    isFromCurrentUser={
-                                        message.sender_id === agentId || message._forceCurrentUser === true
-                                    }
-                                />
-                            ))}
+                            {sortedMessages.map((message, index) => {
+                                const isFromCurrentUser = message.sender_id === agentId ||
+                                    message._forceCurrentUser === true;
+
+                                return (
+                                    <MessageBubble
+                                        key={message.id || `${message.sent_at}-${index}`}
+                                        message={message}
+                                        isFromCurrentUser={isFromCurrentUser}
+                                    />
+                                );
+                            })}
 
                             {sendingMessage && (
                                 <div className="flex justify-end">
@@ -372,7 +421,6 @@ export default function MessagesContentAgent() {
                                     </div>
                                 </div>
                             )}
-                            <div ref={messagesEndRef}/>
                         </div>
 
                         {/* Input message */}

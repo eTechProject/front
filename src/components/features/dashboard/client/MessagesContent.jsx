@@ -1,17 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { MessageSquareText, ArrowLeft, Search, Users, Send } from "lucide-react";
+import { MessageSquareText, ArrowLeft, Search, Users, Send, Loader } from "lucide-react";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { useMessages } from "@/hooks/features/messaging/useMessage.js";
-import {useZone} from "@/hooks/features/zone/useZone.js";
+import { useZone } from "@/hooks/features/zone/useZone.js";
 import generateConversationTopic from "@/utils/generateConversationTopic.js";
 import useMercureSubscription from "@/hooks/features/messaging/useMercureSubscription.js";
 import toast from "react-hot-toast";
+import {useInfiniteScroll} from "@/hooks/features/messaging/useInfiniteScroll.js";
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
 const MESSAGES_LIMIT = 20;
 const TOKEN_REFRESH_BUFFER = 60;
 
-// Composant GroupComposer sorti du composant principal pour éviter les re-renders
+// Composant GroupComposer (inchangé)
 const GroupComposer = React.memo(({
                                       selectedAgents,
                                       agentUsers,
@@ -82,9 +83,24 @@ const GroupComposer = React.memo(({
     </div>
 ));
 
+// Nouveau composant pour l'indicateur de chargement
+const LoadMoreIndicator = ({ isLoading, hasMore }) => {
+    if (!hasMore) return null;
+
+    return (
+        <div className="flex justify-center py-2">
+            {isLoading ? (
+                <div className="flex items-center gap-2 text-gray-500 text-sm">
+                    <Loader className="w-4 h-4 animate-spin" />
+                    <span>Chargement des anciens messages...</span>
+                </div>
+            ) : null}
+        </div>
+    );
+};
+
 /**
- * Composant principal de messagerie permettant aux utilisateurs de communiquer avec les agents
- * Inclut maintenant la fonctionnalité de messages groupés
+ * Composant principal de messagerie avec infinite scroll
  */
 export default function MessagesContent() {
     // États principaux
@@ -97,14 +113,10 @@ export default function MessagesContent() {
     const [sendingMessage, setSendingMessage] = useState(false);
     const [mercureToken, setMercureToken] = useState(null);
 
-    // Nouveaux états pour les messages groupés
+    // États pour les messages groupés
     const [isGroupMode, setIsGroupMode] = useState(false);
     const [selectedAgents, setSelectedAgents] = useState([]);
     const [showGroupComposer, setShowGroupComposer] = useState(false);
-
-    // Refs
-    const messagesEndRef = useRef(null);
-    const addMercureMessageRef = useRef();
 
     // Hooks
     const { user } = useAuth();
@@ -116,8 +128,22 @@ export default function MessagesContent() {
         isLoading: messagesLoading,
         getConversationMessages,
         getMercureToken,
-        addMercureMessage
+        addMercureMessage,
+        isLoadingMore,
+        hasMoreMessages,
+        loadMoreMessages,
+        resetConversation
     } = useMessages();
+
+    // Hook pour l'infinite scroll
+    const { containerRef, scrollToBottom } = useInfiniteScroll(
+        loadMoreMessages,
+        hasMoreMessages,
+        isLoadingMore,
+        [messages.length]
+    );
+
+    const addMercureMessageRef = useRef();
 
     useEffect(() => {
         addMercureMessageRef.current = addMercureMessage;
@@ -151,7 +177,6 @@ export default function MessagesContent() {
         return (messages || []).sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
     }, [messages]);
 
-    // Filtrage des agents
     const filteredAgents = useMemo(() => {
         return agentUsers.filter(userData =>
             userData.user.username.toLowerCase().includes(searchTerm.toLowerCase())
@@ -187,11 +212,18 @@ export default function MessagesContent() {
             return;
         }
 
+        // Réinitialiser la conversation avant de charger les nouveaux messages
+        resetConversation();
+
         getConversationMessages(
             user.userId,
             selectedUser.user.agentData.agent.user.userId,
             { page: 1, limit: MESSAGES_LIMIT }
-        ).then();
+        ).then((result) => {
+            if (result.success) {
+                setTimeout(() => scrollToBottom('auto'), 100);
+            }
+        });
     }, [selectedUser, user?.userId]);
 
     // Gestion du token Mercure
@@ -204,7 +236,6 @@ export default function MessagesContent() {
                 if (result.success) {
                     setMercureToken(result.token);
 
-                    // Programmation du renouvellement
                     if (result.expires_in) {
                         const refreshTime = (result.expires_in - TOKEN_REFRESH_BUFFER) * 1000;
                         setTimeout(() => {
@@ -239,10 +270,17 @@ export default function MessagesContent() {
         onMessage: handleMercureMessage
     });
 
-    // Auto-scroll vers le dernier message
+    // Auto-scroll pour les nouveaux messages
     useEffect(() => {
         if (sortedMessages.length > 0) {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            // Vérifier si l'utilisateur est proche du bas avant de scroller
+            const container = containerRef.current;
+            if (container) {
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+                if (isNearBottom) {
+                    scrollToBottom('smooth');
+                }
+            }
         }
     }, [sortedMessages]);
 
@@ -313,7 +351,6 @@ export default function MessagesContent() {
         }
     }, [newMessage, selectedAgents, sendingMessage, serviceOrder, user, sendGroupMessage]);
 
-    // Handler pour fermer le composer groupé
     const handleCloseGroupComposer = useCallback(() => {
         setShowGroupComposer(false);
         setNewMessage('');
@@ -326,6 +363,7 @@ export default function MessagesContent() {
 
     const handleBackToList = useCallback(() => {
         setSelectedUser(null);
+        resetConversation();
     }, []);
 
     const handleSendMessage = useCallback(async (e) => {
@@ -417,14 +455,12 @@ export default function MessagesContent() {
                 ${selectedUser ? 'lg:w-80 xl:w-96' : 'w-full lg:w-80 xl:w-96'}
                 bg-white border-r border-gray-100 flex-col
             `}>
-                {/* En-tête */}
                 <div className="border-b border-gray-100 bg-white p-4 lg:p-6">
                     <h1 className="text-xl lg:text-2xl font-bold text-gray-900 flex items-center gap-2 mb-4">
                         <MessageSquareText className="w-5 h-5 lg:w-6 lg:h-6"/>
                         <span>Messagerie</span>
                     </h1>
 
-                    {/* Bouton pour activer le mode groupé */}
                     <div className="flex items-center justify-between mb-4">
                         <p className="text-gray-600 text-sm lg:text-base">
                             {isGroupMode ? 'Sélectionnez les agents' : 'Gérez vos agents'}
@@ -581,8 +617,14 @@ export default function MessagesContent() {
                             </div>
                         </div>
 
-                        {/* Messages */}
-                        <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3 lg:py-4 space-y-3">
+                        {/* Messages avec infinite scroll */}
+                        <div
+                            ref={containerRef}
+                            className="flex-1 overflow-y-auto px-4 lg:px-6 py-3 lg:py-4 space-y-3"
+                        >
+                            {/* Indicateur de chargement en haut */}
+                            <LoadMoreIndicator isLoading={isLoadingMore} hasMore={hasMoreMessages} />
+
                             {messagesLoading && !sortedMessages.length && (
                                 <MessagesSkeleton />
                             )}
@@ -598,7 +640,7 @@ export default function MessagesContent() {
 
                                 return (
                                     <MessageBubble
-                                        key={message.id || index}
+                                        key={message.id || `${message.sent_at}-${index}`}
                                         message={message}
                                         isFromCurrentUser={isFromCurrentUser}
                                     />
@@ -618,7 +660,6 @@ export default function MessagesContent() {
                                     </div>
                                 </div>
                             )}
-                            <div ref={messagesEndRef}/>
                         </div>
 
                         {/* Input message */}

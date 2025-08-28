@@ -381,13 +381,15 @@ export default function MessagesContent() {
                 receiver_id: selectedUser.user.agentData.agent.user.userId,
                 content: messageContent
             }, false);
+
+            setTimeout(() => scrollToBottom('smooth'), 100);
         } catch (err) {
             console.error('Erreur lors de l\'envoi du message:', err);
             setNewMessage(messageContent);
         } finally {
             setSendingMessage(false);
         }
-    }, [newMessage, selectedUser, sendingMessage, serviceOrder, user, sendMessage]);
+    }, [newMessage, selectedUser, sendingMessage, serviceOrder, user, sendMessage, scrollToBottom]);
 
     const AgentListSkeleton = () => (
         <div className="space-y-2 p-4">

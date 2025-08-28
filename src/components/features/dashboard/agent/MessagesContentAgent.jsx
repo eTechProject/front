@@ -204,6 +204,8 @@ export default function MessagesContentAgent() {
                 receiver_id: selectedClient.user.id,
                 content: messageContent
             }, false);
+
+            setTimeout(() => scrollToBottom('smooth'), 100);
         } catch (error) {
             console.error('Erreur lors de l\'envoi du message:', error);
             setNewMessage(messageContent);
@@ -211,7 +213,7 @@ export default function MessagesContentAgent() {
         } finally {
             setSendingMessage(false);
         }
-    }, [newMessage, selectedClient, sendingMessage, agentId, sendMessage]);
+    }, [newMessage, selectedClient, sendingMessage, agentId, sendMessage, scrollToBottom]);
 
     // Composants utilitaires
     const ClientListSkeleton = () => (

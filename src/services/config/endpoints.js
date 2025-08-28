@@ -67,6 +67,9 @@ const ENDPOINTS = {
     CLIENT: {
         DASHBOARD: (clientId) => `/client/${clientId}/dashboard`,
     },
+    ALERT: {
+        SEND: '/alerts',
+    }
 };
 
 export default ENDPOINTS;

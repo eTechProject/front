@@ -1,5 +1,5 @@
-import React, {useState, useRef, useEffect} from 'react';
-import {Link} from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import logo from '@/assets/logo48.png';
 import './sidebar.css';
 import {
@@ -7,7 +7,10 @@ import {
     Settings,
     MessageSquareMore,
     ChartNoAxesGantt,
-    X, LayoutDashboard, PiggyBank
+    X,
+    LayoutDashboard,
+    PiggyBank,
+    Siren
 } from 'lucide-react';
 import NotificationsPopover from "@/components/features/shared/NotificationsPopover.jsx";
 import MapContent from "@/components/features/map/MapContent.jsx";
@@ -17,28 +20,45 @@ import MessagesContent from "@/components/features/dashboard/client/MessagesCont
 import Tooltip from "@/components/common/ui/Tooltip.jsx";
 import DashboardContent from "@/components/features/dashboard/client/DashboardContent.jsx";
 import PaymentContent from "@/components/features/dashboard/client/PaymentContent.jsx";
+import PanicButton from "@/components/features/shared/PanicButton.jsx";
 
 
-export default function SidebarClient({user, logout}) {
+const PanicModal = ({ isOpen, onClose, userId }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+                <div className="flex justify-center">
+                    <PanicButton userId={userId} onClose={onClose} />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default function SidebarClient({ user, logout }) {
     const [activeItem, setActiveItem] = useState(() => {
         return localStorage.getItem('activeSidebarItem') || 'map';
     });
     const [indicatorStyle, setIndicatorStyle] = useState({});
     const [isFabOpen, setIsFabOpen] = useState(false);
+    const [isPanicModalOpen, setIsPanicModalOpen] = useState(false);
     const itemsRef = useRef({});
 
     const menuItems = [
-        {id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard},
-        {id: 'payments', label: 'Paiements', icon: PiggyBank},
-        {id: 'map', label: 'Map', icon: Map},
-        {id: 'messages', label: 'Messages', icon: MessageSquareMore},
-        {id: 'settings', label: 'Paramètres', icon: Settings},
+        { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+        { id: 'payments', label: 'Paiements', icon: PiggyBank },
+        { id: 'map', label: 'Map', icon: Map },
+        { id: 'messages', label: 'Messages', icon: MessageSquareMore },
+        { id: 'settings', label: 'Paramètres', icon: Settings },
+        { id: 'alerts', label: 'Alertes', icon: Siren },
     ];
 
     useEffect(() => {
         const element = itemsRef.current[activeItem];
         if (element) {
-            const {offsetTop, offsetHeight} = element;
+            const { offsetTop, offsetHeight } = element;
             setIndicatorStyle({
                 top: `${offsetTop + offsetHeight / 2 - 16}px`,
                 opacity: 1,
@@ -51,9 +71,14 @@ export default function SidebarClient({user, logout}) {
         setActiveItem(itemId);
         localStorage.setItem('activeSidebarItem', itemId);
         setIsFabOpen(false);
+        if (itemId === 'alerts') {
+            setIsPanicModalOpen(true);
+        } else {
+            setIsPanicModalOpen(false);
+        }
     };
 
-    const MenuItem = ({item}) => {
+    const MenuItem = ({ item }) => {
         const Icon = item.icon;
         const isActive = activeItem === item.id;
         return (
@@ -62,13 +87,13 @@ export default function SidebarClient({user, logout}) {
                     <button
                         onClick={() => handleItemClick(item.id)}
                         className={`
-              w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
-              ${
+                            w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
+                            ${
                             isActive
                                 ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/25 scale-105'
                                 : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50 hover:scale-105'
                         }
-            `}
+                        `}
                     >
                         <Icon
                             size={20}
@@ -83,28 +108,28 @@ export default function SidebarClient({user, logout}) {
     const renderContent = () => {
         switch (activeItem) {
             case 'dashboard':
-                return <DashboardContent/>;
+                return <DashboardContent />;
             case 'map':
-                return <MapContent/>;
+                return <MapContent />;
             case 'payments':
-                return <PaymentContent/>;
+                return <PaymentContent />;
             case 'messages':
-                return <MessagesContent/>;
+                return <MessagesContent />;
             case 'settings':
-                return <SettingsContent/>;
+                return <SettingsContent />;
             case 'profile':
-                return <ProfileContent user={user}/>;
+                return <ProfileContent user={user} />;
             default:
-                return <MapContent/>;
+                return <MapContent />;
         }
     };
 
     return (
         <div className="flex h-screen bg-gray-50">
-
             {/* Desktop Sidebar */}
             <div
-                className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30">
+                className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30"
+            >
                 <div
                     className="absolute -left-4 w-1 h-10 bg-gradient-to-b from-orange-400 to-orange-500 rounded-r-full"
                     style={{
@@ -129,12 +154,12 @@ export default function SidebarClient({user, logout}) {
 
                 <nav className="flex-1 flex flex-col items-center space-y-4">
                     {menuItems.slice(0, -1).map((item) => (
-                        <MenuItem key={item.id} item={item}/>
+                        <MenuItem key={item.id} item={item} />
                     ))}
                 </nav>
 
                 <div className="flex flex-col items-center space-y-4">
-                    <MenuItem item={menuItems[menuItems.length - 1]}/>
+                    <MenuItem item={menuItems[menuItems.length - 1]} />
                     <Tooltip text="Déconnexion">
                         <button
                             onClick={logout}
@@ -161,16 +186,17 @@ export default function SidebarClient({user, logout}) {
                             <button
                                 onClick={() => handleItemClick('profile')}
                                 className={`
-                  w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative overflow-hidden
-                  ${
+                                    w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative overflow-hidden
+                                    ${
                                     activeItem === 'profile'
                                         ? 'ring-2 ring-orange-500 ring-offset-2 scale-105'
                                         : 'hover:ring-2 hover:ring-gray-200 hover:ring-offset-2 hover:scale-105'
                                 }
-                `}
+                                `}
                             >
                                 <div
-                                    className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-inner transition-transform duration-300 hover:scale-105">
+                                    className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-inner transition-transform duration-300 hover:scale-105"
+                                >
                                     {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </div>
                             </button>
@@ -180,31 +206,30 @@ export default function SidebarClient({user, logout}) {
             </div>
 
             {/* Main content */}
-                <div
-                    className="bg-white w-screen h-full relative overflow-auto content-transition">
-                    {renderContent()}
-                </div>
+            <div
+                className="bg-white w-screen h-full relative overflow-auto content-transition"
+            >
+                {renderContent()}
+            </div>
 
             {/* Mobile FAB */}
             <div className="lg:hidden fixed bottom-3 left-3 z-50">
-                {/* Menu Items */}
                 <div
                     className={`
-            absolute bottom-16 right-1 space-y-3 transition-all duration-300 origin-bottom-right
-            ${isFabOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}
-          `}
+                        absolute bottom-16 right-1 space-y-3 transition-all duration-300 origin-bottom-right
+                        ${isFabOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}
+                    `}
                 >
-                    {/* Profile */}
                     <button
                         onClick={() => handleItemClick('profile')}
                         className={`
-              w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
-              ${
+                            w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
+                            ${
                             activeItem === 'profile'
                                 ? 'ring-2 ring-orange-500 ring-offset-2 scale-110'
                                 : 'bg-white hover:bg-gray-50 hover:scale-110'
                         }
-            `}
+                        `}
                         style={{
                             animationName: isFabOpen ? 'slideUp' : undefined,
                             animationDuration: '0.3s',
@@ -214,12 +239,12 @@ export default function SidebarClient({user, logout}) {
                         }}
                     >
                         <div
-                            className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-transform duration-300 hover:scale-110">
+                            className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-transform duration-300 hover:scale-110"
+                        >
                             {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>
                     </button>
 
-                    {/* Menu Items */}
                     {menuItems.map((item, index) => {
                         const Icon = item.icon;
                         const isActive = activeItem === item.id;
@@ -228,13 +253,13 @@ export default function SidebarClient({user, logout}) {
                                 key={item.id}
                                 onClick={() => handleItemClick(item.id)}
                                 className={`
-                  w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
-                  ${
+                                    w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
+                                    ${
                                     isActive
                                         ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white scale-110'
                                         : 'bg-white text-gray-600 hover:bg-gray-50 hover:scale-110'
                                 }
-                `}
+                                `}
                                 style={{
                                     animationName: isFabOpen ? 'slideUp' : undefined,
                                     animationDuration: '0.3s',
@@ -251,7 +276,6 @@ export default function SidebarClient({user, logout}) {
                         );
                     })}
 
-                    {/* Logout */}
                     <button
                         onClick={logout}
                         className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all duration-300 flex items-center justify-center hover:scale-110"
@@ -280,17 +304,16 @@ export default function SidebarClient({user, logout}) {
                     </button>
                 </div>
 
-                {/* Main FAB */}
                 <button
                     onClick={() => setIsFabOpen(!isFabOpen)}
                     className={`
-            w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-xl 
-            flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95
-            ${isFabOpen ? 'rotate-90 bg-gradient-to-br from-orange-600 to-orange-700' : 'rotate-0'}
-          `}
+                        w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-xl 
+                        flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95
+                        ${isFabOpen ? 'rotate-90 bg-gradient-to-br from-orange-600 to-orange-700' : 'rotate-0'}
+                    `}
                 >
                     {isFabOpen ? (
-                        <X size={24} className="transition-transform duration-300"/>
+                        <X size={24} className="transition-transform duration-300" />
                     ) : (
                         <ChartNoAxesGantt
                             size={24}
@@ -300,7 +323,12 @@ export default function SidebarClient({user, logout}) {
                 </button>
             </div>
 
-            <NotificationsPopover/>
+            <NotificationsPopover />
+            <PanicModal
+                isOpen={isPanicModalOpen}
+                onClose={() => setIsPanicModalOpen(false)}
+                userId={user?.userId}
+            />
         </div>
     );
 }

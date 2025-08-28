@@ -872,7 +872,7 @@ const MapContent = () => {
                     {/* Bottom sheet handle */}
                     <div className="flex justify-center">
                         <button
-                            class='relative -top-4 bg-white bg-opacity-70 rounded-full p-1'
+                            className='relative -top-4 bg-white bg-opacity-70 rounded-full p-1'
                             onClick={() => setBottomSheetExpanded(!bottomSheetExpanded)}
                         >
                             {bottomSheetExpanded ? <ChevronDown className='text-gray-800' size={30} /> : <ChevronUp className='text-gray-800' size={30} />}

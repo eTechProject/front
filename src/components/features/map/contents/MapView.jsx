@@ -5,15 +5,8 @@ import ZoneForm from "@/components/features/map/ui/ZoneForm.jsx";
 import ZonePanel from "@/components/features/map/ui/ZonePanel.jsx";
 import ZonePanelToggle from "@/components/features/map/ui/ZonePanelToggle.jsx";
 import { isPointInPolygon } from "@/utils/geoUtils.js";
+import { useLocalStorageState } from "@/hooks/listener/useLocalStorageState.js";
 
-/**
- * Composant principal de la carte.
- * - Affiche les employés sur la carte (Leaflet)
- * - Permet de créer/éditer/supprimer des zones (clients uniquement)
- * - Permet de placer des employés sur la carte via drag & drop (clients uniquement)
- * - Gère l'affichage du panneau des zones et du formulaire de zone
- * - Inclut une fonctionnalité de géolocalisation
- */
 const MapView = React.forwardRef(({
                                       employees,
                                       handleEmployeeClick,
@@ -29,8 +22,8 @@ const MapView = React.forwardRef(({
     // Références
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
-    const markersRef = useRef([]); // Structure: [{employeeId, marker, employee}, ...]
-    const zoneAgentMarkersRef = useRef([]); // Structure: [{agentId, marker, agent}, ...]
+    const markersRef = useRef([]);
+    const zoneAgentMarkersRef = useRef([]);
     const drawControlRef = useRef(null);
     const drawnItemsRef = useRef(null);
     const baseMapsRef = useRef({});
@@ -50,6 +43,7 @@ const MapView = React.forwardRef(({
     const [tempAssignedAgents, setTempAssignedAgents] = useState([]);
     const [userLocation, setUserLocation] = useState(null);
     const [geolocationError, setGeolocationError] = useState(null);
+    const [isAlertActive, setIsAlertActive] = useLocalStorageState('isAlertActive', false);
 
     const { user } = useAuth();
     const { sendZone, isLoading, error, success } = useZone();
@@ -61,39 +55,27 @@ const MapView = React.forwardRef(({
 
     // Exposer les méthodes utiles via la ref
     useImperativeHandle(ref, () => ({
-        // Convertir les coordonnées d'écran vers lat/lng
         convertScreenToLatLng: (screenX, screenY) => {
             if (!mapInstanceRef.current) return null;
-
             try {
-                // Obtenir le conteneur de la carte
                 const mapContainer = mapRef.current;
                 if (!mapContainer) return null;
-
                 const rect = mapContainer.getBoundingClientRect();
-
-                // Convertir les coordonnées d'écran en coordonnées relatives au conteneur
                 const containerX = screenX - rect.left;
                 const containerY = screenY - rect.top;
-
-                // Utiliser la méthode Leaflet pour convertir
                 const point = window.L.point(containerX, containerY);
                 const latLng = mapInstanceRef.current.containerPointToLatLng(point);
-
                 console.log('🗺️ Screen to LatLng conversion:', {
                     screen: { x: screenX, y: screenY },
                     container: { x: containerX, y: containerY },
                     latLng: { lat: latLng.lat, lng: latLng.lng }
                 });
-
                 return { lat: latLng.lat, lng: latLng.lng };
             } catch (error) {
                 console.error('Erreur lors de la conversion des coordonnées:', error);
                 return null;
             }
         },
-
-        // Exposer d'autres méthodes utiles
         getMap: () => mapInstanceRef.current,
         fitBounds: (bounds) => {
             if (mapInstanceRef.current && bounds) {
@@ -102,11 +84,11 @@ const MapView = React.forwardRef(({
         }
     }), []);
 
-    // Ajouter les styles d'animation pour les marqueurs
+    // Ajouter les styles d'animation pour les marqueurs et la zone
     useEffect(() => {
-        if (!document.getElementById('marker-animations')) {
+        if (!document.getElementById('map-animations')) {
             const style = document.createElement('style');
-            style.id = 'marker-animations';
+            style.id = 'map-animations';
             style.textContent = `
                 @keyframes pulse {
                     0% { transform: scale(1); }
@@ -115,6 +97,13 @@ const MapView = React.forwardRef(({
                 }
                 .marker-updating {
                     animation: pulse 1s ease-in-out;
+                }
+                @keyframes blink-zone {
+                    0%, 100% { fill: #ef4444; fill-opacity: 0.4; }
+                    50% { fill: #ef4444; fill-opacity: 0.1; }
+                }
+                .zone-alert {
+                    animation: blink-zone 2s ease-in-out infinite;
                 }
             `;
             document.head.appendChild(style);
@@ -163,15 +152,12 @@ const MapView = React.forwardRef(({
                 setUserLocation(newPosition);
 
                 if (mapInstanceRef.current) {
-                    // Centrer la carte sur la position de l'utilisateur
                     mapInstanceRef.current.setView([latitude, longitude], 16);
 
-                    // Supprimer l'ancien marqueur s'il existe
                     if (userLocationMarkerRef.current) {
                         mapInstanceRef.current.removeLayer(userLocationMarkerRef.current);
                     }
 
-                    // Créer un nouveau marqueur pour la position de l'utilisateur
                     const userIcon = window.L.divIcon({
                         html: `
                             <div style="
@@ -186,7 +172,7 @@ const MapView = React.forwardRef(({
                                 justify-content: center;
                             ">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" viewBox="0 0 24 24">
-                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7  locksmith 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                                 </svg>
                             </div>
                         `,
@@ -224,6 +210,12 @@ const MapView = React.forwardRef(({
         );
     };
 
+    // Fonction pour désactiver l'alerte
+    const handleDisableAlert = () => {
+        console.log('[MapView] Disabling alert, setting isAlertActive to false');
+        setIsAlertActive(false);
+    };
+
     // Initialisation de la carte
     const initializeMap = () => {
         if (mapRef.current && window.L && !mapInstanceRef.current) {
@@ -235,7 +227,6 @@ const MapView = React.forwardRef(({
                 worldCopyJump: false
             }).setView(INITIAL_CENTER, INITIAL_ZOOM);
 
-            // Couches de base
             const osmLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
                 maxZoom: MAX_ZOOM
@@ -316,7 +307,10 @@ const MapView = React.forwardRef(({
                 polygon: {
                     allowIntersection: false,
                     showArea: true,
-                    shapeOptions: { color: '#3388ff', fillOpacity: 0.2 }
+                    shapeOptions: {
+                        color: isAlertActive ? '#ef4444' : '#3388ff',
+                        fillOpacity: isAlertActive ? 0.4 : 0.2
+                    }
                 },
                 marker: false,
                 circlemarker: false,
@@ -328,6 +322,7 @@ const MapView = React.forwardRef(({
             }
         };
 
+        console.log('[MapView] Initializing draw control with isAlertActive:', isAlertActive);
         drawControlRef.current = new window.L.Control.Draw(drawOptions);
         mapInstanceRef.current.addControl(drawControlRef.current);
 
@@ -336,6 +331,16 @@ const MapView = React.forwardRef(({
             const layer = e.layer;
             drawnItemsRef.current.addLayer(layer);
             setCurrentLayer(layer);
+
+            // Appliquer la classe zone-alert si nécessaire
+            if (isAlertActive && layer.getElement) {
+                setTimeout(() => {
+                    const element = layer.getElement();
+                    if (element) {
+                        element.classList.add('zone-alert');
+                    }
+                }, 0);
+            }
 
             const latLngs = layer.getLatLngs()[0];
             const coordinates = latLngs.map(point => [point.lat, point.lng]);
@@ -364,6 +369,15 @@ const MapView = React.forwardRef(({
                 setZoneFormData(prev => ({ ...prev, coordinates: coordinates }));
                 setDrawnZones([{ ...zone, coordinates: coordinates }]);
                 lockViewToZone(coordinates);
+
+                // Mettre à jour la classe zone-alert
+                if (layer.getElement) {
+                    const element = layer.getElement();
+                    element.classList.remove('zone-alert');
+                    if (isAlertActive) {
+                        element.classList.add('zone-alert');
+                    }
+                }
             });
         });
 
@@ -419,8 +433,21 @@ const MapView = React.forwardRef(({
             const coordinates = zoneData.securedZone.coordinates;
             const layer = window.L.polygon(
                 coordinates.map(coord => [coord[0], coord[1]]),
-                { color: '#3388ff', fillOpacity: 0.2 }
+                {
+                    color: isAlertActive ? '#ef4444' : '#3388ff',
+                    fillOpacity: isAlertActive ? 0.4 : 0.2
+                }
             );
+
+            // Appliquer la classe zone-alert si nécessaire
+            if (isAlertActive) {
+                setTimeout(() => {
+                    const element = layer.getElement && layer.getElement();
+                    if (element) {
+                        element.classList.add('zone-alert');
+                    }
+                }, 0);
+            }
 
             drawnItemsRef.current.addLayer(layer);
             setDrawnZones([{
@@ -451,22 +478,19 @@ const MapView = React.forwardRef(({
 
             setCurrentLayer(layer);
             lockViewToZone(coordinates);
+            console.log('[MapView] Existing zone drawn:', { zoneData, isAlertActive });
         } catch (error) {
             console.error("Erreur lors du tracé de la zone:", error);
         }
     };
 
-    // Ajout des agents de zone à la carte avec mise à jour optimisée
+    // Ajout des agents de zone à la carte
     const addZoneAgentsToMap = () => {
         if (!mapInstanceRef.current) return;
 
-        // Utiliser tous les agents (officiels + temporaires)
         const allAgents = getAllZoneAgents();
-
-        // Créer une map des agents actuels pour comparaison
         const currentAgentIds = new Set(allAgents.map(agent => agent.id || agent.tempId));
 
-        // Supprimer les marqueurs des agents qui ne sont plus présents
         zoneAgentMarkersRef.current = zoneAgentMarkersRef.current.filter(markerData => {
             if (!currentAgentIds.has(markerData.agentId)) {
                 if (mapInstanceRef.current.hasLayer(markerData.marker)) {
@@ -477,7 +501,6 @@ const MapView = React.forwardRef(({
             return true;
         });
 
-        // Créer une map des marqueurs existants
         const existingMarkers = new Map(
             zoneAgentMarkersRef.current.map(markerData => [markerData.agentId, markerData])
         );
@@ -493,28 +516,20 @@ const MapView = React.forwardRef(({
                 const existingMarkerData = existingMarkers.get(agentId);
 
                 if (existingMarkerData) {
-                    // Mettre à jour la position du marqueur existant avec animation
                     const currentLatLng = existingMarkerData.marker.getLatLng();
                     const newLatLng = window.L.latLng(position[0], position[1]);
 
-                    // Vérifier si la position a vraiment changé
                     const hasPositionChanged = Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 ||
                         Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001;
 
                     if (hasPositionChanged) {
-                        // Animation fluide de la position
                         animateMarkerToPosition(existingMarkerData.marker, newLatLng);
                         console.log(`📍 Position updated for agent ${agent.name}:`, position);
                     }
 
-                    // Mettre à jour les données de l'agent
                     existingMarkerData.agent = agent;
-
-                    // Mettre à jour le popup si nécessaire
                     updateMarkerPopup(existingMarkerData.marker, agent);
-
                 } else {
-                    // Créer un nouveau marqueur
                     const customIcon = window.L.divIcon({
                         html: `<div style="
                             background-color: ${agentColor};
@@ -542,7 +557,6 @@ const MapView = React.forwardRef(({
                         }
                     });
 
-                    // Ajouter le nouveau marqueur à la référence
                     zoneAgentMarkersRef.current.push({
                         agentId: agentId,
                         marker: marker,
@@ -557,12 +571,11 @@ const MapView = React.forwardRef(({
         });
     };
 
-    // Fonction pour animer le déplacement d'un marqueur vers une nouvelle position
+    // Animation des marqueurs
     const animateMarkerToPosition = (marker, newLatLng, duration = 1000) => {
         const startLatLng = marker.getLatLng();
         const startTime = Date.now();
 
-        // Ajouter un effet de pulsation pendant l'animation
         const markerElement = marker.getElement();
         if (markerElement) {
             const iconDiv = markerElement.querySelector('div');
@@ -571,7 +584,6 @@ const MapView = React.forwardRef(({
             }
         }
 
-        // Fonction d'interpolation (easing)
         const easeInOutQuad = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 
         const animate = () => {
@@ -588,7 +600,6 @@ const MapView = React.forwardRef(({
             } else {
                 marker.setLatLng(newLatLng);
 
-                // Retirer l'effet de pulsation après un délai
                 setTimeout(() => {
                     if (markerElement) {
                         const iconDiv = markerElement.querySelector('div');
@@ -603,7 +614,7 @@ const MapView = React.forwardRef(({
         requestAnimationFrame(animate);
     };
 
-    // Fonction pour mettre à jour le popup d'un marqueur
+    // Mise à jour du popup des marqueurs
     const updateMarkerPopup = (marker, agent) => {
         const statusLabel = agent.isTemporary ? 'En cours d\'assignation...' : agent.status;
         const statusColor = agent.isTemporary ? '#fbbf24' : getStatusColorHex(agent.status);
@@ -625,14 +636,12 @@ const MapView = React.forwardRef(({
         marker.bindPopup(popupContent);
     };
 
-    // Ajout des employés à la carte avec mise à jour optimisée
+    // Ajout des marqueurs d'employés
     const addEmployeeMarkers = () => {
         if (!window.L || !mapInstanceRef.current) return;
 
-        // Créer une map des employés actuels pour comparaison
         const currentEmployeeIds = new Set(employees.map(employee => employee.id).filter(Boolean));
 
-        // Supprimer les marqueurs des employés qui ne sont plus présents
         markersRef.current = markersRef.current.filter(markerData => {
             if (!currentEmployeeIds.has(markerData.employeeId)) {
                 if (mapInstanceRef.current.hasLayer(markerData.marker)) {
@@ -643,7 +652,6 @@ const MapView = React.forwardRef(({
             return true;
         });
 
-        // Créer une map des marqueurs existants
         const existingMarkers = new Map(
             markersRef.current.map(markerData => [markerData.employeeId, markerData])
         );
@@ -654,28 +662,20 @@ const MapView = React.forwardRef(({
             const existingMarkerData = existingMarkers.get(employee.id);
 
             if (existingMarkerData) {
-                // Mettre à jour la position du marqueur existant avec animation
                 const currentLatLng = existingMarkerData.marker.getLatLng();
                 const newLatLng = window.L.latLng(employee.position.lat, employee.position.lng);
 
-                // Vérifier si la position a vraiment changé
                 const hasPositionChanged = Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 ||
                     Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001;
 
                 if (hasPositionChanged) {
-                    // Animation fluide de la position
                     animateMarkerToPosition(existingMarkerData.marker, newLatLng);
                     console.log(`📍 Position updated for employee ${employee.name}:`, [employee.position.lat, employee.position.lng]);
                 }
 
-                // Mettre à jour les données de l'employé
                 existingMarkerData.employee = employee;
-
-                // Mettre à jour le popup si nécessaire
                 updateEmployeeMarkerPopup(existingMarkerData.marker, employee);
-
             } else {
-                // Créer un nouveau marqueur
                 const customIcon = window.L.divIcon({
                     html: `<div style="
                         background-color: ${employee.routeColor || '#888'};
@@ -702,7 +702,6 @@ const MapView = React.forwardRef(({
                     handleEmployeeClick(employee);
                 });
 
-                // Ajouter le nouveau marqueur à la référence
                 markersRef.current.push({
                     employeeId: employee.id,
                     marker: marker,
@@ -714,7 +713,7 @@ const MapView = React.forwardRef(({
         });
     };
 
-    // Fonction pour mettre à jour le popup d'un marqueur d'employé
+    // Mise à jour du popup des employés
     const updateEmployeeMarkerPopup = (marker, employee) => {
         const popupContent = `
             <div style="text-align: center; padding: 8px;">
@@ -796,7 +795,6 @@ const MapView = React.forwardRef(({
             }
 
             if (employeeToAssign) {
-                // Créer un agent temporaire immédiatement visible
                 const tempAgent = {
                     ...employeeToAssign,
                     position: { lat: point.lat, lng: point.lng },
@@ -806,20 +804,13 @@ const MapView = React.forwardRef(({
 
                 setTempAssignedAgents(prev => [...prev, tempAgent]);
 
-                // Appeler la fonction d'assignation du parent
                 if (onEmployeeDrop) {
                     try {
                         await onEmployeeDrop(employeeToAssign, point, zoneInfo);
-
-                        // Retirer l'agent temporaire après succès
-                        setTimeout(() => {
-                            setTempAssignedAgents(prev =>
-                                prev.filter(agent => agent.tempId !== tempAgent.tempId)
-                            );
-                        }, 1000);
-
+                        setTempAssignedAgents(prev =>
+                            prev.filter(agent => agent.tempId !== tempAgent.tempId)
+                        );
                     } catch (error) {
-                        // En cas d'erreur, retirer l'agent temporaire
                         setTempAssignedAgents(prev =>
                             prev.filter(agent => agent.tempId !== tempAgent.tempId)
                         );
@@ -966,17 +957,9 @@ const MapView = React.forwardRef(({
 
     useEffect(() => {
         if (mapIsReady) {
-            console.log('🗺️ Zone agents changed, updating map markers:', zoneAssignedAgents.length, 'agents');
             addZoneAgentsToMap();
         }
     }, [zoneAssignedAgents, tempAssignedAgents, mapIsReady]);
-
-    useEffect(() => {
-        if (mapInstanceRef.current) {
-            console.log('🗺️ Employees changed, updating map markers:', employees.length, 'employees');
-            addEmployeeMarkers();
-        }
-    }, [employees]);
 
     useEffect(() => {
         if (mapInstanceRef.current && userRole === "client") {
@@ -1002,6 +985,44 @@ const MapView = React.forwardRef(({
         }
     }, [zoneAssignedAgents]);
 
+    // Mettre à jour le style de la zone lorsque isAlertActive change
+    useEffect(() => {
+        console.log('[MapView] Updating zone style:', {
+            isAlertActive,
+            hasDrawnZones: drawnZones.length > 0,
+            hasCurrentLayer: !!currentLayer
+        });
+        if (drawnZones.length > 0 && currentLayer) {
+            try {
+                // Supprimer la classe existante pour éviter les conflits
+                const element = currentLayer.getElement && currentLayer.getElement();
+                if (element) {
+                    element.classList.remove('zone-alert');
+                    if (isAlertActive) {
+                        element.classList.add('zone-alert');
+                    }
+                }
+
+                // Mettre à jour le style de la couche
+                currentLayer.setStyle({
+                    color: isAlertActive ? '#ef4444' : '#3388ff',
+                    fillOpacity: isAlertActive ? 0.4 : 0.2
+                });
+
+                // Forcer un redraw de la couche
+                currentLayer.eachLayer(layer => {
+                    layer.redraw();
+                });
+
+                console.log('[MapView] Zone style updated successfully');
+            } catch (error) {
+                console.error('[MapView] Error updating zone style:', error);
+            }
+        } else {
+            console.warn('[MapView] Cannot update zone style: no drawn zones or current layer');
+        }
+    }, [isAlertActive, drawnZones, currentLayer]);
+
     return (
         <div
             className={`relative w-full h-full ${isDragOver ? 'bg-blue-50' : ''}`}
@@ -1011,7 +1032,7 @@ const MapView = React.forwardRef(({
         >
             <div ref={mapRef} className="w-full h-full"></div>
 
-            {/* Bouton de géolocalisation */}
+            {/* Boutons de contrôle */}
             <div className="absolute top-3 right-16 flex gap-2 z-[999]">
                 <button
                     onClick={handleGeolocation}
@@ -1031,6 +1052,18 @@ const MapView = React.forwardRef(({
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                         </svg>
+                    </button>
+                )}
+                {isAlertActive && drawnZones.length > 0 && (
+                    <button
+                        onClick={handleDisableAlert}
+                        className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 flex items-center shadow-md transition-transform transform hover:scale-105"
+                        title="Désactiver l'alerte"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 100-16 8 8 0 000 16zm0-14a1 1 0 011 1v4.586l2.707 2.707a1 1 0 01-1.414 1.414L12 13.414V7a1 1 0 011-1z"/>
+                        </svg>
+                        Désactiver l'alerte
                     </button>
                 )}
             </div>

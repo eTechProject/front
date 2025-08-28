@@ -40,13 +40,14 @@ export const AuthProvider = ({ children }) => {
 
         const payload = authService.getTokenPayload();
         if (payload && payload.exp) {
-            const expireMs = payload.exp * 1000 - Date.now();
+            // Subtract 2 minutes (120000 ms) from the expiration time
+            const expireMs = payload.exp * 1000 - Date.now() - 2 * 60 * 1000;
             if (expireMs > 0) {
                 logoutTimerRef.current = setTimeout(() => {
-                    logout();
+                    authService.refreshToken();
                 }, expireMs);
             } else {
-                logout();
+                authService.refreshToken();
             }
         }
     }, []);

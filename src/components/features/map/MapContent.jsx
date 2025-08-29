@@ -1,10 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, Menu, Info, X, Check, ChevronUp, ChevronDown } from 'lucide-react';
-import { useAuth } from "@/context/AuthContext.jsx";
-import { useZone } from "@/hooks/features/zone/useZone.js";
-import EmployeeCard from "@/components/features/map/ui/EmployeeCard.jsx";
-import MapView from "@/components/features/map/contents/MapView.jsx";
-import EmployeeList from "@/components/features/map/contents/EmployeeList.jsx";
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {Check, ChevronDown, ChevronLeft, ChevronUp, Info, Menu, X} from 'lucide-react';
+import {useAuth} from '@/context/AuthContext.jsx';
+import {useZone} from '@/hooks/features/zone/useZone.js';
+import EmployeeCard from '@/components/features/map/ui/EmployeeCard.jsx';
+import MapView from '@/components/features/map/contents/MapView.jsx';
+import EmployeeList from '@/components/features/map/contents/EmployeeList.jsx';
+import useMercureSubscription from '@/hooks/features/messaging/useMercureSubscription.js';
+import {messageService} from '@/services/features/messaging/messageService.js';
+import {mapReloadService} from '@/services/map/mapReloadService.js';
+import {useMapReload} from "@/hooks/map/useMapReload.js";
 
 const MapContent = () => {
     // UI States
@@ -36,9 +40,29 @@ const MapContent = () => {
         startX: 0,
         startY: 0,
         currentX: 0,
-        currentY: 0
+        currentY: 0,
     });
+    // Fonction pour mapper les valeurs de 'reason' aux statuts de tâche
+    const mapReasonToTaskStatus = (reason) => {
+        const reasonStatusMap = {
+            'start_task': 'working',
+            'end_task': 'completed',
+            'manual_report' : 'working',
+            'pause_task': 'pause',
+            'resume_task': 'working',
+            'arrived': 'working',
+            'break_start': 'break',
+            'break_end': 'working',
+            'emergency': 'urgent',
+            'offline': 'inactif',
+            'online': 'actif',
+            'mission_complete': 'completed',
+            'returning_to_base': 'transit',
+            'waiting_for_instructions': 'pending',
+        };
 
+        return reasonStatusMap[reason] || null;
+    };
     // References and context
     const mapRef = useRef(null);
     const bottomSheetRef = useRef(null);
@@ -54,7 +78,21 @@ const MapContent = () => {
     const [unassignedEmployees, setUnassignedEmployees] = useState([]);
 
     // Zone operations hook
-    const { getAvailableAgent, sendAssignment, getZone, getZoneByAgent, isLoading, error, success } = useZone();
+    const { sendAssignment, isLoading, error, success } = useZone();
+
+    // Utiliser le hook de rechargement
+    const { reloadMapData } = useMapReload(
+        setZoneData,
+        setZoneAssignedAgents,
+        setAssignedEmployees,
+        setUnassignedEmployees,
+        setZoneLoaded
+    );
+
+    // Mercure configuration
+    const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:3000/.well-known/mercure';
+    const [mercureToken, setMercureToken] = useState(null);
+    const [locationTopic, setLocationTopic] = useState(null);
 
     // Handle window resize
     useEffect(() => {
@@ -64,7 +102,6 @@ const MapContent = () => {
 
             setIsMobile(mobile);
 
-            // Auto-adjust sidebar visibility based on screen size
             if (mobile) {
                 setSidebarVisible(false);
                 setBottomSheetExpanded(false);
@@ -84,144 +121,184 @@ const MapContent = () => {
     const getStatusColor = (status) => {
         const statusLower = status?.toLowerCase() || '';
         const statusMap = {
-            'pause': 'bg-green-500',
-            'working': 'bg-blue-500',
-            'disponible': 'bg-green-400',
-            'break': 'bg-yellow-500',
-            'completed': 'bg-gray-500',
-            'transit': 'bg-orange-500',
-            'occupé': 'bg-red-500',
-            'inactif': 'bg-gray-400',
-            'actif': 'bg-green-500',
+            pause: 'bg-green-500',
+            working: 'bg-blue-500',
+            disponible: 'bg-green-400',
+            break: 'bg-yellow-500',
+            completed: 'bg-gray-500',
+            transit: 'bg-orange-500',
+            occupé: 'bg-red-500',
+            inactif: 'bg-gray-400',
+            actif: 'bg-green-500',
             'en mission': 'bg-blue-500',
-            'pending': 'bg-yellow-500'
+            pending: 'bg-yellow-500',
         };
         return statusMap[statusLower] || 'bg-gray-400';
     };
 
-    // Extract coordinates from text like "[-18.123, 47.456]"
-    const extractCoordinates = (text) => {
-        if (!text) return null;
-        const coordMatch = text.match(/\[([-\d.]+),\s*([-\d.]+)]/);
-        if (coordMatch && coordMatch.length >= 3) {
-            return {
-                lat: parseFloat(coordMatch[1]),
-                lng: parseFloat(coordMatch[2])
-            };
-        }
-        return null;
-    };
+    // Handle real-time location updates from Mercure
+    const handleLocationUpdate = useCallback((data) => {
+        try {
+            console.log('🔄 Received real-time location update:', data);
 
-    // Load available agents from API (client only)
-    useEffect(() => {
-        if (userRole !== "client") return;
-        const fetchAgents = async () => {
-            const result = await getAvailableAgent();
-            if (result.success && result.data?.length > 0) {
-                const formattedAgents = result.data.map(agent => ({
-                    id: agent.agentId,
-                    name: agent.user.name,
-                    avatar: agent.user.name.split(' ').map(n => n[0]).join(''),
-                    email: agent.user.email,
-                    role: 'Agent de terrain',
-                    status: 'Disponible',
-                    routeColor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
-                    position: null,
-                    phone: agent.user.phone || 'Non renseigné',
-                    datetimeStart: null,
-                    datetimeEnd: null,
-                    type: null
-                }));
-                setUnassignedEmployees(formattedAgents);
-            } else {
-                console.log("Aucun agent disponible n'a été trouvé via l'API");
-            }
-        };
-        fetchAgents().then();
-    }, [userRole]);
+            const { agent_id, latitude, longitude, accuracy, speed, battery_level, recorded_at, is_significant, reason } = data;
 
-    // Load zone data from API
-    useEffect(() => {
-        const loadZoneData = async () => {
-            if (!user?.userId || zoneLoaded) return;
-            setZoneLoaded(true);
-            let result;
-            if (userRole === "client") {
-                result = await getZone(user.userId);
-            } else if (userRole === "agent") {
-                result = await getZoneByAgent(user.userId);
+            if (!agent_id || latitude === undefined || longitude === undefined) {
+                console.warn('❌ Invalid location data received:', data);
+                return;
             }
-            if (result.success && result.data) {
-                setZoneData(result.data);
-                if (result.data.assignedAgents?.length > 0) {
-                    const formattedZoneAgents = result.data.assignedAgents
-                        .filter(assignedAgent => assignedAgent.agent?.user)
-                        .map(assignedAgent => {
-                            const agent = assignedAgent.agent;
-                            const userObj = agent.user;
-                            const name = userObj.name || "Agent inconnu";
-                            const initials = name.split(' ').map(n => n[0]).join('');
-                            let position = null;
-                            if (assignedAgent.task?.assignPosition &&
-                                Array.isArray(assignedAgent.task.assignPosition) &&
-                                assignedAgent.task.assignPosition.length === 2) {
-                                position = {
-                                    lat: assignedAgent.task.assignPosition[0],
-                                    lng: assignedAgent.task.assignPosition[1]
-                                };
-                            } else if (assignedAgent.task?.description) {
-                                position = extractCoordinates(assignedAgent.task.description);
-                            } else if (assignedAgent.currentPosition &&
-                                Array.isArray(assignedAgent.currentPosition) &&
-                                assignedAgent.currentPosition.length === 2) {
-                                position = {
-                                    lat: assignedAgent.currentPosition[0],
-                                    lng: assignedAgent.currentPosition[1]
-                                };
-                            }
-                            return {
-                                id: agent.agentId,
-                                assignmentId: assignedAgent.id,
-                                name: name,
-                                avatar: initials,
-                                email: userObj.email,
-                                role: 'Agent assigné',
-                                status: assignedAgent.status || assignedAgent.task?.status || 'Inactif',
-                                routeColor: `#${Math.floor(Math.random()*16777215).toString(16)}`,
-                                position: position,
-                                task: assignedAgent.task,
-                                taskDescription: assignedAgent.task?.description || '',
-                                phone: userObj.phone || 'Non renseigné',
-                                address: agent.address,
-                                sexe: agent.sexe,
-                                datetimeStart: assignedAgent.task?.datetimeStart || null,
-                                datetimeEnd: assignedAgent.task?.datetimeEnd || null,
-                                type: assignedAgent.task?.type || null
+
+            console.log(`📍 Processing location update for agent ID: ${agent_id}`);
+            console.log('📍 New position:', { latitude, longitude });
+            console.log('📍 Reason:', reason);
+
+            // Déterminer le nouveau statut basé sur le reason
+            const newTaskStatus = mapReasonToTaskStatus(reason);
+            if (newTaskStatus) {
+                console.log(`📊 Mapping reason "${reason}" to status: ${newTaskStatus}`);
+            }
+
+            let agentUpdated = false;
+
+            setAssignedEmployees((prevEmployees) => {
+                return prevEmployees.map((employee) => {
+                    if (employee.id === agent_id) {
+                        const newPosition = {
+                            lat: parseFloat(latitude),
+                            lng: parseFloat(longitude),
+                        };
+
+                        console.log(`✅ Updating position for agent ${employee.name} (Encrypted ID: ${employee.id}):`, newPosition);
+
+                        // Mise à jour du statut de la tâche si un mapping existe
+                        let updatedTask = employee.task;
+                        if (newTaskStatus && employee.task) {
+                            console.log(`📊 Task status updated from "${employee.task.status}" to "${newTaskStatus}" for agent ${employee.name}`);
+                            updatedTask = {
+                                ...employee.task,
+                                status: newTaskStatus,
+                                lastStatusUpdate: recorded_at,
                             };
-                        });
-                    setZoneAssignedAgents(formattedZoneAgents);
-                    const assignedAgentsFromAPI = formattedZoneAgents.map(agent => ({
-                        ...agent,
-                        distance: '0 km',
-                        route: []
-                    }));
-                    setAssignedEmployees(assignedAgentsFromAPI);
-                    if (userRole === "client") {
-                        const assignedIds = assignedAgentsFromAPI.map(agent => agent.id);
-                        setUnassignedEmployees(prev => prev.filter(emp => !assignedIds.includes(emp.id)));
+                        }
+
+                        agentUpdated = true;
+
+                        return {
+                            ...employee,
+                            position: newPosition,
+                            task: updatedTask,
+                            lastLocationUpdate: recorded_at,
+                            accuracy: accuracy,
+                            speed: speed,
+                            batteryLevel: battery_level,
+                            isSignificant: is_significant,
+                            locationReason: reason,
+                        };
                     }
+                    return employee;
+                });
+            });
+
+            setZoneAssignedAgents((prevAgents) => {
+                return prevAgents.map((agent) => {
+                    if (agent.id === agent_id) {
+                        console.log(`Updating zone agent position for ${agent.name}`);
+
+                        let updatedTask = agent.task;
+                        if (newTaskStatus && agent.task) {
+                            console.log(`📊 Zone agent task status updated from "${agent.task.status}" to "${newTaskStatus}" for agent ${agent.name}`);
+                            updatedTask = {
+                                ...agent.task,
+                                status: newTaskStatus,
+                                lastStatusUpdate: recorded_at,
+                            };
+                        }
+
+                        agentUpdated = true;
+                        return {
+                            ...agent,
+                            position: {
+                                lat: parseFloat(latitude),
+                                lng: parseFloat(longitude),
+                            },
+                            task: updatedTask,
+                            lastLocationUpdate: recorded_at,
+                            accuracy: accuracy,
+                            speed: speed,
+                            batteryLevel: battery_level,
+                            isSignificant: is_significant,
+                            locationReason: reason,
+                        };
+                    }
+                    return agent;
+                });
+            });
+
+            if (!agentUpdated) {
+                console.log(`⚠️ No agent found with ID ${agent_id} to update`);
+            } else {
+                console.log(`🎯 Successfully processed location update for agent ID: ${agent_id}`);
+            }
+        } catch (error) {
+            console.error('❌ Error handling location update:', error);
+        }
+    }, []);
+
+    // Load initial data
+    useEffect(() => {
+        if (!zoneLoaded) {
+            reloadMapData().then();
+        }
+    }, [zoneLoaded]);
+
+    // Setup Mercure token and location topic
+    useEffect(() => {
+        const setupMercureSubscription = async () => {
+            if (!zoneData?.serviceOrder?.id) return;
+
+            const orderId = zoneData.serviceOrder.id;
+            const expectedTopic = `order/${orderId}/agents/location`;
+
+            if (locationTopic === expectedTopic && mercureToken) {
+                console.log('Mercure subscription already set up for this order');
+                return;
+            }
+
+            try {
+                const tokenResult = await messageService.getMercureToken();
+                if (tokenResult.success) {
+                    setMercureToken(tokenResult.token);
+                    setLocationTopic(expectedTopic);
+
+                    console.log(`Setting up location tracking for topic: ${expectedTopic}`);
+                    console.log('Zone service order data:', zoneData.serviceOrder);
+                    console.log('Current assigned employees:', assignedEmployees.map((emp) => ({ id: emp.id, name: emp.name })));
+                    console.log('Current zone assigned agents:', zoneAssignedAgents.map((agent) => ({ id: agent.id, name: agent.name })));
+                } else {
+                    console.error('Failed to get Mercure token:', tokenResult.error);
                 }
+            } catch (error) {
+                console.error('Error setting up Mercure subscription:', error);
             }
         };
-        loadZoneData().then();
-    }, [user?.userId, userRole]);
+
+        setupMercureSubscription().then();
+    }, [zoneData?.serviceOrder?.id, locationTopic, mercureToken]);
+
+    // Subscribe to location updates via Mercure
+    useMercureSubscription({
+        topic: locationTopic,
+        mercureUrl: MERCURE_URL,
+        token: mercureToken,
+        onMessage: handleLocationUpdate,
+        reconnectDelay: 3000,
+    });
 
     // Show employee details card
     const handleEmployeeClick = (employee) => {
         setSelectedEmployee(employee);
         setShowEmployeeCard(true);
 
-        // On mobile, close bottom sheet when viewing employee card
         if (isMobile) {
             setBottomSheetExpanded(false);
         }
@@ -232,12 +309,12 @@ const MapContent = () => {
         if (isMobile) {
             setBottomSheetExpanded(!bottomSheetExpanded);
         } else {
-            setSidebarVisible(prev => !prev);
+            setSidebarVisible((prev) => !prev);
         }
     };
 
     // Toggle instructions display
-    const toggleInstructions = () => setShowInstructions(prev => !prev);
+    const toggleInstructions = () => setShowInstructions((prev) => !prev);
 
     // Handle employee card drag start
     const handleMouseDown = (e) => {
@@ -262,9 +339,9 @@ const MapContent = () => {
     // End employee card drag
     const handleMouseUp = () => setIsDragging(false);
 
-    // Touch drag handlers for mobile - VERSION CORRIGÉE
+    // Touch drag handlers for mobile
     const handleTouchStart = (e, employee) => {
-        if (userRole !== "client" || !isMobile) return;
+        if (userRole !== 'client' || !isMobile) return;
 
         const touch = e.touches[0];
         setTouchDragState({
@@ -273,15 +350,13 @@ const MapContent = () => {
             startX: touch.clientX,
             startY: touch.clientY,
             currentX: touch.clientX,
-            currentY: touch.clientY
+            currentY: touch.clientY,
         });
 
-        // Add haptic feedback if available
         if (navigator.vibrate) {
             navigator.vibrate(50);
         }
 
-        // Définir l'employé en cours de drag pour MapView
         setDraggingEmployee(employee);
 
         e.preventDefault();
@@ -291,27 +366,23 @@ const MapContent = () => {
         if (!touchDragState.isDragging) return;
 
         const touch = e.touches[0];
-        setTouchDragState(prev => ({
+        setTouchDragState((prev) => ({
             ...prev,
             currentX: touch.clientX,
-            currentY: touch.clientY
+            currentY: touch.clientY,
         }));
 
         e.preventDefault();
     };
 
-    // VERSION CORRIGÉE du handleTouchEnd
     const handleTouchEnd = (e) => {
         if (!touchDragState.isDragging) return;
 
         const touch = e.changedTouches[0];
-
-        // Vérifier si l'élément sous le doigt est la carte
         const mapContainer = document.getElementById('map-container');
         const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
 
         if (mapContainer && mapContainer.contains(elementBelow)) {
-            // Utiliser la méthode exposée par MapView pour convertir les coordonnées
             if (mapRef.current && mapRef.current.convertScreenToLatLng) {
                 const mapPosition = mapRef.current.convertScreenToLatLng(touch.clientX, touch.clientY);
 
@@ -328,28 +399,26 @@ const MapContent = () => {
             console.log('Touch not on map area');
         }
 
-        // Reset touch drag state
         setTouchDragState({
             isDragging: false,
             employee: null,
             startX: 0,
             startY: 0,
             currentX: 0,
-            currentY: 0
+            currentY: 0,
         });
 
-        // Reset dragging employee
         setDraggingEmployee(null);
     };
 
     // Start employee drag onto map (client only)
     const handleDragStart = (employee) => {
-        if (userRole === "client") setDraggingEmployee(employee);
+        if (userRole === 'client') setDraggingEmployee(employee);
     };
 
     // End employee drag (client only)
     const handleDragEnd = () => {
-        if (userRole === "client") setDraggingEmployee(null);
+        if (userRole === 'client') setDraggingEmployee(null);
     };
 
     // Bottom sheet touch handlers
@@ -386,20 +455,20 @@ const MapContent = () => {
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     };
 
-    // Handle employee drop on map (client only) - VERSION CORRIGÉE
+    // Handle employee drop on map (client only)
     const handleEmployeeDrop = (employee, position, zoneInfo) => {
-        if (userRole !== "client") return;
+        if (userRole !== 'client') return;
 
         console.log('🎯 Employee drop initiated:', {
             employee: employee.name,
             position,
-            zoneInfo
+            zoneInfo,
         });
 
         const zoneInfoToUse = zoneInfo || (zoneData ? {
             serviceOrderId: zoneData.serviceOrder?.id,
             securedZoneId: zoneData.securedZone?.securedZoneId,
-            zoneName: zoneData.securedZone?.name
+            zoneName: zoneData.securedZone?.name,
         } : null);
 
         if (!zoneInfoToUse) {
@@ -409,7 +478,7 @@ const MapContent = () => {
 
         const startDate = formatDateForBackend(new Date());
         const endDate = formatDateForBackend(new Date(Date.now() + 2 * 60 * 60 * 1000));
-        const assignmentType = "patrouille";
+        const assignmentType = 'patrouille';
 
         const newAssignment = {
             id: Date.now(),
@@ -425,19 +494,19 @@ const MapContent = () => {
             startDate,
             endDate,
             type: assignmentType,
-            description: null
+            description: null,
         };
 
-        setPendingAssignments(prev => [...prev, newAssignment]);
+        setPendingAssignments((prev) => [...prev, newAssignment]);
         setShowPendingAssignments(true);
-        setUnassignedEmployees(prev => prev.filter(emp => emp.id !== employee.id));
+        setUnassignedEmployees((prev) => prev.filter((emp) => emp.id !== employee.id));
         setDraggingEmployee(null);
     };
 
     // Update pending assignment
     const updateAssignment = (id, updatedData) => {
-        setPendingAssignments(prev =>
-            prev.map(assignment =>
+        setPendingAssignments((prev) =>
+            prev.map((assignment) =>
                 assignment.id === id ? { ...assignment, ...updatedData } : assignment
             )
         );
@@ -445,7 +514,7 @@ const MapContent = () => {
 
     // Confirm all pending assignments (client only)
     const confirmAssignments = async () => {
-        if (userRole !== "client") return;
+        if (userRole !== 'client') return;
         if (!pendingAssignments.length) {
             console.log('Aucune affectation à confirmer');
             return;
@@ -463,44 +532,47 @@ const MapContent = () => {
             endDate,
             assignPosition: [
                 parseFloat(coordinates.lat.toFixed(6)),
-                parseFloat(coordinates.lng.toFixed(6))
-            ]
+                parseFloat(coordinates.lng.toFixed(6)),
+            ],
         }));
         const assignmentData = { orderId, agentAssignments };
         console.log('Données à envoyer:', JSON.stringify(assignmentData, null, 2));
         const result = await sendAssignment(assignmentData);
         if (result.success) {
             console.log('Affectations confirmées avec succès:', result.data);
-            pendingAssignments.forEach(assignment => {
+            pendingAssignments.forEach((assignment) => {
                 if (assignment.isNewAssignment) {
                     const employee = {
                         id: assignment.employeeId,
                         name: assignment.employeeName,
                         avatar: assignment.employeeAvatar,
                         routeColor: assignment.employeeColor,
-                        email: unassignedEmployees.find(emp => emp.id === assignment.employeeId)?.email || '',
+                        email: unassignedEmployees.find((emp) => emp.id === assignment.employeeId)?.email || '',
                         role: 'Agent de terrain',
-                        phone: unassignedEmployees.find(emp => emp.id === assignment.employeeId)?.phone || 'Non renseigné',
-                        status: 'En mission',
+                        phone: unassignedEmployees.find((emp) => emp.id === assignment.employeeId)?.phone || 'Non renseigné',
                         position: assignment.coordinates,
                         datetimeStart: assignment.startDate,
                         datetimeEnd: assignment.endDate,
-                        type: assignment.type
                     };
-                    setAssignedEmployees(prev => [...prev, {
+                    setAssignedEmployees((prev) => [...prev, {
                         ...employee,
-                        distance: '0 km',
-                        route: []
+                        route: [],
                     }]);
                 } else {
-                    setAssignedEmployees(prev => prev.map(emp =>
+                    setAssignedEmployees((prev) => prev.map((emp) =>
                         emp.id === assignment.employeeId
                             ? {
                                 ...emp,
                                 position: assignment.coordinates,
-                                datetimeStart: assignment.startDate,
-                                datetimeEnd: assignment.endDate,
-                                type: assignment.type
+                                task: {
+                                    id: emp.task?.id || Date.now().toString(),
+                                    status: emp.task?.status,
+                                    startDate: assignment.startDate,
+                                    datetimeEnd: assignment.endDate,
+                                    type: assignment.type,
+                                    description: assignment.description,
+                                },
+                                serviceOrder: zoneData?.serviceOrder,
                             }
                             : emp
                     ));
@@ -508,23 +580,24 @@ const MapContent = () => {
             });
             setPendingAssignments([]);
             setShowPendingAssignments(false);
+
+            // Déclencher le rechargement
+            mapReloadService.triggerReload('assignmentsConfirmed');
         } else {
             console.error('Erreur lors de la confirmation des affectations:', result.error);
-            const failedAssignments = pendingAssignments.map(assignment => ({
+            const failedAssignments = pendingAssignments.map((assignment) => ({
                 id: assignment.employeeId,
                 name: assignment.employeeName,
                 avatar: assignment.employeeAvatar,
                 routeColor: assignment.employeeColor,
-                email: unassignedEmployees.find(emp => emp.id === assignment.employeeId)?.email || '',
+                email: unassignedEmployees.find((emp) => emp.id === assignment.employeeId)?.email || '',
                 role: 'Agent de terrain',
-                phone: unassignedEmployees.find(emp => emp.id === assignment.employeeId)?.phone || 'Non renseigné',
-                status: 'Disponible',
+                phone: unassignedEmployees.find((emp) => emp.id === assignment.employeeId)?.phone || 'Non renseigné',
                 position: null,
-                datetimeStart: null,
-                datetimeEnd: null,
-                type: null
+                task: null,
+                serviceOrder: null,
             }));
-            setUnassignedEmployees(prev => [...prev, ...failedAssignments]);
+            setUnassignedEmployees((prev) => [...prev, ...failedAssignments]);
             setPendingAssignments([]);
             setShowPendingAssignments(false);
         }
@@ -532,33 +605,31 @@ const MapContent = () => {
 
     // Cancel all pending assignments (client only)
     const cancelAssignments = () => {
-        if (userRole !== "client") return;
-        const canceledEmployees = pendingAssignments.map(assignment => ({
+        if (userRole !== 'client') return;
+        const canceledEmployees = pendingAssignments.map((assignment) => ({
             id: assignment.employeeId,
             name: assignment.employeeName,
             avatar: assignment.employeeAvatar,
             routeColor: assignment.employeeColor,
-            email: unassignedEmployees.find(emp => emp.id === assignment.employeeId)?.email || '',
+            email: unassignedEmployees.find((emp) => emp.id === assignment.employeeId)?.email || '',
             role: 'Agent de terrain',
-            phone: unassignedEmployees.find(emp => emp.id === assignment.employeeId)?.phone || 'Non renseigné',
-            status: 'Disponible',
+            phone: unassignedEmployees.find((emp) => emp.id === assignment.employeeId)?.phone || 'Non renseigné',
             position: null,
-            datetimeStart: null,
-            datetimeEnd: null,
-            type: null
+            task: null,
+            serviceOrder: null,
         }));
-        setUnassignedEmployees(prev => [...prev, ...canceledEmployees]);
+        setUnassignedEmployees((prev) => [...prev, ...canceledEmployees]);
         setPendingAssignments([]);
         setShowPendingAssignments(false);
     };
 
     // Handle map click for employee drop (client only)
     const handleMapClick = (position, zoneInfo) => {
-        if (userRole === "client" && draggingEmployee) {
+        if (userRole === 'client' && draggingEmployee) {
             console.log('🗺️ Map click with dragging employee:', {
                 employee: draggingEmployee.name,
                 position,
-                zoneInfo
+                zoneInfo,
             });
             handleEmployeeDrop(draggingEmployee, position, zoneInfo);
         }
@@ -571,12 +642,12 @@ const MapContent = () => {
             startDate: assignment.startDate,
             endDate: assignment.endDate,
             type: assignment.type,
-            description: assignment.description || ''
+            description: assignment.description || '',
         });
 
         const handleInputChange = (e) => {
             const { name, value } = e.target;
-            setFormData(prev => ({ ...prev, [name]: value }));
+            setFormData((prev) => ({ ...prev, [name]: value }));
         };
 
         const saveChanges = () => {
@@ -616,8 +687,8 @@ const MapContent = () => {
                         />
                     ) : (
                         <span className="text-xs md:text-sm">
-                            {new Date(assignment.startDate).toLocaleString('fr-FR')}
-                        </span>
+              {new Date(assignment.startDate).toLocaleString('fr-FR')}
+            </span>
                     )}
                 </td>
                 <td className="px-2 md:px-4 py-2 whitespace-nowrap">
@@ -631,8 +702,8 @@ const MapContent = () => {
                         />
                     ) : (
                         <span className="text-xs md:text-sm">
-                            {new Date(assignment.endDate).toLocaleString('fr-FR')}
-                        </span>
+              {new Date(assignment.endDate).toLocaleString('fr-FR')}
+            </span>
                     )}
                 </td>
                 <td className="px-2 md:px-4 py-2 whitespace-nowrap">
@@ -683,11 +754,10 @@ const MapContent = () => {
 
     return (
         <div className="flex h-full relative">
-            {/* Desktop Employee sidebar */}
-            <div className={`${isMobile ? 'hidden' : (sidebarVisible ? 'w-80' : 'w-0')} transition-all duration-300 ease-in-out bg-white`}>
+            <div className={`${isMobile ? 'hidden' : sidebarVisible ? 'w-80' : 'w-0'} transition-all duration-300 ease-in-out bg-white`}>
                 <EmployeeList
                     employees={assignedEmployees}
-                    unassignedEmployees={userRole === "client" ? unassignedEmployees : []}
+                    unassignedEmployees={userRole === 'client' ? unassignedEmployees : []}
                     filterText={filterText}
                     setFilterText={setFilterText}
                     handleEmployeeClick={handleEmployeeClick}
@@ -695,42 +765,32 @@ const MapContent = () => {
                     formatDate={formatDate}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
+                    isAgentMode={userRole === 'agent'}
                 />
             </div>
 
-            {/* Main map area */}
             <div id="map-container" className="flex-1 relative overflow-hidden">
-                {/* Toggle button */}
                 <button
                     onClick={toggleSidebar}
                     className={`absolute ${isMobile ? 'bottom-4 right-4 z-30' : 'top-20 left-2 z-20'} 
-                        bg-white backdrop-blur-sm hover:bg-gray-50 rounded-lg p-2 md:p-2 border transition-colors shadow-lg`}
-                    title={isMobile ?
-                        (bottomSheetExpanded ? "Fermer la liste" : "Ouvrir la liste") :
-                        (sidebarVisible ? "Masquer le panneau" : "Afficher le panneau")
-                    }
+          bg-white backdrop-blur-sm hover:bg-gray-50 rounded-lg p-2 md:p-2 border transition-colors shadow-lg`}
+                    title={isMobile ? (bottomSheetExpanded ? 'Fermer la liste' : 'Ouvrir la liste') : (sidebarVisible ? 'Masquer le panneau' : 'Afficher le panneau')}
                 >
                     {isMobile ? (
                         bottomSheetExpanded ? <ChevronDown size={20} className="text-gray-600" /> : <ChevronUp size={20} className="text-gray-600" />
                     ) : (
-                        sidebarVisible ?
-                            <ChevronLeft size={20} className="text-gray-600" /> :
-                            <Menu size={20} className="text-gray-600" />
+                        sidebarVisible ? <ChevronLeft size={20} className="text-gray-600" /> : <Menu size={20} className="text-gray-600" />
                     )}
                 </button>
 
-                {/* Drag indicator for mobile */}
-                {(draggingEmployee || touchDragState.isDragging) && userRole === "client" && (
+                {(draggingEmployee || touchDragState.isDragging) && userRole === 'client' && (
                     <div className={`absolute ${isMobile ? 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2' : 'top-2 left-[40%]'} 
-                        z-50 bg-blue-500 text-white px-3 py-1.5 rounded-md text-sm shadow-md`}>
-                        {isMobile ?
-                            `Glissez ${touchDragState.employee?.name || draggingEmployee?.name} sur la carte` :
-                            `Déposez ${draggingEmployee?.name} sur la carte`}
+          z-50 bg-blue-500 text-white px-3 py-1.5 rounded-md text-sm shadow-md`}>
+                        {isMobile ? `Glissez ${touchDragState.employee?.name || draggingEmployee?.name} sur la carte` : `Déposez ${draggingEmployee?.name} sur la carte`}
                     </div>
                 )}
 
-                {/* Instructions button */}
-                {userRole === "client" && (
+                {userRole === 'client' && (
                     <div className={`absolute ${isMobile ? 'top-4 right-4' : 'top-32 left-2'} z-[900] flex items-center`}>
                         {showInstructions ? (
                             <div className="bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md text-sm flex items-center space-x-2 max-w-xs">
@@ -751,10 +811,9 @@ const MapContent = () => {
                     </div>
                 )}
 
-                {/* Pending assignments overlay */}
                 {showPendingAssignments && pendingAssignments.length > 0 && (
                     <div className={`absolute top-2 z-[1000] ${isMobile ? 'left-2 right-2' : 'left-1/2 transform -translate-x-1/2'} 
-                        bg-white rounded-lg shadow-lg border border-gray-200 p-2 md:p-4 ${isMobile ? 'max-h-[70vh] overflow-y-auto' : 'max-w-4xl w-full'}`}>
+          bg-white rounded-lg shadow-lg border border-gray-200 p-2 md:p-4 ${isMobile ? 'max-h-[70vh] overflow-y-auto' : 'max-w-4xl w-full'}`}>
                         <div className="flex justify-between items-center mb-3">
                             <h3 className="text-base md:text-lg font-semibold text-gray-800">
                                 Affectations en attente ({pendingAssignments.length})
@@ -808,7 +867,7 @@ const MapContent = () => {
                                 </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                {pendingAssignments.map(assignment => (
+                                {pendingAssignments.map((assignment) => (
                                     <PendingAssignmentRow
                                         key={assignment.id}
                                         assignment={assignment}
@@ -824,7 +883,6 @@ const MapContent = () => {
                     </div>
                 )}
 
-                {/* Map component - MODIFIÉ POUR UTILISER ref AU LIEU DE mapRef comme prop */}
                 <div className="w-full border relative z-10 h-full rounded-lg overflow-hidden">
                     <MapView
                         ref={mapRef}
@@ -832,8 +890,8 @@ const MapContent = () => {
                         handleEmployeeClick={handleEmployeeClick}
                         selectedEmployee={selectedEmployee}
                         sidebarVisible={sidebarVisible}
-                        draggingEmployee={userRole === "client" ? (draggingEmployee || touchDragState.employee) : null}
-                        onEmployeeDrop={userRole === "client" ? handleEmployeeDrop : undefined}
+                        draggingEmployee={userRole === 'client' ? (draggingEmployee || touchDragState.employee) : null}
+                        onEmployeeDrop={userRole === 'client' ? handleEmployeeDrop : undefined}
                         onMapClick={handleMapClick}
                         zoneData={zoneData}
                         zoneAssignedAgents={zoneAssignedAgents}
@@ -841,7 +899,6 @@ const MapContent = () => {
                     />
                 </div>
 
-                {/* Employee card overlay */}
                 {showEmployeeCard && selectedEmployee && (
                     <EmployeeCard
                         employee={selectedEmployee}
@@ -857,7 +914,6 @@ const MapContent = () => {
                 )}
             </div>
 
-            {/* Mobile bottom sheet for employee list */}
             {isMobile && (
                 <div
                     ref={bottomSheetRef}
@@ -869,36 +925,19 @@ const MapContent = () => {
                     onTouchMove={handleBottomSheetTouchMove}
                     onTouchEnd={handleBottomSheetTouchEnd}
                 >
-                    {/* Bottom sheet handle */}
                     <div className="flex justify-center">
                         <button
-                            className='relative -top-4 bg-white bg-opacity-70 rounded-full p-1'
+                            className="relative -top-4 bg-white bg-opacity-70 rounded-full p-1"
                             onClick={() => setBottomSheetExpanded(!bottomSheetExpanded)}
                         >
-                            {bottomSheetExpanded ? <ChevronDown className='text-gray-800' size={30} /> : <ChevronUp className='text-gray-800' size={30} />}
+                            {bottomSheetExpanded ? <ChevronDown className="text-gray-800" size={30} /> : <ChevronUp className="text-gray-800" size={30} />}
                         </button>
                     </div>
 
-                    {/* Bottom sheet header */}
-                    <div className="flex items-center justify-between  p-2 border-b border-gray-200">
-                        {/*<h3 className="font-semibold text-gray-800">
-                            Agents ({assignedEmployees.length + unassignedEmployees.length})
-                        </h3>
-                            <button
-                            onClick={() => setBottomSheetExpanded(!bottomSheetExpanded)}
-                            className="p-1 hover:bg-gray-100 rounded"
-                        >
-                            {bottomSheetExpanded ? <ChevronDown size={25} /> : <ChevronUp size={25} />}
-                        </button>
-                        */}
-
-                    </div>
-
-                    {/* Bottom sheet content */}
                     <div className="overflow-hidden" style={{ maxHeight: bottomSheetExpanded ? '60vh' : '0' }}>
                         <MobileEmployeeList
                             employees={assignedEmployees}
-                            unassignedEmployees={userRole === "client" ? unassignedEmployees : []}
+                            unassignedEmployees={userRole === 'client' ? unassignedEmployees : []}
                             filterText={filterText}
                             setFilterText={setFilterText}
                             handleEmployeeClick={handleEmployeeClick}
@@ -914,13 +953,12 @@ const MapContent = () => {
                 </div>
             )}
 
-            {/* Touch drag visual feedback */}
             {touchDragState.isDragging && (
                 <div
                     className="fixed pointer-events-none z-50 transform -translate-x-1/2 -translate-y-1/2"
                     style={{
                         left: touchDragState.currentX,
-                        top: touchDragState.currentY
+                        top: touchDragState.currentY,
                     }}
                 >
                     <div
@@ -947,15 +985,15 @@ const MobileEmployeeList = ({
                                 onTouchMove = () => {},
                                 onTouchEnd = () => {},
                                 touchDragState = {},
-                                userRole = 'agent'
+                                userRole = 'agent',
                             }) => {
     const [showUnassigned, setShowUnassigned] = useState(false);
 
-    const filteredEmployees = employees.filter(emp =>
+    const filteredEmployees = employees.filter((emp) =>
         emp.name.toLowerCase().includes(filterText.toLowerCase())
     );
 
-    const filteredUnassignedEmployees = unassignedEmployees.filter(emp =>
+    const filteredUnassignedEmployees = unassignedEmployees.filter((emp) =>
         emp.name.toLowerCase().includes(filterText.toLowerCase())
     );
 
@@ -963,7 +1001,6 @@ const MobileEmployeeList = ({
 
     return (
         <div className="flex flex-col h-full">
-            {/* Search bar */}
             <div className="p-4 border-b border-gray-200">
                 <div className="relative">
                     <input
@@ -981,16 +1018,13 @@ const MobileEmployeeList = ({
                 </div>
             </div>
 
-            {/* Toggle for assigned/unassigned */}
             {unassignedEmployees.length > 0 && (
                 <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
                     <div className="flex items-center justify-center space-x-4">
                         <button
                             onClick={() => setShowUnassigned(false)}
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                !showUnassigned
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                !showUnassigned ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                             }`}
                         >
                             En mission ({filteredEmployees.length})
@@ -998,9 +1032,7 @@ const MobileEmployeeList = ({
                         <button
                             onClick={() => setShowUnassigned(true)}
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                showUnassigned
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                showUnassigned ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                             }`}
                         >
                             Disponibles ({filteredUnassignedEmployees.length})
@@ -1009,14 +1041,12 @@ const MobileEmployeeList = ({
                 </div>
             )}
 
-            {/* Instructions for drag */}
-            {showUnassigned && userRole === "client" && (
+            {showUnassigned && userRole === 'client' && (
                 <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs text-center border-b border-blue-100">
                     Appuyez et maintenez pour glisser un agent sur la carte
                 </div>
             )}
 
-            {/* Employee list */}
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {currentEmployees.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
@@ -1030,10 +1060,7 @@ const MobileEmployeeList = ({
                                 {showUnassigned ? 'Aucun agent disponible' : 'Aucun agent en mission'}
                             </h3>
                             <p className="text-sm text-gray-500 max-w-xs">
-                                {showUnassigned ?
-                                    'Tous les agents ont été affectés à leurs missions.' :
-                                    'Aucun agent n\'est actuellement en mission.'
-                                }
+                                {showUnassigned ? 'Tous les agents ont été affectés à leurs missions.' : 'Aucun agent n\'est actuellement en mission.'}
                             </p>
                         </div>
                     </div>
@@ -1042,12 +1069,10 @@ const MobileEmployeeList = ({
                         <div
                             key={employee.id}
                             className={`flex items-center p-2 rounded-lg transition-all duration-200 ${
-                                selectedEmployee?.id === employee.id
-                                    ? 'bg-blue-50 border-2 border-blue-200'
-                                    : 'bg-white border border-gray-200'
+                                selectedEmployee?.id === employee.id ? 'bg-blue-50 border-2 border-blue-200' : 'bg-white border border-gray-200'
                             } ${touchDragState.isDragging && touchDragState.employee?.id === employee.id ? 'opacity-50' : ''}`}
                             onClick={() => handleEmployeeClick(employee)}
-                            onTouchStart={showUnassigned && userRole === "client" ? (e) => onTouchStart(e, employee) : undefined}
+                            onTouchStart={showUnassigned && userRole === 'client' ? (e) => onTouchStart(e, employee) : undefined}
                             onTouchMove={touchDragState.isDragging ? onTouchMove : undefined}
                             onTouchEnd={touchDragState.isDragging ? onTouchEnd : undefined}
                         >
@@ -1076,15 +1101,10 @@ const MobileEmployeeList = ({
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gray-900 truncate">{employee.name}</p>
                                 <p className="text-xs text-gray-500 truncate">{employee.role}</p>
-                                {!showUnassigned && employee.status && (
-                                    <p className="text-xs text-blue-600 mt-1">{employee.status}</p>
-                                )}
                             </div>
                             <div className="ml-2">
                                 <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    showUnassigned
-                                        ? 'bg-blue-100 text-blue-600'
-                                        : 'bg-green-100 text-green-600'
+                                    showUnassigned ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
                                 }`}>
                                     {showUnassigned ? 'Disponible' : 'En mission'}
                                 </div>

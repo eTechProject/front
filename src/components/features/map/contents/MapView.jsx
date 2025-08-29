@@ -6,7 +6,17 @@ import ZonePanel from "@/components/features/map/ui/ZonePanel.jsx";
 import ZonePanelToggle from "@/components/features/map/ui/ZonePanelToggle.jsx";
 import { isPointInPolygon } from "@/utils/geoUtils.js";
 import { useLocalStorageState } from "@/hooks/listener/useLocalStorageState.js";
+import {mapReloadService} from "@/services/map/mapReloadService.js";
 
+/**
+ * Main map component.
+ * - Displays employees on a Leaflet map
+ * - Allows clients to create/edit/delete zones
+ * - Supports drag-and-drop employee placement (clients only)
+ * - Manages zone panel and zone form display
+ * - Includes geolocation functionality
+ * - Supports alert system with visual feedback
+ */
 const MapView = React.forwardRef(({
                                       employees,
                                       handleEmployeeClick,
@@ -22,8 +32,8 @@ const MapView = React.forwardRef(({
     // References
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
-    const markersRef = useRef([]);
-    const zoneAgentMarkersRef = useRef([]);
+    const markersRef = useRef([]); // Structure: [{employeeId, marker, employee}, ...]
+    const zoneAgentMarkersRef = useRef([]); // Structure: [{agentId, marker, agent}, ...]
     const drawControlRef = useRef(null);
     const drawnItemsRef = useRef(null);
     const baseMapsRef = useRef({});
@@ -53,7 +63,7 @@ const MapView = React.forwardRef(({
     const INITIAL_ZOOM = 13;
     const INITIAL_CENTER = [-18.9146, 47.5309]; // Antananarivo
 
-    // Expose methods via ref
+    // Expose map methods via ref
     useImperativeHandle(ref, () => ({
         convertScreenToLatLng: (screenX, screenY) => {
             if (!mapInstanceRef.current || !mapRef.current) return null;
@@ -75,28 +85,28 @@ const MapView = React.forwardRef(({
         },
     }), []);
 
-    // Add animation styles
+    // Add animation styles for markers and zones
     useEffect(() => {
         if (!document.getElementById('map-animations')) {
             const style = document.createElement('style');
             style.id = 'map-animations';
             style.textContent = `
-        @keyframes pulse {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.15); }
-          100% { transform: scale(1); }
-        }
-        .marker-updating {
-          animation: pulse 1s ease-in-out;
-        }
-        @keyframes blink-zone {
-          0%, 100% { fill: #ef4444; fill-opacity: 0.4; }
-          50% { fill: #ef4444; fill-opacity: 0.1; }
-        }
-        .zone-alert {
-          animation: blink-zone 2s ease-in-out infinite;
-        }
-      `;
+                @keyframes pulse {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.15); }
+                    100% { transform: scale(1); }
+                }
+                .marker-updating {
+                    animation: pulse 1s ease-in-out;
+                }
+                @keyframes blink-zone {
+                    0%, 100% { fill: #ef4444; fill-opacity: 0.4; }
+                    50% { fill: #ef4444; fill-opacity: 0.1; }
+                }
+                .zone-alert {
+                    animation: blink-zone 2s ease-in-out infinite;
+                }
+            `;
             document.head.appendChild(style);
         }
     }, []);
@@ -149,22 +159,22 @@ const MapView = React.forwardRef(({
 
                     const userIcon = window.L.divIcon({
                         html: `
-              <div style="
-                background-color: #3b82f6;
-                width: 24px; 
-                height: 24px; 
-                border-radius: 50%;
-                border: 2px solid white;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              ">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" viewBox="0 0 24 24">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
-              </div>
-            `,
+                            <div style="
+                                background-color: #3b82f6;
+                                width: 24px; 
+                                height: 24px; 
+                                border-radius: 50%;
+                                border: 2px solid white;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" viewBox="0 0 24 24">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                </svg>
+                            </div>
+                        `,
                         className: '',
                         iconSize: [24, 24],
                         iconAnchor: [12, 12],
@@ -266,7 +276,10 @@ const MapView = React.forwardRef(({
 
     // Initialize draw controls
     const initializeDrawControl = () => {
-        if (!window.L.drawLocal) return;
+        if (!window.L.drawLocal) {
+            console.warn("Leaflet Draw not loaded yet");
+            return;
+        }
 
         if (drawControlRef.current) {
             mapInstanceRef.current.removeControl(drawControlRef.current);
@@ -411,9 +424,9 @@ const MapView = React.forwardRef(({
                 }
             );
 
-            if (isAlertActive) {
+            if (isAlertActive && layer.getElement) {
                 setTimeout(() => {
-                    const element = layer.getElement?.();
+                    const element = layer.getElement();
                     if (element) element.classList.add('zone-alert');
                 }, 0);
             }
@@ -431,11 +444,11 @@ const MapView = React.forwardRef(({
             }]);
 
             layer.bindPopup(`
-        <b>${zoneData.securedZone.name}</b><br>
-        ${zoneData.description || ''}<br>
-        <small class="text-gray-500">Zone ID: ${zoneData.securedZone.securedZoneId}</small><br>
-        <small class="text-gray-500">Service ID: ${zoneData.serviceOrder?.id}</small>
-      `);
+                <b>${zoneData.securedZone.name}</b><br>
+                ${zoneData.description || ''}<br>
+                <small class="text-gray-500">Zone ID: ${zoneData.securedZone.securedZoneId}</small><br>
+                <small class="text-gray-500">Service ID: ${zoneData.serviceOrder?.id}</small>
+            `);
 
             setZoneFormData({
                 name: zoneData.securedZone.name,
@@ -489,6 +502,7 @@ const MapView = React.forwardRef(({
                 if (Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 ||
                     Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001) {
                     animateMarkerToPosition(existingMarkerData.marker, newLatLng);
+                    console.log(`📍 Position updated for agent ${agent.name}:`, position);
                 }
 
                 existingMarkerData.agent = agent;
@@ -496,15 +510,15 @@ const MapView = React.forwardRef(({
             } else {
                 const customIcon = window.L.divIcon({
                     html: `<div style="
-            background-color: ${agentColor};
-            width: 32px; height: 32px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            color: white; font-weight: bold; font-size: 12px;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            ${agent.isTemporary ? 'opacity: 0.8; border-color: #fbbf24;' : ''}
-            transition: all 0.3s ease;
-          ">${agent.avatar}</div>`,
+                        background-color: ${agentColor};
+                        width: 32px; height: 32px; border-radius: 50%;
+                        display: flex; align-items: center; justify-content: center;
+                        color: white; font-weight: bold; font-size: 12px;
+                        border: 2px solid white;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        ${agent.isTemporary ? 'opacity: 0.8; border-color: #fbbf24;' : ''}
+                        transition: all 0.3s ease;
+                    ">${agent.avatar}</div>`,
                     className: '',
                     iconSize: [32, 32],
                     iconAnchor: [16, 16],
@@ -524,6 +538,7 @@ const MapView = React.forwardRef(({
                     marker,
                     agent,
                 });
+                console.log(`✨ New marker created for agent ${agent.name}:`, position);
             }
         });
     };
@@ -573,18 +588,18 @@ const MapView = React.forwardRef(({
         const statusColor = agent.isTemporary ? '#fbbf24' : getStatusColorHex(agent.status);
 
         const popupContent = `
-      <div style="text-align: center; padding: 8px;">
-        <strong>${agent.name}</strong><br>
-        <small>${agent.role || 'Assigned agent'}</small><br>
-        <span style="
-          background: ${statusColor};
-          color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;
-        ">${statusLabel}</span>
-        ${agent.taskDescription ? `<br><small class="text-gray-500">${agent.taskDescription}</small>` : ''}
-        ${agent.isTemporary ? '<br><small class="text-orange-600">⏳ Pending assignment</small>' : ''}
-        ${agent.lastLocationUpdate ? `<br><small class="text-gray-400">Last updated: ${new Date(agent.lastLocationUpdate).toLocaleTimeString()}</small>` : ''}
-      </div>
-    `;
+            <div style="text-align: center; padding: 8px;">
+                <strong>${agent.name}</strong><br>
+                <small>${agent.role || 'Assigned agent'}</small><br>
+                <span style="
+                    background: ${statusColor};
+                    color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;
+                ">${statusLabel}</span>
+                ${agent.taskDescription ? `<br><small class="text-gray-500">${agent.taskDescription}</small>` : ''}
+                ${agent.isTemporary ? '<br><small class="text-orange-600">⏳ Pending assignment</small>' : ''}
+                ${agent.lastLocationUpdate ? `<br><small class="text-gray-400">Last updated: ${new Date(agent.lastLocationUpdate).toLocaleTimeString()}</small>` : ''}
+            </div>
+        `;
 
         marker.bindPopup(popupContent);
     };
@@ -621,6 +636,7 @@ const MapView = React.forwardRef(({
                 if (Math.abs(currentLatLng.lat - newLatLng.lat) > 0.0001 ||
                     Math.abs(currentLatLng.lng - newLatLng.lng) > 0.0001) {
                     animateMarkerToPosition(existingMarkerData.marker, newLatLng);
+                    console.log(`📍 Position updated for employee ${employee.name}:`, [employee.position.lat, employee.position.lng]);
                 }
 
                 existingMarkerData.employee = employee;
@@ -628,14 +644,14 @@ const MapView = React.forwardRef(({
             } else {
                 const customIcon = window.L.divIcon({
                     html: `<div style="
-            background-color: ${employee.routeColor || '#888'};
-            width: 32px; height: 32px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            color: white; font-weight: bold; font-size: 12px;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            transition: all 0.3s ease;
-          ">${employee.avatar || ''}</div>`,
+                        background-color: ${employee.routeColor || '#888'};
+                        width: 32px; height: 32px; border-radius: 50%;
+                        display: flex; align-items: center; justify-content: center;
+                        color: white; font-weight: bold; font-size: 12px;
+                        border: 2px solid white;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        transition: all 0.3s ease;
+                    ">${employee.avatar || ''}</div>`,
                     className: '',
                     iconSize: [32, 32],
                     iconAnchor: [16, 16],
@@ -657,6 +673,7 @@ const MapView = React.forwardRef(({
                     marker,
                     employee,
                 });
+                console.log(`✨ New marker created for employee ${employee.name}:`, [employee.position.lat, employee.position.lng]);
             }
         });
     };
@@ -664,16 +681,11 @@ const MapView = React.forwardRef(({
     // Update employee marker popup
     const updateEmployeeMarkerPopup = (marker, employee) => {
         const popupContent = `
-      <div style="text-align: center; padding: 8px;">
-        <strong>${employee.name}</strong><br>
-        <small>${employee.role}</small><br>
-        <span style="
-          background: ${getStatusColorHex(employee.status)};
-          color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;
-        ">${employee.status}</span>
-        ${employee.lastLocationUpdate ? `<br><small class="text-gray-400">Last updated: ${new Date(employee.lastLocationUpdate).toLocaleTimeString()}</small>` : ''}
-      </div>
-    `;
+            <div style="text-align: center; padding: 8px;">
+                <strong>${employee.name}</strong><br>
+                <small>${employee.role}</small><br>
+            </div>
+        `;
 
         marker.bindPopup(popupContent);
     };
@@ -745,7 +757,9 @@ const MapView = React.forwardRef(({
                 if (onEmployeeDrop) {
                     try {
                         await onEmployeeDrop(employeeToAssign, point, currentZoneInfo);
-                        setTempAssignedAgents(prev => prev.filter(agent => agent.tempId !== tempAgent.tempId));
+                        setTimeout(() => {
+                            setTempAssignedAgents(prev => prev.filter(agent => agent.tempId !== tempAgent.tempId));
+                        }, 1000);
                     } catch (error) {
                         setTempAssignedAgents(prev => prev.filter(agent => agent.tempId !== tempAgent.tempId));
                         console.error("Error during employee drop:", error);
@@ -772,19 +786,24 @@ const MapView = React.forwardRef(({
             },
         };
 
-        await sendZone(zoneDataToSend);
-        setDrawnZones([{
-            id: Date.now(),
-            name: zoneFormData.name,
-            description: zoneFormData.description,
-            layer: currentLayer,
-            type: 'Polygone',
-            coordinates: zoneFormData.coordinates,
-        }]);
-        setShowZoneForm(false);
+        try {
+            await sendZone(zoneDataToSend);
+            setDrawnZones([{
+                id: Date.now(),
+                name: zoneFormData.name,
+                description: zoneFormData.description,
+                layer: currentLayer,
+                type: 'Polygone',
+                coordinates: zoneFormData.coordinates,
+            }]);
+            setShowZoneForm(false);
+            mapReloadService.triggerReload()
 
-        if (currentLayer) {
-            currentLayer.bindPopup(`<b>${zoneFormData.name}</b><br>${zoneFormData.description || ''}`);
+            if (currentLayer) {
+                currentLayer.bindPopup(`<b>${zoneFormData.name}</b><br>${zoneFormData.description || ''}`);
+            }
+        } catch (error) {
+            console.error("Error saving zone:", error);
         }
     };
 
@@ -844,6 +863,7 @@ const MapView = React.forwardRef(({
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
             script.onload = resolve;
             document.head.appendChild(script);
+            document.head.appendChild(script);
         });
 
         const loadLeafletDraw = () => new Promise((resolve) => {
@@ -882,8 +902,18 @@ const MapView = React.forwardRef(({
     }, [selectedEmployee]);
 
     useEffect(() => {
-        if (mapIsReady) addZoneAgentsToMap();
+        if (mapIsReady) {
+            console.log('🗺️ Zone agents changed, updating map markers:', zoneAssignedAgents.length, 'agents');
+            addZoneAgentsToMap();
+        }
     }, [zoneAssignedAgents, tempAssignedAgents, mapIsReady]);
+
+    useEffect(() => {
+        if (mapInstanceRef.current) {
+            console.log('🗺️ Employees changed, updating map markers:', employees.length, 'employees');
+            addEmployeeMarkers();
+        }
+    }, [employees]);
 
     useEffect(() => {
         if (mapInstanceRef.current && userRole === "client") {
@@ -976,6 +1006,7 @@ const MapView = React.forwardRef(({
                 </div>
             )}
 
+            {/* Drag-and-drop feedback */}
             {isDragOver && dropPosition && (
                 <div
                     className="absolute z-[1000] pointer-events-none"
@@ -997,6 +1028,7 @@ const MapView = React.forwardRef(({
                 </div>
             )}
 
+            {/* Zone panel toggle */}
             {drawnZones.length > 0 && (
                 <ZonePanelToggle
                     show={showZonePanel}
@@ -1004,6 +1036,7 @@ const MapView = React.forwardRef(({
                 />
             )}
 
+            {/* Zone panel */}
             {drawnZones.length > 0 && showZonePanel && (
                 <ZonePanel
                     drawnZones={drawnZones}
@@ -1012,6 +1045,7 @@ const MapView = React.forwardRef(({
                 />
             )}
 
+            {/* Zone form */}
             {showZoneForm && userRole === "client" && (
                 <ZoneForm
                     zoneFormData={zoneFormData}

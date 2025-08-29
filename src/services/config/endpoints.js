@@ -66,6 +66,9 @@ const ENDPOINTS = {
     },
     CLIENT: {
         DASHBOARD: (clientId) => `/client/${clientId}/dashboard`,
+        PAYMENTS: {
+            LIST: (clientId) => `/client/${clientId}/payment`,
+        },
     },
 };
 

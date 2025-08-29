@@ -1,0 +1,66 @@
+  
+.circle-container {
+    display: flex;
+    gap: 5px;
+    height: 100px;
+    width: 100px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 10px;
+  }
+  
+  .animated-circle {
+    width: 1rem;
+    height: 1rem;
+    background: orangered;
+    display: inline-flex;
+  }
+  
+  .animated-circle.one {
+    animation: bounce-one 1.5s ease-in-out infinite;
+  }
+  
+  .animated-circle.two {
+    animation: bounce-two 1.5s ease-in-out infinite;
+  }
+  
+  .animated-circle.three {
+    animation: bounce-three 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes bounce-one {
+    0%, 20%, 50%, 80%, 100% {
+      transform: translateY(0);
+    }
+    40% {
+      transform: translateY(-10px);
+    }
+    60% {
+      transform: translateY(-5px);
+    }
+  }
+  
+  @keyframes bounce-two {
+    0%, 20%, 50%, 80%, 100% {
+      transform: translateY(0);
+    }
+    40% {
+      transform: translateY(-25px);
+    }
+    60% {
+      transform: translateY(-15px);
+    }
+  }
+  
+  @keyframes bounce-three {
+    0%, 20%, 50%, 80%, 100% {
+      transform: translateY(0);
+    }
+    40% {
+      transform: translateY(-10px);
+    }
+    60% {
+      transform: translateY(-25px);
+    }
+  }
+  

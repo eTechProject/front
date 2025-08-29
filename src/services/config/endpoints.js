@@ -70,6 +70,9 @@ const ENDPOINTS = {
             LIST: (clientId) => `/client/${clientId}/payment`,
         },
     },
+    ALERT: {
+        SEND: '/alerts',
+    }
 };
 
 export default ENDPOINTS;

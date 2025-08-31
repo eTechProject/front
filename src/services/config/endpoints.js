@@ -21,6 +21,7 @@ const ENDPOINTS = {
     AUTH: {
         REGISTER: '/register',
         LOGIN: '/login_check',
+        LOGOUT: '/logout',
         REFRESH_TOKEN: '/token/refresh',
     },
     ADMIN: {

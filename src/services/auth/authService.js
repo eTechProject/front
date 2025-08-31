@@ -78,7 +78,9 @@ export const authService = {
 
     logout: async () => {
         try {
-            // await apiClient.post(ENDPOINTS.AUTH.LOGOUT);
+            await apiClient.post(ENDPOINTS.AUTH.LOGOUT,{
+                'refresh_token': localStorage.getItem('refresh_token')
+            });
         } catch (error) {
             console.error('Erreur lors de la déconnexion:', error);
         } finally {

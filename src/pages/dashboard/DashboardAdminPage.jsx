@@ -1,12 +1,15 @@
 import {Link} from "react-router-dom";
 import AdminSidebar from "@/components/layout/sidebars/AdminSidebar.jsx";
 import {useAuth} from "@/context/AuthContext.jsx";
+import Loader from "@/components/common/ui/Loader.jsx";
 
 export default function DashboardAdminPage() {
     const {user, isAuthenticated, isLoading, logout} = useAuth();
 
     if (isLoading) {
-        return <div className="flex items-center justify-center h-screen">Chargement en cours...</div>;
+        return <div className="flex items-center justify-center h-screen">
+            <Loader/>
+        </div>;
     }
 
     if (!isAuthenticated) {

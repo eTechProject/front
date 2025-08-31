@@ -1,12 +1,15 @@
 import { Link } from "react-router-dom";
 import {useAuth} from "@/context/AuthContext.jsx";
 import SidebarClient from "@/components/layout/sidebars/SidebarClient.jsx";
+import Loader from "@/components/common/ui/Loader.jsx";
 
 export default function DashboardClientPage() {
     const { user, isAuthenticated, isLoading, logout } = useAuth();
 
     if (isLoading) {
-        return <div className="flex items-center justify-center h-screen">Chargement en cours...</div>;
+        return <div className="flex items-center justify-center h-screen min-h-screen bg-gradient-to-br from-orange-50 to-orange-100">
+            <Loader/>
+        </div>;
     }
 
     if (!isAuthenticated) {

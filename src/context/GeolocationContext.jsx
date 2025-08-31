@@ -17,36 +17,37 @@ export const GeolocationProvider = ({ children }) => {
     const [currentTask, setCurrentTask] = useState(null);
     const intervalRef = useRef(null);
     const lastLocationRef = useRef(null);
+    const isFirstLocationRef = useRef(true); // Track if this is the first location after starting
 
     // Function to get current task for the agent
     const getCurrentTask = useCallback(async () => {
         if (!user?.userId) return null;
-        
+
         try {
             const result = await getZoneByAgent(user.userId);
-            
+
             if (result.success && result.data) {
                 // Check if there's an assignedTask directly in the data
                 if (result.data.assignedTask?.id) {
                     return { id: result.data.assignedTask.id };
                 }
-                
+
                 // Fallback: check assignedAgents array
                 if (result.data.assignedAgents?.length > 0) {
                     const currentAgentAssignment = result.data.assignedAgents.find(
                         assignment => assignment.agent?.user?.userId === user.userId
                     );
-                    
+
                     if (currentAgentAssignment?.task?.id) {
                         return currentAgentAssignment.task;
                     }
-                    
+
                     if (currentAgentAssignment?.assignedTask?.id) {
                         return { id: currentAgentAssignment.assignedTask.id };
                     }
                 }
             }
-            
+
             return null;
         } catch (error) {
             console.error('Error fetching current task:', error);
@@ -55,13 +56,13 @@ export const GeolocationProvider = ({ children }) => {
     }, [user?.userId, getZoneByAgent]);
 
     // Function to send location data to the server
-    const sendLocationToServer = useCallback(async (coords) => {
+    const sendLocationToServer = useCallback(async (coords, isEnd = false) => {
         if (!user?.userId || !coords) {
             return;
         }
 
         setIsUploading(true);
-        
+
         try {
             // Get battery level if available, otherwise default to 85%
             let batteryLevel = 85.0;
@@ -77,10 +78,28 @@ export const GeolocationProvider = ({ children }) => {
             // Get fresh task data each time to ensure we have the latest task ID
             const freshTask = await getCurrentTask();
             const taskId = freshTask?.id;
-            
+
             if (!taskId || taskId === "") {
                 setIsUploading(false);
                 return;
+            }
+
+            // Determine isSignificant and reason based on the state
+            let isSignificant, reason;
+
+            if (isEnd) {
+                // End of task
+                isSignificant = true;
+                reason = "end_task";
+            } else if (isFirstLocationRef.current) {
+                // First location after starting tracking
+                isSignificant = true;
+                reason = "start_task";
+                isFirstLocationRef.current = false;
+            } else {
+                // Middle of task
+                isSignificant = false;
+                reason = "manual_report";
             }
 
             const locationData = {
@@ -89,20 +108,20 @@ export const GeolocationProvider = ({ children }) => {
                 accuracy: coords.accuracy || 10.0,
                 speed: coords.speed || 0.0,
                 batteryLevel: batteryLevel,
-                isSignificant: false,
-                reason: null,
+                isSignificant: isSignificant,
+                reason: reason,
                 taskId: taskId
             };
 
             const result = await locationService.sendLocation(user.userId, locationData);
-            
+
             if (!result.success) {
                 console.error('Error sending location:', result.error);
             }
-            
+
             // Keep indicator visible for at least 1 second
             await new Promise(resolve => setTimeout(resolve, 1000));
-            
+
         } catch (error) {
             console.error('Error sending location:', error);
         } finally {
@@ -119,7 +138,11 @@ export const GeolocationProvider = ({ children }) => {
 
     const toggleTracking = useCallback(async () => {
         if (isActive) {
-            // Stop tracking
+            // Stop tracking - send end location if we have one
+            if (lastLocationRef.current) {
+                await sendLocationToServer(lastLocationRef.current, true); // isEnd = true
+            }
+
             if (watchId) {
                 navigator.geolocation.clearWatch(watchId);
                 setWatchId(null);
@@ -133,6 +156,7 @@ export const GeolocationProvider = ({ children }) => {
             setLocation(null);
             setCurrentTask(null);
             lastLocationRef.current = null;
+            isFirstLocationRef.current = true; // Reset for next session
         } else {
             // Start tracking
             if (!navigator.geolocation) {
@@ -146,6 +170,7 @@ export const GeolocationProvider = ({ children }) => {
 
             setIsActive(true);
             setError(null);
+            isFirstLocationRef.current = true; // Reset flag when starting
 
             const id = navigator.geolocation.watchPosition(
                 (position) => {
@@ -185,58 +210,11 @@ export const GeolocationProvider = ({ children }) => {
             // Start interval to send location every 5 seconds
             intervalRef.current = setInterval(async () => {
                 if (lastLocationRef.current && user?.userId) {
-                    try {
-                        setIsUploading(true);
-                        
-                        // Get battery level if available, otherwise default to 85%
-                        let batteryLevel = 85.0;
-                        try {
-                            if ('getBattery' in navigator) {
-                                const battery = await navigator.getBattery();
-                                batteryLevel = battery.level * 100;
-                            }
-                        } catch (e) {
-                            // Battery API not supported, use default value
-                        }
-
-                        // Get fresh task data each time
-                        const freshTask = await getCurrentTask();
-                        const taskId = freshTask?.id;
-                        
-                        if (!taskId || taskId === "") {
-                            setIsUploading(false);
-                            return;
-                        }
-
-                        const locationData = {
-                            longitude: lastLocationRef.current.longitude,
-                            latitude: lastLocationRef.current.latitude,
-                            accuracy: lastLocationRef.current.accuracy || 10.0,
-                            speed: lastLocationRef.current.speed || 0.0,
-                            batteryLevel: batteryLevel,
-                            isSignificant: false,
-                            reason: "start_task",
-                            taskId: taskId
-                        };
-
-                        const result = await locationService.sendLocation(user.userId, locationData);
-                        
-                        if (!result.success) {
-                            console.error('Error sending location from interval:', result.error);
-                        }
-                        
-                        // Keep indicator visible for at least 1 second
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        
-                    } catch (error) {
-                        console.error('Error sending location from interval:', error);
-                    } finally {
-                        setIsUploading(false);
-                    }
+                    await sendLocationToServer(lastLocationRef.current, false); // isEnd = false
                 }
             }, 5000);
         }
-    }, [geoOptions, isActive, watchId, getCurrentTask, user?.userId]);
+    }, [geoOptions, isActive, watchId, getCurrentTask, user?.userId, sendLocationToServer]);
 
     useEffect(() => {
         return () => {

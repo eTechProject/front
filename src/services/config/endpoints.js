@@ -70,7 +70,11 @@ const ENDPOINTS = {
         PAYMENTS: {
             LIST: (clientId) => `/client/${clientId}/payment`,
         },
+        CANCEL_TASK: '/public/client/task/cancel',
     },
+    ALERT: {
+        SEND: '/alerts',
+    }
 };
 
 export default ENDPOINTS;

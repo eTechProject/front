@@ -9,7 +9,8 @@ import {
     MapPin,
     Calendar,
     ChevronDown,
-    RefreshCw
+    RefreshCw,
+    AlertCircle
 } from 'lucide-react';
 
 /**
@@ -27,6 +28,7 @@ const EmployeeList = ({
                           onDragStart = () => {},
                           onDragEnd = () => {},
                           onReloadData = () => {},
+                          isAgentMode = false
                       }) => {
     const [showUnassigned, setShowUnassigned] = useState(false);
     const [isExpanded, setIsExpanded] = useState(true);
@@ -127,8 +129,8 @@ const EmployeeList = ({
             <div className={`flex-1 overflow-hidden transition-all duration-300 ${
                 isExpanded ? 'opacity-100' : 'opacity-0 max-h-0'
             }`}>
-                {/* View Toggle - affiché uniquement si des non affectés existent (mode client) */}
-                {unassignedEmployees.length > 0 && (
+                {/* View Toggle - affiché uniquement si des non affectés existent et en mode client */}
+                {!isAgentMode && unassignedEmployees.length > 0 && (
                     <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                         <button
                             onClick={() => setShowUnassigned(!showUnassigned)}
@@ -159,8 +161,8 @@ const EmployeeList = ({
                     </div>
                 )}
 
-                {/* Instruction Banner */}
-                {showUnassigned && (
+                {/* Instruction Banner - affiché uniquement en mode client */}
+                {showUnassigned && !isAgentMode && (
                     <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs border-b border-blue-100">
                         <p>Glissez un agent sur la carte pour l'affecter à une mission</p>
                     </div>
@@ -169,8 +171,8 @@ const EmployeeList = ({
                 {/* Employee List */}
                 <div className="p-2 space-y-2 overflow-y-auto">
                     {currentEmployees.length === 0 ? (
-                        showUnassigned && unassignedEmployees.length === 0 ? (
-                            // Tous les agents ont été assignés
+                        showUnassigned && unassignedEmployees.length === 0 && !isAgentMode ? (
+                            // Tous les agents ont été assignés (mode client)
                             <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-4">
                                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
                                     <Users className="text-green-600" size={24} />
@@ -194,6 +196,22 @@ const EmployeeList = ({
                                     </button>
                                 )}
                             </div>
+                        ) : !showUnassigned && employees.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-8 px-4 text-center space-y-4">
+                                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                                    <AlertCircle className="text-gray-500" size={24} />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                        {isAgentMode ? 'Vous n\'êtes assigné à aucune zone' : 'Aucun agent sur le terrain'}
+                                    </h3>
+                                    <p className="text-sm text-gray-500 max-w-xs">
+                                        {isAgentMode
+                                            ? 'Vous n\'avez actuellement aucune mission assignée.'
+                                            : 'Aucun agent n\'est actuellement assigné à une mission.'}
+                                    </p>
+                                </div>
+                            </div>
                         ) : (
                             <EmployeeListSkeleton />
                         )
@@ -209,8 +227,8 @@ const EmployeeList = ({
                                         : 'bg-white border border-gray-100 hover:bg-gray-50'
                                 }`}
                                 style={{animationDelay: `${index * 50}ms`}}
-                                draggable={showUnassigned}
-                                onDragStart={showUnassigned ? (e) => handleDragStartInternal(e, employee) : undefined}
+                                draggable={showUnassigned && !isAgentMode} // Drag-and-drop désactivé en mode agent
+                                onDragStart={showUnassigned && !isAgentMode ? (e) => handleDragStartInternal(e, employee) : undefined}
                                 onDragEnd={onDragEnd}
                                 onClick={() => handleEmployeeClick(employee)}
                             >
@@ -241,7 +259,7 @@ const EmployeeList = ({
                                 </div>
                                 {!showUnassigned && (
                                     <div className="ml-2 px-2 py-1 bg-blue-100 text-blue-600 text-xs font-medium
-                                        rounded-full whitespace-nowrap hover:scale-105 transition-transform duration-150">
+                                        rounded-md whitespace-nowrap hover:scale-105 transition-transform duration-150">
                                         En mission
                                     </div>
                                 )}
@@ -252,7 +270,7 @@ const EmployeeList = ({
             </div>
 
             {/* Success notification quand basculement automatique */}
-            {unassignedEmployees.length === 0 && employees.length > 0 && !showUnassigned && (
+            {unassignedEmployees.length === 0 && employees.length > 0 && !showUnassigned && !isAgentMode && (
                 <div className="px-4 py-2 bg-green-50 border-t border-green-100">
                     <div className="flex items-center space-x-2 text-green-700 text-xs">
                         <div className="w-2 h-2 rounded-full bg-green-500"></div>

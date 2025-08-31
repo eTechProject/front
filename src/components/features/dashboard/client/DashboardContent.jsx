@@ -1,14 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { AlertCircle, Users, Clock, MapPin, AlertTriangle, DollarSign } from "lucide-react";
-import { Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { AlertCircle, Clock, MapPin, AlertTriangle, DollarSign, CheckCircle } from "lucide-react";
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, LineElement, PointElement } from 'chart.js';
 import { useClientDashboard } from "@/hooks/features/client/dashboard/useClientDashboard.js";
 import { useAuth } from "@/context/AuthContext.jsx";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { format } from "date-fns";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, LineElement, PointElement);
+
+const createGradient = (ctx, chartArea) => {
+    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+    gradient.addColorStop(0, 'rgba(54, 162, 235, 0.8)'); // Start color (light blue)
+    gradient.addColorStop(1, 'rgba(75, 192, 192, 0.6)'); // End color (teal)
+    return gradient;
+};
 
 const Skeleton = ({ className }) => (
     <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>
@@ -31,37 +38,6 @@ const ChartSkeleton = () => (
     </div>
 );
 
-const IndicatorsSkeleton = () => (
-    <div className="bg-white p-6 rounded-lg shadow-sm space-y-6">
-        <Skeleton className="h-6 w-1/4" />
-        <div className="space-y-4">
-            <div>
-                <Skeleton className="h-5 w-1/5 mb-2" />
-                <div className="space-y-2">
-                    {[...Array(3)].map((_, i) => (
-                        <Skeleton key={i} className="h-4 w-full" />
-                    ))}
-                </div>
-            </div>
-            <div>
-                <Skeleton className="h-5 w-1/5 mb-2" />
-                <div className="space-y-2">
-                    {[...Array(2)].map((_, i) => (
-                        <Skeleton key={i} className="h-4 w-full" />
-                    ))}
-                </div>
-            </div>
-            <div>
-                <Skeleton className="h-5 w-1/5 mb-2" />
-                <div className="space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-4 w-2/3" />
-                </div>
-            </div>
-        </div>
-    </div>
-);
-
 export default function DashboardContent() {
     const { dashboardData, isLoading, error, fetchDashboard } = useClientDashboard();
     const { user } = useAuth();
@@ -69,7 +45,6 @@ export default function DashboardContent() {
     const [dateRange, setDateRange] = useState([null, null]);
     const [startDate, endDate] = dateRange;
 
-    // Predefined filter options
     const filterOptions = [
         { label: "Aujourd'hui", value: "today" },
         { label: "Cette semaine", value: "week" },
@@ -78,7 +53,6 @@ export default function DashboardContent() {
         { label: "Personnalisé", value: "custom" },
     ];
 
-    // Handle filter selection
     const handleFilterChange = (filter) => {
         setSelectedFilter(filter);
         let params = {};
@@ -99,10 +73,9 @@ export default function DashboardContent() {
                 }
                 break;
             default:
+                // eslint-disable-next-line no-unused-vars
                 params = {};
         }
-
-        console.log("Selected Filter:", { filter, params });
     };
 
     useEffect(() => {
@@ -123,7 +96,7 @@ export default function DashboardContent() {
                             dateEnd: format(endDate, "yyyy-MM-dd"),
                         };
                     } else {
-                        return; // Skip fetch if custom dates are not set
+                        return;
                     }
                     break;
                 default:
@@ -136,37 +109,109 @@ export default function DashboardContent() {
             }
         };
 
-        fetchData();
+        fetchData().then();
     }, [fetchDashboard, user.userId, selectedFilter, startDate, endDate]);
 
-    const { kpis, charts, indicators } = dashboardData;
+    const { kpis, charts } = dashboardData;
 
-    const renderChart = (chartData, title) => {
-        const data = {
-            labels: chartData.labels,
-            datasets: [
-                {
-                    label: title,
-                    data: chartData.data,
-                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1,
-                },
-            ],
-        };
-
-        const options = {
+    const renderChart = (chartData, title, type) => {
+        const commonOptions = {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'top' },
-                title: { display: true, text: title },
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: { size: 14 },
+                        color: '#333',
+                        boxWidth: 20,
+                        padding: 10,
+                    },
+                },
+                title: {
+                    display: true,
+                    text: title,
+                    font: { size: 18, weight: 'bold' },
+                    color: '#2d3748',
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 12 },
+                    padding: 10,
+                },
             },
             scales: {
-                y: { beginAtZero: true },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#4a5568', font: { size: 12 } },
+                    grid: { color: 'rgba(0, 0, 0, 0.1)' },
+                },
+                x: {
+                    ticks: { color: '#4a5568', font: { size: 12 } },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                },
             },
         };
 
-        return <Bar data={data} options={options} className="w-full h-64" />;
+        const ctx = document.createElement('canvas').getContext('2d');
+        const chartArea = { top: 0, bottom: 200 }; // Approximate chart area for gradient
+
+        if (type === 'doughnut') {
+            const orderedLabels = ["pending", "in_progress", "completed", "cancelled"];
+            const orderedData = [
+                chartData.data[chartData.labels.indexOf("pending")] || 0,
+                chartData.data[chartData.labels.indexOf("in_progress")] || 0,
+                chartData.data[chartData.labels.indexOf("completed")] || 0,
+                chartData.data[chartData.labels.indexOf("cancelled")] || 0,
+            ];
+
+            const data = {
+                labels: orderedLabels,
+                datasets: [{
+                    data: orderedData,
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'], // Red, Blue, Yellow, Teal
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                    hoverOffset: 10,
+                }],
+            };
+
+            return <Doughnut data={data} options={commonOptions} className="w-full h-64" />;
+        } else if (type === 'line') {
+            const data = {
+                labels: chartData.labels || [],
+                datasets: [{
+                    label: title,
+                    data: chartData.data || [],
+                    borderColor: createGradient(ctx, chartArea),
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: 'rgba(75, 192, 192, 1)',
+                    pointHoverBackgroundColor: 'rgba(75, 192, 192, 1)',
+                    pointHoverBorderColor: '#fff',
+                    tension: 0.4, // Smooth curves
+                }],
+            };
+
+            return <Line data={data} options={{ ...commonOptions, scales: { y: { beginAtZero: true } } }} className="w-full h-64" />;
+        } else { // bar
+            const data = {
+                labels: chartData.labels || [],
+                datasets: [{
+                    label: title,
+                    data: chartData.data || [],
+                    backgroundColor: createGradient(ctx, chartArea),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    borderRadius: 5,
+                    barThickness: 20,
+                }],
+            };
+
+            return <Bar data={data} options={commonOptions} className="w-full h-64" />;
+        }
     };
 
     const KPIBox = ({ icon: Icon, label, value, unit = '' }) => (
@@ -184,7 +229,6 @@ export default function DashboardContent() {
             <div className="max-w-7xl mx-auto">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Tableau de bord</h1>
 
-                {/* Filter Section */}
                 <div className="mb-6">
                     <div className="flex flex-wrap gap-2 mb-4">
                         {filterOptions.map((option) => (
@@ -249,79 +293,39 @@ export default function DashboardContent() {
                                 <ChartSkeleton key={i} />
                             ))}
                         </div>
-                        <IndicatorsSkeleton />
                     </>
                 ) : (
                     !error && (
                         <>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                                <KPIBox icon={Users} label="Agents actifs" value={kpis.activeAgents} />
-                                <KPIBox icon={Clock} label="Tâches" value={kpis.tasks} />
-                                <KPIBox icon={Clock} label="Durée totale" value={kpis.duration} unit="h" />
-                                <KPIBox icon={MapPin} label="Distance totale" value={kpis.distance} unit="km" />
-                                <KPIBox icon={AlertTriangle} label="Incidents" value={kpis.incidents} />
-                                <KPIBox icon={DollarSign} label="Abonnement" value={kpis.subscription ? "Actif" : "Inactif"} />
+                                <KPIBox icon={Clock} label="Total Tâches" value={kpis.totalTasks} />
+                                <KPIBox icon={CheckCircle} label="Taux de completion" value={kpis.completionRate} />
+                                <KPIBox icon={Clock} label="Durée moyenne des tâches" value={kpis.avgTaskDuration} />
+                                <KPIBox icon={MapPin} label="Distance moyenne par agent" value={kpis.avgDistancePerAgent} unit="" />
+                                <KPIBox icon={AlertTriangle} label="Alerts" value={kpis.totalAlerts} />
+                                <KPIBox icon={DollarSign} label="Abonnement" value={kpis.subscription} />
                             </div>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                                {charts.tasks.labels.length > 0 && (
+                                {charts.tasksOverTime && charts.tasksOverTime.labels && charts.tasksOverTime.labels.length > 0 && (
                                     <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        {renderChart(charts.tasks, "Tâches par mois")}
+                                        {renderChart(charts.tasksOverTime, "Tasks Over Time", "bar")}
                                     </div>
                                 )}
-                                {charts.incidents.labels.length > 0 && (
+                                {charts.taskCompletion && charts.taskCompletion.labels && charts.taskCompletion.labels.length > 0 && (
                                     <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        {renderChart(charts.incidents, "Incidents par période")}
+                                        {renderChart(charts.taskCompletion, "Completion Status", charts.taskCompletion.type)}
                                     </div>
                                 )}
-                                {charts.performance.labels.length > 0 && (
+                                {charts.agentPunctuality && charts.agentPunctuality.labels && charts.agentPunctuality.labels.length > 0 && (
                                     <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        {renderChart(charts.performance, "Performance des agents")}
+                                        {renderChart(charts.agentPunctuality, "Agent Punctuality (%)", charts.agentPunctuality.type)}
                                     </div>
                                 )}
-                                {charts.financial.labels.length > 0 && (
+                                {charts.averageResponseTime && charts.averageResponseTime.labels && charts.averageResponseTime.labels.length > 0 && (
                                     <div className="bg-white p-4 rounded-lg shadow-sm">
-                                        {renderChart(charts.financial, "Données financières")}
+                                        {renderChart(charts.averageResponseTime, "Average Response Time (minutes)", charts.averageResponseTime.type)}
                                     </div>
                                 )}
-                            </div>
-                            <div className="bg-white p-6 rounded-lg shadow-sm">
-                                <h2 className="text-xl font-semibold text-gray-800 mb-4">Indicateurs clés</h2>
-                                <div className="space-y-4">
-                                    <div>
-                                        <h3 className="text-sm font-medium text-gray-600">Top agents</h3>
-                                        {Object.keys(indicators.topAgents).length > 0 ? (
-                                            <ul className="mt-2 space-y-2">
-                                                {Object.entries(indicators.topAgents).map(([agent, count]) => (
-                                                    <li key={agent} className="flex justify-between text-sm">
-                                                        <span>{agent}</span>
-                                                        <span className="font-medium">{count} tâche(s)</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <p className="text-sm text-gray-500">Aucun top agent disponible</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-medium text-gray-600">Jours productifs</h3>
-                                        {indicators.productiveDays.length > 0 ? (
-                                            <ul className="mt-2 space-y-2">
-                                                {indicators.productiveDays.map((day, index) => (
-                                                    <li key={index} className="text-sm">{day}</li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <p className="text-sm text-gray-500">Aucun jour productif enregistré</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-medium text-gray-600">Ponctualité</h3>
-                                        <p className="text-sm text-gray-500">
-                                            Taux de ponctualité: {indicators.punctuality.punctualityRate !== null ? `${indicators.punctuality.punctualityRate}%` : 'N/A'}
-                                        </p>
-                                        <p className="text-sm text-gray-500">Total des tâches: {indicators.punctuality.totalTasks}</p>
-                                    </div>
-                                </div>
                             </div>
                         </>
                     )

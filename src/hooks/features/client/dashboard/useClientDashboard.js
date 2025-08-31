@@ -3,10 +3,14 @@ import { clientDashboardService } from "@/services/features/client/dashboard/cli
 
 export const useClientDashboard = () => {
     const [dashboardData, setDashboardData] = useState({
-        filters: { dateRange: 'all', shortcuts: [] },
-        kpis: { tasks: 0, activeAgents: 0, duration: 0, distance: 0, incidents: 0, subscription: false },
-        charts: { tasks: { labels: [], data: [] }, incidents: { labels: [], data: [] }, performance: { labels: [], data: [] }, financial: { labels: [], data: [] } },
-        indicators: { topAgents: {}, productiveDays: [], punctuality: { punctualityRate: null, totalTasks: 0 } },
+        filters: { choice: 'all', dateStart: null, dateEnd: null },
+        kpis: { totalTasks: 0, completionRate: "0%", avgTaskDuration: "0h 00m", avgDistancePerAgent: "0 km", totalAlerts: 0, subscription: "Inactif" },
+        charts: {
+            tasksOverTime: { type: 'line', labels: [], data: [] },
+            taskCompletion: { type: 'doughnut', labels: [], data: [] },
+            agentPunctuality: { type: 'bar', labels: [], data: [] },
+            averageResponseTime: { type: 'bar', labels: [], data: [] }
+        },
     });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -22,10 +26,14 @@ export const useClientDashboard = () => {
             setError(null);
         } else {
             setDashboardData({
-                filters: { dateRange: 'all', shortcuts: [] },
-                kpis: { tasks: 0, activeAgents: 0, duration: 0, distance: 0, incidents: 0, subscription: false },
-                charts: { tasks: { labels: [], data: [] }, incidents: { labels: [], data: [] }, performance: { labels: [], data: [] }, financial: { labels: [], data: [] } },
-                indicators: { topAgents: {}, productiveDays: [], punctuality: { punctualityRate: null, totalTasks: 0 } },
+                filters: { choice: 'all', dateStart: null, dateEnd: null },
+                kpis: { totalTasks: 0, completionRate: "0%", avgTaskDuration: "0h 00m", avgDistancePerAgent: "0 km", totalAlerts: 0, subscription: "Inactif" },
+                charts: {
+                    tasksOverTime: { type: 'line', labels: [], data: [] },
+                    taskCompletion: { type: 'doughnut', labels: [], data: [] },
+                    agentPunctuality: { type: 'bar', labels: [], data: [] },
+                    averageResponseTime: { type: 'bar', labels: [], data: [] }
+                },
             });
             setError(result.error);
         }

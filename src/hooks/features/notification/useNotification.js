@@ -6,7 +6,6 @@ export const useNotifications = () => {
     const [error, setError] = useState(null);
     const [notifications, setNotifications] = useState([]);
     const [success, setSuccess] = useState(false);
-
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMoreNotifications, setHasMoreNotifications] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -47,31 +46,61 @@ export const useNotifications = () => {
         return result;
     };
 
+    const markNotificationRead = async (notificationId) => {
+        setIsLoading(true);
+        setError(null);
+        setSuccess(false);
+        const result = await notificationService.markNotificationRead(notificationId);
+        setIsLoading(false);
+        setSuccess(result.success);
+        if (result.success) {
+            setNotifications(prevNotifications =>
+                prevNotifications.map(n =>
+                    n.id === notificationId ? { ...n, read: true } : n
+                )
+            );
+        } else {
+            setError(result.error);
+        }
+        return result;
+    };
+
+    const markAllNotificationsRead = async () => {
+        setIsLoading(true);
+        setError(null);
+        setSuccess(false);
+        const result = await notificationService.markAllNotificationsRead();
+        setIsLoading(false);
+        setSuccess(result.success);
+        if (result.success) {
+            setNotifications(prevNotifications =>
+                prevNotifications.map(n => ({ ...n, read: true }))
+            );
+        } else {
+            setError(result.error);
+        }
+        return result;
+    };
+
     const addMercureNotification = (newNotification) => {
         setNotifications(prevNotifications => {
             const prev = prevNotifications || [];
-
-            // Check if it already exists
             const index = prev.findIndex(n => n.id === newNotification.data.id);
 
             let updated;
             if (index === -1) {
-                // New notification → add it
                 updated = [...prev, newNotification.data];
             } else {
-                // Existing → replace (to force re-render)
                 updated = [...prev];
                 updated[index] = { ...prev[index], ...newNotification.data };
             }
 
-            // Always return a new sorted array
             return updated.sort(
                 (a, b) =>
                     new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
             );
         });
     };
-
 
     const resetNotifications = useCallback(() => {
         setNotifications([]);
@@ -94,5 +123,7 @@ export const useNotifications = () => {
         getNotifications,
         getMercureToken,
         addMercureNotification,
+        markNotificationRead,
+        markAllNotificationsRead,
     };
 };

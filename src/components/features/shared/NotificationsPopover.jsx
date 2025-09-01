@@ -1,15 +1,16 @@
-import React, { useState, useRef, useEffect,useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Bell, X, Move } from "lucide-react";
 import { useAuth } from "@/context/AuthContext.jsx";
-import {useInfiniteScroll} from "@/hooks/features/messaging/useInfiniteScroll.js";
+import { useInfiniteScroll } from "@/hooks/features/messaging/useInfiniteScroll.js";
 import { useNotifications } from "@/hooks/features/notification/useNotification.js";
 import generateNotifTopic from "@/utils/generateNotifTopic.js";
 import useMercureSubscription from "@/hooks/features/notification/useMercureNotificationSubscription.js";
+import { useLocalStorageState } from "@/hooks/listener/useLocalStorageState.js";
 import "./notificationsPopover.css"
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
 const TOKEN_REFRESH_BUFFER = 60;
-const NOTIF_LIMIT = 5;
+const NOTIF_LIMIT = 20;
 
 export default function DraggableNotificationsPopover() {
     const [open, setOpen] = useState(false);
@@ -20,6 +21,10 @@ export default function DraggableNotificationsPopover() {
     const [popoverHeight, setPopoverHeight] = useState(320);
     const [mercureToken, setMercureToken] = useState(null);
 
+    // État local pour les notifications marquées comme lues (feedback instantané)
+    const [locallyReadNotifications, setLocallyReadNotifications] = useState(new Set());
+
+    const [isAlertActive, setIsAlertActive] = useLocalStorageState('isAlertActive', false);
     const popoverRef = useRef(null);
     const buttonRef = useRef(null);
     const dragRef = useRef({
@@ -42,31 +47,31 @@ export default function DraggableNotificationsPopover() {
         getNotifications,
         getMercureToken,
         addMercureNotification,
+        markNotificationRead,
+        markAllNotificationsRead,
     } = useNotifications();
 
-     const { containerRef, scrollToBottom } = useInfiniteScroll(
-            loadMoreNotifications,
-            hasMoreNotifications,
-            isLoadingMore,
-            [notifications.length]
+    const { containerRef, scrollToBottom } = useInfiniteScroll(
+        loadMoreNotifications,
+        hasMoreNotifications,
+        isLoadingMore,
+        [notifications.length]
     );
 
-     const addMercureNotificationRef = useRef();
-
-        useEffect(() => {
-            addMercureNotificationRef.current = addMercureNotification;
-        }, [addMercureNotification]);
-
+    const addMercureNotificationRef = useRef();
 
     useEffect(() => {
+        addMercureNotificationRef.current = addMercureNotification;
+    }, [addMercureNotification]);
 
-        // Réinitialiser la conversation avant de charger les nouveaux messages
+    useEffect(() => {
         resetNotifications();
-
+        setLocallyReadNotifications(new Set()); // Reset aussi l'état local
         getNotifications(
             user.userId,
             { page: 1, limit: NOTIF_LIMIT }
         ).then((result) => {
+            console.log(result);
             if (result.success) {
                 setTimeout(() => scrollToBottom('auto'), 100);
             }
@@ -74,12 +79,9 @@ export default function DraggableNotificationsPopover() {
     }, [user?.userId]);
 
     const notificationTopic = useMemo(() => {
-        return generateNotifTopic(
-            user.userId,
-        );
-    }, [ user?.userId]);
+        return generateNotifTopic(user.userId);
+    }, [user?.userId]);
 
-    // Gestion du token Mercure
     useEffect(() => {
         if (!notificationTopic || mercureToken) return;
 
@@ -88,7 +90,6 @@ export default function DraggableNotificationsPopover() {
                 const result = await getMercureToken();
                 if (result.success) {
                     setMercureToken(result.token);
-
                     if (result.expires_in) {
                         const refreshTime = (result.expires_in - TOKEN_REFRESH_BUFFER) * 1000;
                         setTimeout(() => {
@@ -104,17 +105,20 @@ export default function DraggableNotificationsPopover() {
         fetchToken().then();
     }, [notificationTopic, mercureToken]);
 
-    // Gestionnaire des messages Mercure
     const handleNotification = useCallback((data) => {
-        if (!data.data.titre || !addMercureNotificationRef.current) return;
+        console.log(data.data.type);
+        if (!data.data.type || !addMercureNotificationRef.current) return;
 
-        const notificationWithUserInfo = {
-            ...data
-        };
+        if (data.data.type === "alert_start" ) {
+            setIsAlertActive(true);
+        } else if (data.data.type === "alert_stop") {
+            setIsAlertActive(false);
+        }
+
+        const notificationWithUserInfo = { ...data };
         addMercureNotificationRef.current(notificationWithUserInfo);
-    }, []);
+    }, [setIsAlertActive]);
 
-    // Abonnement Mercure
     useMercureSubscription({
         topic: notificationTopic,
         mercureUrl: MERCURE_URL,
@@ -122,7 +126,49 @@ export default function DraggableNotificationsPopover() {
         onNotification: handleNotification
     });
 
-    // Utilitaire pour obtenir les coordonnées (souris ou touch)
+    const handleMarkRead = async (notificationId) => {
+        // Marquer immédiatement comme lu localement pour le feedback instantané
+        setLocallyReadNotifications(prev => new Set([...prev, notificationId]));
+
+        // Ensuite faire l'appel API
+        const result = await markNotificationRead(notificationId);
+        if (!result.success) {
+            console.error('Failed to mark notification as read:', result.error);
+            // En cas d'erreur, retirer de l'état local
+            setLocallyReadNotifications(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(notificationId);
+                return newSet;
+            });
+        }
+    };
+
+    const handleMarkAllRead = async () => {
+        // Marquer toutes les notifications non lues comme lues localement
+        const unreadIds = notifications
+            .filter(n => !n.isRead && !locallyReadNotifications.has(n.id))
+            .map(n => n.id);
+
+        setLocallyReadNotifications(prev => new Set([...prev, ...unreadIds]));
+
+        // Ensuite faire l'appel API
+        const result = await markAllNotificationsRead();
+        if (!result.success) {
+            console.error('Failed to mark all notifications as read:', result.error);
+            // En cas d'erreur, retirer les IDs de l'état local
+            setLocallyReadNotifications(prev => {
+                const newSet = new Set(prev);
+                unreadIds.forEach(id => newSet.delete(id));
+                return newSet;
+            });
+        }
+    };
+
+    // Fonction pour déterminer si une notification est lue (soit dans les données, soit localement)
+    const isNotificationRead = (notification) => {
+        return notification.isRead || locallyReadNotifications.has(notification.id);
+    };
+
     const getEventCoordinates = (e) => {
         if (e.touches && e.touches.length > 0) {
             return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -133,7 +179,6 @@ export default function DraggableNotificationsPopover() {
         return { x: e.clientX, y: e.clientY };
     };
 
-    // Fonction pour calculer la position optimale du popover avec hauteur dynamique
     const calculatePopoverPosition = (buttonX, buttonY) => {
         const popoverWidth = 288;
         const margin = 16;
@@ -142,11 +187,9 @@ export default function DraggableNotificationsPopover() {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
-        // Calculer la hauteur disponible et ajuster la hauteur du popover
         const maxAvailableHeight = viewportHeight - 2 * margin;
         const adjustedHeight = Math.min(popoverHeight, maxAvailableHeight);
 
-        // Calculer les espaces disponibles
         const spaceRight = viewportWidth - buttonX - buttonSize;
         const spaceLeft = buttonX;
         const spaceTop = buttonY;
@@ -154,44 +197,40 @@ export default function DraggableNotificationsPopover() {
 
         let finalX, finalY;
 
-        // Déterminer la position horizontale
         if (spaceRight >= popoverWidth + margin) {
             finalX = buttonX + buttonSize + 8;
         } else if (spaceLeft >= popoverWidth + margin) {
             finalX = buttonX - popoverWidth - 8;
         } else {
-            if (buttonX + popoverWidth/2 > viewportWidth - margin) {
+            if (buttonX + popoverWidth / 2 > viewportWidth - margin) {
                 finalX = viewportWidth - popoverWidth - margin;
-            } else if (buttonX - popoverWidth/2 < margin) {
+            } else if (buttonX - popoverWidth / 2 < margin) {
                 finalX = margin;
             } else {
-                finalX = buttonX - popoverWidth/2 + buttonSize/2;
+                finalX = buttonX - popoverWidth / 2 + buttonSize / 2;
             }
         }
 
-        // Déterminer la position verticale avec la hauteur ajustée
         if (spaceBottom >= adjustedHeight + margin) {
             finalY = buttonY;
         } else if (spaceTop >= adjustedHeight + margin) {
             finalY = buttonY - adjustedHeight + buttonSize;
         } else {
-            if (buttonY + adjustedHeight/2 > viewportHeight - margin) {
+            if (buttonY + adjustedHeight / 2 > viewportHeight - margin) {
                 finalY = viewportHeight - adjustedHeight - margin;
-            } else if (buttonY - adjustedHeight/2 < margin) {
+            } else if (buttonY - adjustedHeight / 2 < margin) {
                 finalY = margin;
             } else {
-                finalY = buttonY - adjustedHeight/2 + buttonSize/2;
+                finalY = buttonY - adjustedHeight / 2 + buttonSize / 2;
             }
         }
 
-        // S'assurer que le popover reste dans les limites
         finalX = Math.max(margin, Math.min(finalX, viewportWidth - popoverWidth - margin));
         finalY = Math.max(margin, Math.min(finalY, viewportHeight - adjustedHeight - margin));
 
         return { x: finalX, y: finalY, height: adjustedHeight };
     };
 
-    // Gestion du clic pour ouvrir/fermer le popover
     const handleClick = () => {
         if (!open) {
             const result = calculatePopoverPosition(position.x, position.y);
@@ -201,7 +240,6 @@ export default function DraggableNotificationsPopover() {
         setOpen(!open);
     };
 
-    // Gestion du début du drag (souris et touch)
     const handlePointerDown = (e) => {
         if (open) return;
         if (e.target.closest('.popover-content')) return;
@@ -224,7 +262,6 @@ export default function DraggableNotificationsPopover() {
         };
     };
 
-    // Gestion du mouvement (souris et touch)
     const handlePointerMove = (e) => {
         if (!dragRef.current.isDragging || open) return;
 
@@ -246,7 +283,6 @@ export default function DraggableNotificationsPopover() {
         });
     };
 
-    // Gestion de la fin du drag (souris et touch)
     const handlePointerUp = (e) => {
         if (dragRef.current.isDragging) {
             const coords = getEventCoordinates(e);
@@ -255,7 +291,7 @@ export default function DraggableNotificationsPopover() {
                 Math.pow(coords.y - dragRef.current.startY, 2)
             );
 
-            if (distance < 10) { // Seuil plus élevé pour mobile
+            if (distance < 10) {
                 handleClick();
             }
         }
@@ -264,7 +300,6 @@ export default function DraggableNotificationsPopover() {
         dragRef.current.isDragging = false;
     };
 
-    // Recalculer la position du popover lors du redimensionnement de la fenêtre
     useEffect(() => {
         const handleResize = () => {
             if (open) {
@@ -278,38 +313,29 @@ export default function DraggableNotificationsPopover() {
         return () => window.removeEventListener('resize', handleResize);
     }, [open, position.x, position.y]);
 
-    // Gestionnaires d'événements avec support mobile
     useEffect(() => {
         if (isDragging && !open) {
             const handleMove = (e) => handlePointerMove(e);
             const handleUp = (e) => handlePointerUp(e);
 
-            // Événements souris
             document.addEventListener('mousemove', handleMove, { passive: false });
             document.addEventListener('mouseup', handleUp);
-
-            // Événements tactiles
             document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('touchend', handleUp);
             document.addEventListener('touchcancel', handleUp);
 
-            // Styles pour empêcher la sélection
             document.body.style.userSelect = 'none';
             document.body.style.webkitUserSelect = 'none';
             document.body.style.touchAction = 'none';
             document.body.style.cursor = 'grabbing';
 
             return () => {
-                // Nettoyage événements souris
                 document.removeEventListener('mousemove', handleMove);
                 document.removeEventListener('mouseup', handleUp);
-
-                // Nettoyage événements tactiles
                 document.removeEventListener('touchmove', handleMove);
                 document.removeEventListener('touchend', handleUp);
                 document.removeEventListener('touchcancel', handleUp);
 
-                // Restaurer les styles
                 document.body.style.userSelect = '';
                 document.body.style.webkitUserSelect = '';
                 document.body.style.touchAction = '';
@@ -318,7 +344,6 @@ export default function DraggableNotificationsPopover() {
         }
     }, [isDragging, open, dragOffset]);
 
-    // Fermer le popover en cliquant à l'extérieur
     useEffect(() => {
         function handleClickOutside(e) {
             if (popoverRef.current && !popoverRef.current.contains(e.target) &&
@@ -365,10 +390,12 @@ export default function DraggableNotificationsPopover() {
                 }}
                 aria-label="Notifications draggables"
             >
-                <Bell size={20} className="text-gray-600 transition-colors group-hover:text-gray-800 pointer-events-none" />
-                {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs px-1.5 font-medium min-w-[18px] h-[18px] flex items-center justify-center pointer-events-none">
-                        {notifications.length}
+                <Bell size={20}
+                      className="text-gray-600 transition-colors group-hover:text-gray-800 pointer-events-none"/>
+                {notifications.filter(n => !isNotificationRead(n)).length > 0 && (
+                    <span
+                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs px-1.5 font-medium min-w-[18px] h-[18px] flex items-center justify-center pointer-events-none">
+                        {notifications.filter(n => !isNotificationRead(n)).length}
                     </span>
                 )}
 
@@ -378,7 +405,7 @@ export default function DraggableNotificationsPopover() {
                         transition-all duration-200 pointer-events-none
                         ${isDragging ? 'opacity-100 scale-110' : 'opacity-0 group-hover:opacity-60 group-active:opacity-100 scale-75'}
                     `}>
-                        <Move size={8} className="text-white" />
+                        <Move size={8} className="text-white"/>
                     </div>
                 )}
             </button>
@@ -393,10 +420,10 @@ export default function DraggableNotificationsPopover() {
                         height: `${popoverHeight}px`,
                     }}
                 >
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 flex-shrink-0">
+                    <div
+                        className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200 flex-shrink-0">
                         <div className="flex items-center space-x-2">
-                            <Bell size={16} className="text-gray-600" />
+                            <Bell size={16} className="text-gray-600"/>
                             <span className="font-medium text-gray-800 text-sm">Notifications</span>
                         </div>
                         <button
@@ -404,11 +431,10 @@ export default function DraggableNotificationsPopover() {
                             onClick={() => setOpen(false)}
                             aria-label="Fermer"
                         >
-                            <X size={16} />
+                            <X size={16}/>
                         </button>
                     </div>
 
-                    {/* Content */}
                     <div
                         className="overflow-y-auto flex-1 overscroll-contain"
                         style={{
@@ -417,35 +443,56 @@ export default function DraggableNotificationsPopover() {
                     >
                         {notifications.length === 0 ? (
                             <div className="p-6 text-gray-400 text-center">
-                                <Bell size={28} className="mx-auto mb-2 opacity-40" />
+                                <Bell size={28} className="mx-auto mb-2 opacity-40"/>
                                 <p className="text-sm">Aucune notification</p>
                             </div>
                         ) : (
                             <div className="divide-y divide-gray-100">
-                                {notifications.map((notification) => (
-                                    <div
-                                        key={notification.id}
-                                        className="flex items-start space-x-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer group touch-manipulation"
-                                    >
-                                        <div className="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0 group-hover:bg-red-600 transition-colors" />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-gray-700 leading-relaxed">
-                                                {notification.titre}
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                {notification.createdAt}
-                                            </p>
+                                {notifications.map((notification) => {
+                                    const isRead = isNotificationRead(notification);
+                                    return (
+                                        <div
+                                            key={notification.id}
+                                            className={`flex items-start space-x-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-all duration-200 cursor-pointer group touch-manipulation ${
+                                                isRead ? 'bg-gray-100 opacity-80' : 'bg-white'
+                                            }`}
+                                            onClick={() => !isRead && handleMarkRead(notification.id)}
+                                        >
+                                            <div
+                                                className={`w-2 h-2 rounded-full ${
+                                                    isRead ? 'bg-gray-300' : 'bg-red-500'
+                                                } mt-2 flex-shrink-0 group-hover:${
+                                                    isRead ? 'bg-gray-400' : 'bg-red-600'
+                                                } transition-colors duration-200`}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-sm leading-relaxed transition-all duration-200 ${
+                                                    isRead ? 'text-gray-600 italic' : 'text-gray-700'
+                                                }`}>
+                                                    {notification.titre}
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {notification.createdAt}
+                                                </p>
+                                                <p className={`text-xs leading-relaxed mt-1 transition-all duration-200 ${
+                                                    isRead ? 'text-gray-500' : 'text-gray-600'
+                                                }`}>
+                                                    {notification.message}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
 
-                    {/* Footer */}
                     {notifications.length > 0 && (
                         <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex-shrink-0">
-                            <button className="text-sm text-blue-600 hover:text-blue-700 active:text-blue-800 font-medium transition-colors touch-manipulation">
+                            <button
+                                className="text-sm text-blue-600 hover:text-blue-700 active:text-blue-800 font-medium transition-colors touch-manipulation"
+                                onClick={handleMarkAllRead}
+                            >
                                 Marquer toutes comme lues
                             </button>
                         </div>

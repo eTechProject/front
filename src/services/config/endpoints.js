@@ -74,12 +74,14 @@ const ENDPOINTS = {
     },
     ALERT: {
         SEND: '/alerts',
+        STOP: '/client/alerts/stop'
     },
     NOTIFICATION: {
         GET: (userId) => `/users/${userId}/notifications`,
-        CONVERSATION: (userId) =>
-            `/users/${userId}/notifications`,
+        CONVERSATION: (userId) => `/users/${userId}/notifications`,
         MERCURE_TOKEN: '/mercure/token',
+        MARK_READ: (id) => `/notifications/${id}/mark-read`,
+        MARK_ALL_READ: '/notifications/mark-all-read',
     }
 };
 

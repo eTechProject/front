@@ -19,5 +19,22 @@ export const alertService = {
                 details: error.response?.data?.errors || {}
             };
         }
+    },
+    cancelAlert: async (alertId) => {
+        try {
+            const response = await apiClient.post(ENDPOINTS.ALERT.STOP, {
+                alertId: alertId
+            });
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.message || "Erreur lors de l'annulation de l'alerte",
+                details: error.response?.data?.errors || {}
+            };
+        }
     }
 };

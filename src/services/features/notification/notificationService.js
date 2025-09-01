@@ -37,4 +37,38 @@ export const notificationService = {
             };
         }
     },
+
+    markNotificationRead: async (notificationId) => {
+        try {
+            const url = ENDPOINTS.NOTIFICATION.MARK_READ(notificationId);
+            const response = await apiClient.patch(url);
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                statusCode: error.response?.status,
+                error: error.response?.data?.error || "Erreur lors du marquage de la notification comme lue"
+            };
+        }
+    },
+
+    markAllNotificationsRead: async () => {
+        try {
+            const url = ENDPOINTS.NOTIFICATION.MARK_ALL_READ;
+            const response = await apiClient.patch(url);
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                statusCode: error.response?.status,
+                error: error.response?.data?.error || "Erreur lors du marquage de toutes les notifications comme lues"
+            };
+        }
+    },
 };

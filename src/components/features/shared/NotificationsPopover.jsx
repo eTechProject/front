@@ -1,14 +1,15 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect,useCallback, useMemo } from "react";
 import { Bell, X, Move } from "lucide-react";
+import { useAuth } from "@/context/AuthContext.jsx";
+import {useInfiniteScroll} from "@/hooks/features/messaging/useInfiniteScroll.js";
+import { useNotifications } from "@/hooks/features/notification/useNotification.js";
+import generateNotifTopic from "@/utils/generateNotifTopic.js";
+import useMercureSubscription from "@/hooks/features/notification/useMercureNotificationSubscription.js";
 import "./notificationsPopover.css"
 
-const notifications = [
-    { id: 1, text: "Nouvelle alerte sur le site", time: "Il y a 2 min" },
-    { id: 2, text: "Message reçu de Jean", time: "Il y a 10 min" },
-    { id: 3, text: "Mise à jour système", time: "Il y a 1h" },
-    { id: 4, text: "Backup terminé", time: "Il y a 2h" },
-    { id: 5, text: "Rapport mensuel disponible", time: "Il y a 3h" },
-];
+const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
+const TOKEN_REFRESH_BUFFER = 60;
+const NOTIF_LIMIT = 5;
 
 export default function DraggableNotificationsPopover() {
     const [open, setOpen] = useState(false);
@@ -17,6 +18,7 @@ export default function DraggableNotificationsPopover() {
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
     const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
     const [popoverHeight, setPopoverHeight] = useState(320);
+    const [mercureToken, setMercureToken] = useState(null);
 
     const popoverRef = useRef(null);
     const buttonRef = useRef(null);
@@ -24,6 +26,100 @@ export default function DraggableNotificationsPopover() {
         isDragging: false,
         startX: 0,
         startY: 0,
+    });
+
+    const { user } = useAuth();
+    const {
+        isLoading,
+        error,
+        success,
+        notifications,
+        isLoadingMore,
+        hasMoreNotifications,
+        currentPage,
+        loadMoreNotifications,
+        resetNotifications,
+        getNotifications,
+        getMercureToken,
+        addMercureNotification,
+    } = useNotifications();
+
+     const { containerRef, scrollToBottom } = useInfiniteScroll(
+            loadMoreNotifications,
+            hasMoreNotifications,
+            isLoadingMore,
+            [notifications.length]
+    );
+
+     const addMercureNotificationRef = useRef();
+
+        useEffect(() => {
+            addMercureNotificationRef.current = addMercureNotification;
+        }, [addMercureNotification]);
+
+
+    useEffect(() => {
+
+        // Réinitialiser la conversation avant de charger les nouveaux messages
+        resetNotifications();
+
+        getNotifications(
+            user.userId,
+            { page: 1, limit: NOTIF_LIMIT }
+        ).then((result) => {
+            if (result.success) {
+                setTimeout(() => scrollToBottom('auto'), 100);
+            }
+        });
+    }, [user?.userId]);
+
+    const notificationTopic = useMemo(() => {
+        return generateNotifTopic(
+            user.userId,
+        );
+    }, [ user?.userId]);
+
+    // Gestion du token Mercure
+    useEffect(() => {
+        if (!notificationTopic || mercureToken) return;
+
+        const fetchToken = async () => {
+            try {
+                const result = await getMercureToken();
+                if (result.success) {
+                    setMercureToken(result.token);
+
+                    if (result.expires_in) {
+                        const refreshTime = (result.expires_in - TOKEN_REFRESH_BUFFER) * 1000;
+                        setTimeout(() => {
+                            setMercureToken(null);
+                        }, refreshTime);
+                    }
+                }
+            } catch (err) {
+                console.error('Erreur lors de la récupération du token Mercure:', err);
+            }
+        };
+
+        fetchToken().then();
+    }, [notificationTopic, mercureToken]);
+
+    // Gestionnaire des messages Mercure
+    const handleNotification = useCallback((data) => {
+        if (!data.data.titre || !addMercureNotificationRef.current) return;
+
+        const notificationWithUserInfo = {
+            ...data
+        };
+        addMercureNotificationRef.current(notificationWithUserInfo);
+    }, []);
+
+    // Abonnement Mercure
+    useMercureSubscription({
+        topic: notificationTopic,
+        mercureUrl: MERCURE_URL,
+        token: mercureToken,
+        onNotification: handleNotification
     });
 
     // Utilitaire pour obtenir les coordonnées (souris ou touch)
@@ -334,10 +430,10 @@ export default function DraggableNotificationsPopover() {
                                         <div className="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0 group-hover:bg-red-600 transition-colors" />
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm text-gray-700 leading-relaxed">
-                                                {notification.text}
+                                                {notification.titre}
                                             </p>
                                             <p className="text-xs text-gray-500 mt-1">
-                                                {notification.time}
+                                                {notification.createdAt}
                                             </p>
                                         </div>
                                     </div>

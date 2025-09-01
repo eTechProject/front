@@ -21,7 +21,7 @@ const PanicButton = ({ userId, onClose }) => {
             });
 
             if (response.success) {
-                console.log('[PanicButton] Alert created successfully');
+                localStorage.setItem("alertId" , response.data.alertId);
                 setSubmitSuccess(true);
                 setTimeout(() => {
                     onClose();

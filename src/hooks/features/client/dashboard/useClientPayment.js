@@ -9,7 +9,6 @@ export const usePayments = (clientId) => {
         active_payments: [],
         expired_payments: [],
         other_payments: [],
-        history: [],
         total: 0,
         page: 1,
         limit: 20
@@ -18,7 +17,30 @@ export const usePayments = (clientId) => {
     const [hasMorePayments, setHasMorePayments] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-    const getPayments = async (params = {}) => {
+    // Helper function to categorize payments based on the new data structure
+    const categorizePayments = (paymentList) => {
+        const active = [];
+        const expired = [];
+        const other = [];
+        
+        paymentList.forEach(payment => {
+            if (payment.status === 'actif') {
+                active.push(payment);
+            } else if (payment.status === 'expire') {
+                expired.push(payment);
+            } else if (payment.status === 'non_paye') {
+                other.push(payment);
+            }
+        });
+
+        return {
+            active_payments: active,
+            expired_payments: expired,
+            other_payments: other
+        };
+    };
+
+    const getPayments = useCallback(async (params = {}) => {
         if (!clientId) {
             setError('Client ID is required');
             return { success: false, error: 'Client ID is required' };
@@ -34,22 +56,23 @@ export const usePayments = (clientId) => {
         setSuccess(result.success);
 
         if (result.success) {
+            // Handle the new simplified data structure
+            const paymentList = result.data.data || result.data || [];
+            const categorizedPayments = categorizePayments(paymentList);
+            
             setPayments({
-                active_payments: result.data.active_payments || [],
-                expired_payments: result.data.expired_payments || [],
-                other_payments: result.data.other_payments || [],
-                history: result.data.history || [],
-                total: result.data.total || 0,
-                page: result.data.page || 1,
-                limit: result.data.limit || 20
+                ...categorizedPayments,
+                total: paymentList.length,
+                page: 1,
+                limit: 20
             });
-            setCurrentPage(result.data.page || 1);
-            setHasMorePayments(result.data.page < Math.ceil(result.data.total / result.data.limit));
+            setCurrentPage(1);
+            setHasMorePayments(false); // Simple structure doesn't support pagination yet
         } else {
             setError(result.error);
         }
         return result;
-    };
+    }, [clientId]);
 
     // Load more payments for pagination
     const loadMorePayments = useCallback(async () => {
@@ -64,17 +87,19 @@ export const usePayments = (clientId) => {
         setIsLoadingMore(false);
 
         if (result.success) {
+            const paymentList = result.data.data || result.data || [];
+            const categorizedPayments = categorizePayments(paymentList);
+            
             setPayments(prev => ({
-                active_payments: [...prev.active_payments, ...(result.data.active_payments || [])],
-                expired_payments: [...prev.expired_payments, ...(result.data.expired_payments || [])],
-                other_payments: [...prev.other_payments, ...(result.data.other_payments || [])],
-                history: [...prev.history, ...(result.data.history || [])],
-                total: result.data.total || prev.total,
-                page: result.data.page || nextPage,
-                limit: result.data.limit || 20
+                active_payments: [...prev.active_payments, ...categorizedPayments.active_payments],
+                expired_payments: [...prev.expired_payments, ...categorizedPayments.expired_payments],
+                other_payments: [...prev.other_payments, ...categorizedPayments.other_payments],
+                total: prev.total + paymentList.length,
+                page: nextPage,
+                limit: 20
             }));
-            setCurrentPage(result.data.page || nextPage);
-            setHasMorePayments(result.data.page < Math.ceil(result.data.total / result.data.limit));
+            setCurrentPage(nextPage);
+            setHasMorePayments(false); // Disable pagination for now
         } else {
             setError(result.error);
         }
@@ -87,7 +112,6 @@ export const usePayments = (clientId) => {
             active_payments: [],
             expired_payments: [],
             other_payments: [],
-            history: [],
             total: 0,
             page: 1,
             limit: 20

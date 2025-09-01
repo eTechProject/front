@@ -1,140 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { CreditCard, Clock, AlertCircle, Euro, User, Eye, Search } from 'lucide-react';
 import {useAuth} from "@/context/AuthContext.jsx";
-
-// Simulation des hooks (remplacez par vos vrais hooks)
-const usePayments = () => ({
-    isLoading: false,
-    error: null,
-    success: true,
-    payments: {
-        active_payments: [
-            {
-                id: "Wk1WUEloMVEwOTZ0K2p1WmtsblVTZz09",
-                pack_id: "Rkt6MUdEUG5CZ2d6dUZxVXRvUStLQT09",
-                status: "actif",
-                createdAt: "2025-08-27T08:28:46+00:00",
-                startDate: "2025-08-27T08:28:46+00:00",
-                endDate: null,
-                amount: "250.00",
-                pack: {
-                    id: "Rkt6MUdEUG5CZ2d6dUZxVXRvUStLQT09",
-                    name: "Premium",
-                    nb_agents: 5,
-                    price: "250.00",
-                    description: "Pack Premium - Test Postman"
-                },
-                subscription_status: "actif",
-                subscription_start: "2025-08-27T08:28:46+00:00",
-                subscription_end: null
-            }
-        ],
-        expired_payments: [
-            {
-                id: "NzY2OVVMMHFpY3J3ZXJtVU5pWEFqQT09",
-                pack_id: "Rkt6MUdEUG5CZ2d6dUZxVXRvUStLQT09",
-                status: "expire",
-                createdAt: "2025-08-27T08:13:06+00:00",
-                startDate: "2025-08-27T08:13:06+00:00",
-                endDate: null,
-                amount: "100.00",
-                pack: {
-                    id: "Rkt6MUdEUG5CZ2d6dUZxVXRvUStLQT09",
-                    name: "Premium",
-                    nb_agents: 5,
-                    price: "100.00",
-                    description: "Pack Premium - Test Postman"
-                },
-                subscription_status: "expire",
-                subscription_start: "2025-08-27T08:13:06+00:00",
-                subscription_end: null
-            }
-        ],
-        other_payments: [
-            {
-                id: "bGwwZWhuUkY0dlUwSnVMZzNGd2lsUT09",
-                pack_id: "Rkt6MUdEUG5CZ2d6dUZxVXRvUStMQT09",
-                status: "non_paye",
-                createdAt: "2025-08-27T09:10:16+00:00",
-                startDate: "2025-08-27T09:10:16+00:00",
-                endDate: null,
-                amount: "300.00",
-                pack: {
-                    id: "Rkt6MUdEUG5CZ2d6dUZxVXRvUStLQT09",
-                    name: "Premium",
-                    nb_agents: 5,
-                    price: "300.00",
-                    description: "Pack Premium - Test Postman"
-                },
-                subscription_status: "non_paye",
-                subscription_start: "2025-08-27T09:10:16+00:00",
-                subscription_end: null
-            },
-            {
-                id: "TGMzcUt1NUZnTzZhYnR2MGNFWlArQT09",
-                pack_id: "Rkt6MUdEUG5CZ2d6dUZxVXRvUStLQT09",
-                status: "non_paye",
-                createdAt: "2025-08-27T08:41:28+00:00",
-                startDate: "2025-08-27T08:41:28+00:00",
-                endDate: null,
-                amount: "275.00",
-                pack: {
-                    id: "Rkt6MUdEUG5CZ2d6dUZxVXRvUStLQT09",
-                    name: "Standard",
-                    nb_agents: 3,
-                    price: "275.00",
-                    description: "Pack Standard - Production"
-                },
-                subscription_status: "non_paye",
-                subscription_start: "2025-08-27T08:41:28+00:00",
-                subscription_end: null
-            }
-        ],
-        history: [
-            {
-                id: "RnJEZ3dGUDZ1Z2x4QVJRM29hbG5Xdz09",
-                payment_id: "bGwwZWhuUkY0dlUwSnVMZzNGd2lsUT09",
-                amount: "300.00",
-                status: "pending",
-                createdAt: "2025-08-27T09:10:16+00:00",
-                provider: "cybersource",
-                provider_response: "{\"sessionId\":\"cs_test_5127f97e0cdc\"}"
-            },
-            {
-                id: "c0gwbG5YdTNWbWVZK2lxa28wSGJUZz09",
-                payment_id: "TGMzcUt1NUZnTzZhYnR2MGNFWlArQT09",
-                amount: "300.00",
-                status: "pending",
-                createdAt: "2025-08-27T08:41:28+00:00",
-                provider: "cybersource",
-                provider_response: "{\"sessionId\":\"cs_test_e1ff696049a5\"}"
-            },
-            {
-                id: "OTg0Q0lJMGZ6b2pDYlc0RFN1SW1uZz09",
-                payment_id: "Wk1WUEloMVEwOTZ0K2p1WmtsblVTZz09",
-                amount: "250.00",
-                status: "completed",
-                createdAt: "2025-08-27T08:28:46+00:00",
-                provider: "cybersource",
-                provider_response: "{\"sessionId\":\"cs_test_aad34d458a76\"}"
-            }
-        ]
-    },
-    getPayments: () => Promise.resolve(),
-    hasMorePayments: false,
-    loadMorePayments: () => Promise.resolve()
-});
+import {usePayments} from "@/hooks/features/client/dashboard/useClientPayment.js";
 
 const StatusBadge = ({ status }) => {
     const statusConfig = {
         actif: { label: 'Actif', color: 'text-green-700 bg-green-50' },
         expire: { label: 'Expiré', color: 'text-gray-600 bg-gray-50' },
-        non_paye: { label: 'Non payé', color: 'text-orange-700 bg-orange-50' },
-        pending: { label: 'En attente', color: 'text-yellow-700 bg-yellow-50' },
-        completed: { label: 'Terminé', color: 'text-blue-700 bg-blue-50' }
+        non_paye: { label: 'Non payé', color: 'text-orange-700 bg-orange-50' }
     };
 
-    const config = statusConfig[status] || statusConfig.pending;
+    const config = statusConfig[status] || { label: 'Inconnu', color: 'text-gray-600 bg-gray-50' };
 
     return (
         <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${config.color}`}>
@@ -184,14 +60,9 @@ const PaymentRow = ({ payment, type = 'payment', onView }) => {
                 <div className="text-sm text-gray-900">
                     {payment.pack?.description || 'N/A'}
                 </div>
-                {type === 'payment' && payment.pack?.nb_agents && (
+                {payment.pack?.nbAgents && (
                     <div className="text-sm text-gray-500">
-                        {payment.pack.nb_agents} agents
-                    </div>
-                )}
-                {type === 'history' && (
-                    <div className="text-sm text-gray-500">
-                        {payment.provider}
+                        {payment.pack.nbAgents} agents
                     </div>
                 )}
             </td>
@@ -205,7 +76,7 @@ const PaymentRow = ({ payment, type = 'payment', onView }) => {
             </td>
 
             <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                {payment.amount ? `${payment.amount} €` : 'N/A'}
+                {payment.pack?.price ? `${payment.pack.price} €` : (payment.amount ? `${payment.amount} €` : 'N/A')}
             </td>
 
             <td className="px-6 py-4 text-right">
@@ -265,7 +136,7 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
                             <div>
                                 <label className="text-sm font-medium text-gray-500">Montant</label>
                                 <p className="text-lg font-semibold text-gray-900 mt-1">
-                                    {payment.amount ? `${payment.amount} €` : 'N/A'}
+                                    {payment.pack?.price ? `${payment.pack.price} €` : (payment.amount ? `${payment.amount} €` : 'N/A')}
                                 </p>
                             </div>
 
@@ -276,17 +147,28 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
                                 </p>
                             </div>
 
-                            {type === 'payment' && payment.pack?.nb_agents && (
+                            {payment.pack?.nbAgents && (
                                 <div>
                                     <label className="text-sm font-medium text-gray-500">Nombre d'agents</label>
-                                    <p className="text-sm text-gray-900 mt-1">{payment.pack.nb_agents}</p>
+                                    <p className="text-sm text-gray-900 mt-1">{payment.pack.nbAgents}</p>
                                 </div>
                             )}
 
-                            {type === 'history' && (
+                            {payment.startDate && (
                                 <div>
-                                    <label className="text-sm font-medium text-gray-500">Fournisseur</label>
-                                    <p className="text-sm text-gray-900 mt-1">{payment.provider}</p>
+                                    <label className="text-sm font-medium text-gray-500">Date de début</label>
+                                    <p className="text-sm text-gray-900 mt-1">
+                                        {new Date(payment.startDate).toLocaleString('fr-FR')}
+                                    </p>
+                                </div>
+                            )}
+
+                            {payment.endDate && (
+                                <div>
+                                    <label className="text-sm font-medium text-gray-500">Date de fin</label>
+                                    <p className="text-sm text-gray-900 mt-1">
+                                        {new Date(payment.endDate).toLocaleString('fr-FR')}
+                                    </p>
                                 </div>
                             )}
                         </div>
@@ -307,7 +189,7 @@ export default function PaymentContent() {
         getPayments,
         hasMorePayments,
         loadMorePayments
-    } = usePayments(user.id);
+    } = usePayments(user?.userId);
 
     const [activeTab, setActiveTab] = useState('active');
     const [selectedPayment, setSelectedPayment] = useState(null);
@@ -315,10 +197,10 @@ export default function PaymentContent() {
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
-        if (user.id) {
+        if (user?.userId) {
             getPayments({ page: 1, limit: 20 });
         }
-    }, [user.id]);
+    }, [user?.userId, getPayments]);
 
     const handleViewPayment = (payment) => {
         setSelectedPayment(payment);
@@ -327,16 +209,16 @@ export default function PaymentContent() {
 
     const tabs = [
         { id: 'active', label: 'Actifs', count: payments.active_payments.length, data: payments.active_payments },
-        { id: 'pending', label: 'En attente', count: payments.other_payments.length, data: payments.other_payments },
-        { id: 'expired', label: 'Expirés', count: payments.expired_payments.length, data: payments.expired_payments },
-        { id: 'history', label: 'Historique', count: payments.history.length, data: payments.history }
+        { id: 'non_paye', label: 'Non payés', count: payments.other_payments.length, data: payments.other_payments },
+        { id: 'expired', label: 'Expirés', count: payments.expired_payments.length, data: payments.expired_payments }
     ];
 
     const activeTabData = tabs.find(tab => tab.id === activeTab);
     const filteredData = activeTabData?.data.filter(item =>
         item.pack?.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.pack?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.id.toLowerCase().includes(searchTerm.toLowerCase())
+        item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.status?.toLowerCase().includes(searchTerm.toLowerCase())
     ) || [];
 
     if (isLoading) {
@@ -435,7 +317,7 @@ export default function PaymentContent() {
                                 <PaymentRow
                                     key={payment.id}
                                     payment={payment}
-                                    type={activeTab === 'history' ? 'history' : 'payment'}
+                                    type="payment"
                                     onView={handleViewPayment}
                                 />
                             ))}
@@ -476,7 +358,7 @@ export default function PaymentContent() {
                 payment={selectedPayment}
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                type={activeTab === 'history' ? 'history' : 'payment'}
+                type="payment"
             />
         </div>
     );

@@ -68,7 +68,8 @@ const ENDPOINTS = {
     CLIENT: {
         DASHBOARD: (clientId) => `/client/${clientId}/dashboard`,
         PAYMENTS: {
-            LIST: (clientId) => `/client/${clientId}/payment`,
+            LIST: (clientId) => `/client/${clientId}/payments`,
+            SEND: `/client/stripe-payment/create`,
         },
         CANCEL_TASK: '/public/client/task/cancel',
     },

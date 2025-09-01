@@ -17,4 +17,19 @@ export const paymentService = {
             };
         }
     },
+    sendPayment: async (paymentData) => {
+        try {
+            const response = await apiClient.post(ENDPOINTS.CLIENT.PAYMENTS.SEND, paymentData);
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Erreur lors de l\'envoi du paiement',
+                details: error.response?.data?.errors || {}
+            };
+        }
+    }
 };

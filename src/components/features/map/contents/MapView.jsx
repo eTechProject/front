@@ -7,6 +7,7 @@ import ZonePanelToggle from "@/components/features/map/ui/ZonePanelToggle.jsx";
 import { isPointInPolygon } from "@/utils/geoUtils.js";
 import { useLocalStorageState } from "@/hooks/listener/useLocalStorageState.js";
 import {mapReloadService} from "@/services/map/mapReloadService.js";
+import {useAlert} from "@/hooks/features/alert/useAlert.js";
 
 /**
  * Main map component.
@@ -57,7 +58,7 @@ const MapView = React.forwardRef(({
 
     const { user } = useAuth();
     const { sendZone, isLoading, error, success } = useZone();
-
+    const { cancelAlert } = useAlert();
     // Configuration
     const MAX_ZOOM = 19;
     const INITIAL_ZOOM = 13;
@@ -210,8 +211,19 @@ const MapView = React.forwardRef(({
     };
 
     // Disable alert
-    const handleDisableAlert = () => {
-        setIsAlertActive(false);
+    const handleDisableAlert = async () => {
+        const alertId = localStorage.getItem("alertId");
+        if (alertId) {
+            try {
+                const response = await cancelAlert(alertId);
+                if (response.success) {
+                    setIsAlertActive(false);
+                    localStorage.removeItem("alertId");
+                }
+            } catch (err) {
+                console.error('[handleDisableAlert] Error cancelling alert:', err);
+            }
+        }
     };
 
     // Initialize map

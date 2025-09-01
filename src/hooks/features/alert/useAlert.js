@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { alertService } from '@/services/features/alert/alertService.js';
+import {alertService} from "@/services/features/alert/alertService.js";
 
 export const useAlert = () => {
     const [isLoading, setIsLoading] = useState(false);
@@ -31,10 +31,36 @@ export const useAlert = () => {
         }
     }, []);
 
+    const cancelAlert = useCallback(async (alertId) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await alertService.cancelAlert(alertId);
+            if (response.success) {
+                setAlert(null);
+                return {
+                    success: true,
+                    data: response.data
+                };
+            } else {
+                throw new Error(response.error);
+            }
+        } catch (err) {
+            setError(err.message || "Erreur lors de l'annulation de l'alerte");
+            return {
+                success: false,
+                error: err.message
+            };
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
     return {
         alert,
         isLoading,
         error,
-        createAlert
+        createAlert,
+        cancelAlert
     };
 };

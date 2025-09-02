@@ -7,6 +7,7 @@ import generateConversationTopic from "@/utils/generateConversationTopic.js";
 import useMercureSubscription from "@/hooks/features/messaging/useMercureSubscription.js";
 import toast from "react-hot-toast";
 import {useInfiniteScroll} from "@/hooks/features/messaging/useInfiniteScroll.js";
+import useMessageNotification from "@/hooks/features/messaging/useMessageNotification.js";
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
 const MESSAGES_LIMIT = 20;
@@ -121,6 +122,7 @@ export default function MessagesContent() {
     // Hooks
     const { user } = useAuth();
     const { getZone } = useZone();
+    const { showNotification } = useMessageNotification(true); // ✅ NOUVEAU HOOK
     const {
         messages,
         sendMessage,
@@ -251,16 +253,37 @@ export default function MessagesContent() {
         fetchToken().then();
     }, [conversationTopic, mercureToken]);
 
-    // Gestionnaire des messages Mercure
+    //  GESTIONNAIRE MERCURE MODIFIÉ AVEC NOTIFICATIONS
     const handleMercureMessage = useCallback((data) => {
         if (!data.content || !addMercureMessageRef.current) return;
+
+        console.log('📨 Message Mercure reçu:', data);
+
+        //  NOUVELLE LOGIQUE - Notification pour les messages des autres utilisateurs
+        const isFromOtherUser = String(data.sender_id) !== String(user?.userId);
+
+        if (isFromOtherUser) {
+            // Trouver le nom de l'expéditeur
+            const sender = agentUsers.find(agent =>
+                String(agent.user.agentData?.agent.user.userId) === String(data.sender_id)
+            );
+
+            showNotification(data, {
+                title: `Message de ${sender?.user.username || 'Agent'}`,
+                body: data.content.length > 100
+                    ? `${data.content.substring(0, 100)}...`
+                    : data.content,
+                icon: '/favicon.ico'
+            });
+        }
+
 
         const messageWithUserInfo = {
             ...data,
             _forceCurrentUser: String(data.sender_id) === String(user?.userId)
         };
         addMercureMessageRef.current(messageWithUserInfo);
-    }, [user?.userId]);
+    }, [user?.userId, agentUsers, showNotification]);
 
     // Abonnement Mercure
     useMercureSubscription({

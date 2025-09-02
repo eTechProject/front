@@ -8,14 +8,16 @@ import { useEffect, useRef, useCallback } from 'react';
  * @param {string} params.token - Token JWT pour les topics privés
  * @param {Function} params.onNotification - Callback pour les notifications reçues
  * @param {number} [params.reconnectDelay=3000] - Délai de reconnexion en ms
+ * @param {Function} [params.onNotificationReceived] - Callback pour navigation automatique
  */
 export default function useMercureNotificationSubscription({
-    topic,
-    mercureUrl,
-    token,
-    onNotification,
-    reconnectDelay = 3000
-}) {
+                                                               topic,
+                                                               mercureUrl,
+                                                               token,
+                                                               onNotification,
+                                                               reconnectDelay = 3000,
+                                                               onNotificationReceived
+                                                           }) {
     const eventSourceRef = useRef(null);
     const reconnectTimeoutRef = useRef(null);
     const isConnectingRef = useRef(false);
@@ -26,11 +28,19 @@ export default function useMercureNotificationSubscription({
         try {
             const data = JSON.parse(event.data);
             console.log('🔔 Données notification parsées:', data);
+
+            // Appeler le callback de notification existant
             onNotification?.(data);
+
+            // Délai court pour simuler l'effet de clic puis navigation
+            setTimeout(() => {
+                onNotificationReceived?.();
+            }, 200);
+
         } catch (error) {
             console.error('Erreur lors du parsing de la notification Mercure:', error);
         }
-    }, [onNotification]);
+    }, [onNotification, onNotificationReceived]);
 
     useEffect(() => {
         if (!topic || !mercureUrl || !onNotification) {

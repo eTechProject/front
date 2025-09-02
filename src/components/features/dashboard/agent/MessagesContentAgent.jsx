@@ -1,14 +1,32 @@
-import React, {useState, useRef, useEffect, useCallback, useMemo} from 'react';
-import {MessageSquareText, ArrowLeft, Search} from "lucide-react";
-import {useAuth} from "@/context/AuthContext.jsx";
-import {useMessages} from "@/hooks/features/messaging/useMessage.js";
-import {useAgentTasks} from "@/hooks/features/agent/useAgentTasks.js";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { MessageSquareText, ArrowLeft, Search, Send, Loader } from "lucide-react";
+import { useAuth } from "@/context/AuthContext.jsx";
+import { useMessages } from "@/hooks/features/messaging/useMessage.js";
+import { useAgentTasks } from "@/hooks/features/agent/useAgentTasks.js";
 import useMercureSubscription from "@/hooks/features/messaging/useMercureSubscription.js";
 import generateConversationTopic from "@/utils/generateConversationTopic.js";
+import { useInfiniteScroll } from "@/hooks/features/messaging/useInfiniteScroll.js";
+import toast from "react-hot-toast";
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
 const MESSAGES_LIMIT = 20;
 const TOKEN_REFRESH_BUFFER = 60;
+
+// Nouveau composant pour l'indicateur de chargement
+const LoadMoreIndicator = ({ isLoading, hasMore }) => {
+    if (!hasMore) return null;
+
+    return (
+        <div className="flex justify-center py-2">
+            {isLoading ? (
+                <div className="flex items-center gap-2 text-gray-500 text-sm">
+                    <Loader className="w-4 h-4 animate-spin" />
+                    <span>Chargement des anciens messages...</span>
+                </div>
+            ) : null}
+        </div>
+    );
+};
 
 export default function MessagesContentAgent() {
     const [selectedClient, setSelectedClient] = useState(null);
@@ -17,23 +35,32 @@ export default function MessagesContentAgent() {
     const [sendingMessage, setSendingMessage] = useState(false);
     const [mercureToken, setMercureToken] = useState(null);
 
-    // Refs
-    const messagesEndRef = useRef(null);
-    const addMercureMessageRef = useRef();
-
     // Hooks
-    const {user} = useAuth();
+    const { user } = useAuth();
     const agentId = user?.userId;
-    const {tasks, isLoading, error, fetchAssignedTasks} = useAgentTasks(agentId);
+    const { tasks, isLoading, error, fetchAssignedTasks } = useAgentTasks(agentId);
     const {
         messages,
         sendMessage,
         isLoading: messagesLoading,
-        error: messagesError,
         getConversationMessages,
         getMercureToken,
-        addMercureMessage
+        addMercureMessage,
+        isLoadingMore,
+        hasMoreMessages,
+        loadMoreMessages,
+        resetConversation
     } = useMessages();
+
+    // Hook pour l'infinite scroll
+    const { containerRef, scrollToBottom } = useInfiniteScroll(
+        loadMoreMessages,
+        hasMoreMessages,
+        isLoadingMore,
+        [messages.length]
+    );
+
+    const addMercureMessageRef = useRef();
 
     useEffect(() => {
         addMercureMessageRef.current = addMercureMessage;
@@ -82,10 +109,17 @@ export default function MessagesContentAgent() {
             return;
         }
 
+        // Réinitialiser la conversation avant de charger les nouveaux messages
+        resetConversation();
+
         getConversationMessages(agentId, selectedClient.user.id, {
             page: 1,
             limit: MESSAGES_LIMIT
-        }).then();
+        }).then((result) => {
+            if (result.success) {
+                setTimeout(() => scrollToBottom('auto'), 100);
+            }
+        });
     }, [selectedClient, agentId]);
 
     // Gestion du token Mercure
@@ -105,11 +139,12 @@ export default function MessagesContentAgent() {
                 }
             } catch (error) {
                 console.error('Erreur lors de la récupération du token Mercure:', error);
+                toast.error('Erreur de connexion à la messagerie');
             }
         };
 
         fetchToken().then();
-    }, [conversationTopic, mercureToken,]);
+    }, [conversationTopic, mercureToken]);
 
     // Gestionnaire des messages Mercure
     const handleMercureMessage = useCallback((data) => {
@@ -130,9 +165,17 @@ export default function MessagesContentAgent() {
         onMessage: handleMercureMessage
     });
 
+    // Auto-scroll pour les nouveaux messages
     useEffect(() => {
         if (sortedMessages.length > 0) {
-            messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
+            // Vérifier si l'utilisateur est proche du bas avant de scroller
+            const container = containerRef.current;
+            if (container) {
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+                if (isNearBottom) {
+                    scrollToBottom('smooth');
+                }
+            }
         }
     }, [sortedMessages]);
 
@@ -143,6 +186,7 @@ export default function MessagesContentAgent() {
 
     const handleBackToList = useCallback(() => {
         setSelectedClient(null);
+        resetConversation();
     }, []);
 
     const handleSendMessage = useCallback(async (e) => {
@@ -160,27 +204,51 @@ export default function MessagesContentAgent() {
                 receiver_id: selectedClient.user.id,
                 content: messageContent
             }, false);
+
+            setTimeout(() => scrollToBottom('smooth'), 100);
         } catch (error) {
             console.error('Erreur lors de l\'envoi du message:', error);
             setNewMessage(messageContent);
+            toast.error('Erreur lors de l\'envoi du message');
         } finally {
             setSendingMessage(false);
         }
-    }, [newMessage, selectedClient, sendingMessage, agentId, sendMessage]);
+    }, [newMessage, selectedClient, sendingMessage, agentId, sendMessage, scrollToBottom]);
 
-    // Composants utilitaires (similaires au composant client)
-    const LoadingSpinner = () => (
-        <div className="p-6 text-center">
-            <div className="animate-spin rounded-full h-6 w-6 lg:h-8 lg:w-8 border-b-2 border-gray-400 mx-auto"></div>
-            <p className="text-gray-500 mt-2 text-sm">Chargement des clients...</p>
+    // Composants utilitaires
+    const ClientListSkeleton = () => (
+        <div className="space-y-2 p-4">
+            {[...Array(3)].map((_, index) => (
+                <div key={index} className="flex items-center gap-3 p-4 border-b border-gray-50 animate-pulse">
+                    <div className="h-10 w-10 rounded-full bg-gray-200"></div>
+                    <div className="flex-1 space-y-2">
+                        <div className="h-4 w-1/2 bg-gray-200 rounded"></div>
+                        <div className="h-3 w-3/4 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="h-5 w-16 bg-gray-200 rounded-full"></div>
+                </div>
+            ))}
         </div>
     );
 
-    const EmptyState = ({message}) => (
+    const MessagesSkeleton = () => (
+        <div className="space-y-3 px-4 lg:px-6 py-3 lg:py-4">
+            {[...Array(4)].map((_, index) => (
+                <div key={index} className={`flex ${index % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
+                    <div className="max-w-[85%] lg:max-w-[80%] px-3 lg:px-4 py-2 lg:py-2.5 rounded-2xl bg-gray-200 animate-pulse">
+                        <div className="h-4 w-40 bg-gray-300 rounded"></div>
+                        <div className="h-3 w-20 bg-gray-300 rounded mt-2"></div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+
+    const EmptyState = ({ message }) => (
         <div className="p-6 text-center text-gray-400 text-sm">{message}</div>
     );
 
-    const MessageBubble = ({message, isFromCurrentUser}) => (
+    const MessageBubble = ({ message, isFromCurrentUser }) => (
         <div className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] lg:max-w-[80%] px-3 lg:px-4 py-2 lg:py-2.5 rounded-2xl shadow-sm
                 ${isFromCurrentUser
@@ -214,7 +282,7 @@ export default function MessagesContentAgent() {
                         <MessageSquareText className="w-5 h-5 lg:w-6 lg:h-6"/>
                         Clients
                     </h1>
-                    <p className="text-gray-600 mb-4 text-sm lg:text-base">Gérez vos clients</p>
+                    <p className="text-gray-600 mb-4 text-sm lg:text-base">Vos clients</p>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"/>
                         <input
@@ -230,7 +298,7 @@ export default function MessagesContentAgent() {
                 {/* Liste */}
                 <div className="flex-1 overflow-y-auto">
                     {isLoading ? (
-                        <LoadingSpinner/>
+                        <ClientListSkeleton />
                     ) : filteredClients.length === 0 ? (
                         <EmptyState
                             message={searchTerm
@@ -271,7 +339,7 @@ export default function MessagesContentAgent() {
                 </div>
             </div>
 
-            {/* Zone de conversation - Structure identique au composant client */}
+            {/* Zone de conversation */}
             <div className={`
                 ${!selectedClient ? 'hidden lg:flex' : 'flex'}
                 flex-1 flex-col bg-[#f7f7f8] min-w-0
@@ -293,7 +361,7 @@ export default function MessagesContentAgent() {
                             className="border-b border-gray-100 px-4 lg:px-6 py-3 lg:py-4 flex items-center gap-3 bg-white">
                             <button
                                 onClick={handleBackToList}
-                                className="lg:hidden p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg -ml-1"
+                                className="lg:hidden p-1.5 absolute z-[500] right-4 text-gray-600 hover:text-gray-900 hover:bg-gray-100 -ml-1"
                             >
                                 <ArrowLeft className="w-5 h-5"/>
                             </button>
@@ -307,42 +375,37 @@ export default function MessagesContentAgent() {
                                 </div>
                                 <div className="text-xs text-gray-400">{selectedClient.user.email}</div>
                             </div>
-                            {conversationTopic && mercureToken && (
-                                <div className="flex items-center text-xs text-green-500"
-                                     title="Messages en temps réel activés">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-1"></div>
-                                    <span className="hidden sm:inline">Temps réel</span>
-                                </div>
-                            )}
                         </div>
 
-                        {/* Messages */}
-                        <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-3 lg:py-4 space-y-3">
+                        {/* Messages avec infinite scroll */}
+                        <div
+                            ref={containerRef}
+                            className="flex-1 overflow-y-auto px-4 lg:px-6 py-3 lg:py-4 space-y-3"
+                        >
+                            {/* Indicateur de chargement en haut */}
+                            <LoadMoreIndicator isLoading={isLoadingMore} hasMore={hasMoreMessages} />
+
                             {messagesLoading && !sortedMessages.length && (
-                                <div className="flex items-center justify-center h-full text-gray-400 italic text-sm">
-                                    Chargement...
-                                </div>
+                                <MessagesSkeleton />
                             )}
-                            {messagesError && !sortedMessages.length && (
-                                <div className="flex items-center justify-center h-full text-red-400 italic text-sm">
-                                    {messagesError}
-                                </div>
-                            )}
-                            {!messagesLoading && !sortedMessages.length && (
+                            {!messagesLoading && sortedMessages.length === 0 && (
                                 <div className="flex items-center justify-center h-full text-gray-300 italic text-sm">
                                     Aucun message pour l'instant...
                                 </div>
                             )}
 
-                            {sortedMessages.map((message, index) => (
-                                <MessageBubble
-                                    key={message.id || index}
-                                    message={message}
-                                    isFromCurrentUser={
-                                        message.sender_id === agentId || message._forceCurrentUser === true
-                                    }
-                                />
-                            ))}
+                            {sortedMessages.map((message, index) => {
+                                const isFromCurrentUser = message.sender_id === agentId ||
+                                    message._forceCurrentUser === true;
+
+                                return (
+                                    <MessageBubble
+                                        key={message.id || `${message.sent_at}-${index}`}
+                                        message={message}
+                                        isFromCurrentUser={isFromCurrentUser}
+                                    />
+                                );
+                            })}
 
                             {sendingMessage && (
                                 <div className="flex justify-end">
@@ -360,12 +423,11 @@ export default function MessagesContentAgent() {
                                     </div>
                                 </div>
                             )}
-                            <div ref={messagesEndRef}/>
                         </div>
 
                         {/* Input message */}
-                        <div className="bg-white border-t border-gray-100 px-4 lg:px-6 py-3 lg:py-4">
-                            <form onSubmit={handleSendMessage} className="flex gap-2 lg:gap-3">
+                        <div className="bg-white border-t flex justify-end border-gray-100 px-4 lg:px-6 py-3 lg:py-4">
+                            <form onSubmit={handleSendMessage} className="flex w-[87%] lg:w-full gap-2 lg:gap-3">
                                 <input
                                     type="text"
                                     value={newMessage}
@@ -378,13 +440,13 @@ export default function MessagesContentAgent() {
                                 <button
                                     type="submit"
                                     disabled={!newMessage.trim() || sendingMessage}
-                                    className="bg-gray-900 text-white rounded-lg px-4 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-gray-300 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
+                                    className="bg-gray-900 text-white rounded-lg px-3 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-zinc-200 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
                                 >
                                     <span className="hidden sm:inline">
                                         {sendingMessage ? 'Envoi...' : 'Envoyer'}
                                     </span>
                                     <span className="sm:hidden">
-                                        {sendingMessage ? '...' : '↗'}
+                                        {sendingMessage ? '...' : <Send className="w-4 h-4"/>}
                                     </span>
                                 </button>
                             </form>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { PlusCircle, Trash2, Edit, Search, Eye, User, X, UserCog, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { PlusCircle, Trash2, Edit, Search, Eye, User, X, UserCog, Loader2, Filter, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAgent } from "@/hooks/features/admin/useAgent.js";
 
@@ -64,6 +64,11 @@ export default function AgentsContent() {
     const [imageUrl, setImageUrl] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [showMobileFilters, setShowMobileFilters] = useState(false);
+
+    // Filtres et tri
+    const [filters, setFilters] = useState({ sexe: "", status: "" });
+    const [sort, setSort] = useState({ key: "nom", order: "asc" });
 
     const {
         agents,
@@ -99,6 +104,38 @@ export default function AgentsContent() {
             fetchAgents({ page: currentPage, limit }).then();
         }
     }, [fetchAgents, searchAgents, currentPage, debouncedSearchTerm]);
+
+    // Filtrage et tri côté client
+    const filteredSortedAgents = useMemo(() => {
+        let arr = [...agents];
+        if (filters.sexe) arr = arr.filter(a => a.sexe === filters.sexe);
+        if (filters.status) arr = arr.filter(a => a.status === filters.status);
+
+        arr.sort((a, b) => {
+            let valA, valB;
+            switch (sort.key) {
+                case "nom":
+                    valA = a.user?.name?.toLowerCase() || "";
+                    valB = b.user?.name?.toLowerCase() || "";
+                    break;
+                case "email":
+                    valA = a.user?.email?.toLowerCase() || "";
+                    valB = b.user?.email?.toLowerCase() || "";
+                    break;
+                case "status":
+                    valA = a.status || "";
+                    valB = b.status || "";
+                    break;
+                default:
+                    valA = "";
+                    valB = "";
+            }
+            if (valA < valB) return sort.order === "asc" ? -1 : 1;
+            if (valA > valB) return sort.order === "asc" ? 1 : -1;
+            return 0;
+        });
+        return arr;
+    }, [agents, filters, sort]);
 
     const toggleModal = (modalName, state = null) => {
         setModals(prev => ({ ...prev, [modalName]: state ?? !prev[modalName] }));
@@ -258,135 +295,306 @@ export default function AgentsContent() {
                     </button>
                 </div>
 
-                <div className="bg-white shadow-sm rounded-xl overflow-hidden">
-                    <div className="p-4 sm:p-6">
-                        <div className="relative w-full max-w-md">
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                <Search className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                                type="text"
-                                className="block w-full pl-10 pr-3 py-3 border border-gray-100 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
-                                placeholder="Rechercher par nom ou email... (min. 3 caractères)"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            {searchTerm.length > 0 && searchTerm.length < 3 && (
-                                <div className="absolute top-full left-0 mt-1 text-xs text-gray-500">
-                                    Tapez au moins 3 caractères pour rechercher
+                {/* Filtres & tri - Version améliorée */}
+                <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex-1 min-w-[200px]">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Recherche</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <Search className="h-4 w-4 text-gray-400" />
                                 </div>
-                            )}
+                                <input
+                                    type="text"
+                                    className="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                                    placeholder="Nom ou email..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Filtrer par</label>
+                                <div className="flex gap-2">
+                                    <select
+                                        className="border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                                        value={filters.sexe}
+                                        onChange={e => setFilters(f => ({ ...f, sexe: e.target.value }))}
+                                    >
+                                        <option value="">Sexe</option>
+                                        <option value="M">Homme</option>
+                                        <option value="F">Femme</option>
+                                    </select>
+
+                                    <select
+                                        className="border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                                        value={filters.status}
+                                        onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+                                    >
+                                        <option value="">Statut</option>
+                                        <option value="actif">Actif</option>
+                                        <option value="inactif">Inactif</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Trier par</label>
+                                <div className="flex gap-2">
+                                    <select
+                                        className="border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                                        value={sort.key}
+                                        onChange={e => setSort(s => ({ ...s, key: e.target.value }))}
+                                    >
+                                        <option value="nom">Nom</option>
+                                        <option value="email">Email</option>
+                                        <option value="status">Statut</option>
+                                    </select>
+
+                                    <select
+                                        className="border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                                        value={sort.order}
+                                        onChange={e => setSort(s => ({ ...s, order: e.target.value }))}
+                                    >
+                                        <option value="asc">↑ Asc</option>
+                                        <option value="desc">↓ Desc</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    {error && <div className="p-8 text-center text-red-400">{error}</div>}
-
-                    {/* Table Desktop */}
-                    <div className="hidden lg:block overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adresse</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sexe</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                            {agents.map((agent) => (
-                                <tr key={agent.agentId} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <Avatar agent={agent} />
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-gray-900">{agent.user?.name}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-500">{agent.user?.email}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-500 max-w-xs truncate">{agent.address}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-md bg-gray-100 text-gray-800">
-                                                {agent.sexe === "M" ? "Homme" : agent.sexe === "F" ? "Femme" : ""}
-                                            </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <StatusBadge status={agent.status} />
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <ActionButtons agent={agent} />
-                                    </td>
-                                </tr>
-                            ))}
-                            {agents.length === 0 && !isLoading && <EmptyState colSpan={7} />}
-                            </tbody>
-                        </table>
+                {/* Indicateurs de filtres actifs */}
+                {(filters.sexe || filters.status) && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {filters.sexe && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Sexe: {filters.sexe === "M" ? "Homme" : "Femme"}
+                                <button
+                                    type="button"
+                                    className="ml-1.5 inline-flex text-blue-400 hover:text-blue-600"
+                                    onClick={() => setFilters(f => ({ ...f, sexe: "" }))}
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </span>
+                        )}
+                        {filters.status && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                Statut: {filters.status}
+                                <button
+                                    type="button"
+                                    className="ml-1.5 inline-flex text-purple-400 hover:text-purple-600"
+                                    onClick={() => setFilters(f => ({ ...f, status: "" }))}
+                                >
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </span>
+                        )}
+                        {(filters.sexe || filters.status) && (
+                            <button
+                                className="text-xs text-gray-500 hover:text-gray-700 underline"
+                                onClick={() => setFilters({ sexe: "", status: "" })}
+                            >
+                                Réinitialiser tous les filtres
+                            </button>
+                        )}
                     </div>
+                )}
 
-                    {/* Vue Mobile */}
-                    <div className="lg:hidden">
-                        {agents.map((agent) => (
-                            <div key={agent.agentId} className="p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors">
-                                <div className="flex items-start space-x-4">
-                                    <Avatar agent={agent} size="h-12 w-12" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <h3 className="text-sm font-medium text-gray-900 truncate">{agent.user?.name}</h3>
-                                                <p className="text-sm text-gray-500 truncate">{agent.user?.email}</p>
-                                                <p className="text-xs text-gray-400 truncate mt-1">{agent.address}</p>
-                                            </div>
-                                            <ActionButtons agent={agent} isMobile />
+                {/* Version mobile améliorée */}
+                <div className="lg:hidden space-y-3">
+                    <button
+                        className="flex items-center gap-2 px-3 py-2 border rounded-md text-sm font-medium bg-gray-50 w-full"
+                        onClick={() => setShowMobileFilters(!showMobileFilters)}
+                    >
+                        <Filter className="h-4 w-4" />
+                        <span>Filtres et tri</span>
+                        <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showMobileFilters ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showMobileFilters && (
+                        <div className="bg-white p-4 rounded-lg border shadow-sm space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Recherche</label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        className="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md"
+                                        placeholder="Nom ou email..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Sexe</label>
+                                    <select
+                                        className="w-full border rounded-md px-3 py-2 text-sm"
+                                        value={filters.sexe}
+                                        onChange={e => setFilters(f => ({ ...f, sexe: e.target.value }))}
+                                    >
+                                        <option value="">Tous</option>
+                                        <option value="M">Homme</option>
+                                        <option value="F">Femme</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Statut</label>
+                                    <select
+                                        className="w-full border rounded-md px-3 py-2 text-sm"
+                                        value={filters.status}
+                                        onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
+                                    >
+                                        <option value="">Tous</option>
+                                        <option value="actif">Actif</option>
+                                        <option value="inactif">Inactif</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Trier par</label>
+                                    <select
+                                        className="w-full border rounded-md px-3 py-2 text-sm"
+                                        value={sort.key}
+                                        onChange={e => setSort(s => ({ ...s, key: e.target.value }))}
+                                    >
+                                        <option value="nom">Nom</option>
+                                        <option value="email">Email</option>
+                                        <option value="status">Statut</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Ordre</label>
+                                    <select
+                                        className="w-full border rounded-md px-3 py-2 text-sm"
+                                        value={sort.order}
+                                        onChange={e => setSort(s => ({ ...s, order: e.target.value }))}
+                                    >
+                                        <option value="asc">Ascendant</option>
+                                        <option value="desc">Descendant</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {error && <div className="p-8 text-center text-red-400">{error}</div>}
+
+                {/* Table Desktop */}
+                <div className="hidden lg:block overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adresse</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sexe</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredSortedAgents.map((agent) => (
+                            <tr key={agent.agentId} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <Avatar agent={agent} />
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm font-medium text-gray-900">{agent.user?.name}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-gray-500">{agent.user?.email}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-gray-500 max-w-xs truncate">{agent.address}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-md bg-gray-100 text-gray-800">
+                                            {agent.sexe === "M" ? "Homme" : agent.sexe === "F" ? "Femme" : ""}
+                                        </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <StatusBadge status={agent.status} />
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <ActionButtons agent={agent} />
+                                </td>
+                            </tr>
+                        ))}
+                        {filteredSortedAgents.length === 0 && !isLoading && <EmptyState colSpan={7} />}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Vue Mobile */}
+                <div className="lg:hidden">
+                    {filteredSortedAgents.map((agent) => (
+                        <div key={agent.agentId} className="p-4 border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-start space-x-4">
+                                <Avatar agent={agent} size="h-12 w-12" />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                            <h3 className="text-sm font-medium text-gray-900 truncate">{agent.user?.name}</h3>
+                                            <p className="text-sm text-gray-500 truncate">{agent.user?.email}</p>
+                                            <p className="text-xs text-gray-400 truncate mt-1">{agent.address}</p>
                                         </div>
-                                        <div className="flex space-x-2 mt-3">
-                                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                                                {agent.sexe === "M" ? "Homme" : agent.sexe === "F" ? "Femme" : ""}
-                                            </span>
-                                            <StatusBadge status={agent.status} />
-                                        </div>
+                                        <ActionButtons agent={agent} isMobile />
+                                    </div>
+                                    <div className="flex space-x-2 mt-3">
+                                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                            {agent.sexe === "M" ? "Homme" : agent.sexe === "F" ? "Femme" : ""}
+                                        </span>
+                                        <StatusBadge status={agent.status} />
                                     </div>
                                 </div>
                             </div>
-                        ))}
-                        {agents.length === 0 && !isLoading && (
-                            <div className="p-8 text-center text-gray-400">
-                                <div className="flex flex-col items-center">
-                                    <UserCog size={48} className="text-gray-300 mb-4" />
-                                    <p className="text-lg font-medium">Aucun agent trouvé</p>
-                                    <p className="text-sm">Essayez de modifier vos critères de recherche</p>
-                                </div>
+                        </div>
+                    ))}
+                    {filteredSortedAgents.length === 0 && !isLoading && (
+                        <div className="p-8 text-center text-gray-400">
+                            <div className="flex flex-col items-center">
+                                <UserCog size={48} className="text-gray-300 mb-4" />
+                                <p className="text-lg font-medium">Aucun agent trouvé</p>
+                                <p className="text-sm">Essayez de modifier vos critères de recherche</p>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
+                </div>
 
-                    {/* Pagination */}
-                    <div className="px-4 sm:px-6 py-4 border-t bg-gray-50">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                            <div className="text-sm text-gray-500 text-center sm:text-left">
-                                Page <span className="font-medium">{pagination.page}</span> sur <span className="font-medium">{pagination.pages}</span> —
-                                <span className="block sm:inline"> Affichage de <span className="font-medium">{agents.length}</span> sur <span className="font-medium">{pagination.total}</span> agent(s)</span>
-                            </div>
-                            <div className="flex justify-center space-x-2">
-                                <button
-                                    className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    onClick={handlePrevPage}
-                                    disabled={pagination.page <= 1 || isSearchMode}
-                                >
-                                    Précédent
-                                </button>
-                                <button
-                                    className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    onClick={handleNextPage}
-                                    disabled={pagination.page >= pagination.pages || isSearchMode}
-                                >
-                                    Suivant
-                                </button>
-                            </div>
+                {/* Pagination */}
+                <div className="px-4 sm:px-6 py-4 border-t bg-gray-50">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                        <div className="text-sm text-gray-500 text-center sm:text-left">
+                            Page <span className="font-medium">{pagination.page}</span> sur <span className="font-medium">{pagination.pages}</span> —
+                            <span className="block sm:inline"> Affichage de <span className="font-medium">{filteredSortedAgents.length}</span> sur <span className="font-medium">{pagination.total}</span> agent(s)</span>
+                        </div>
+                        <div className="flex justify-center space-x-2">
+                            <button
+                                className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                onClick={handlePrevPage}
+                                disabled={pagination.page <= 1 || isSearchMode}
+                            >
+                                Précédent
+                            </button>
+                            <button
+                                className="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                onClick={handleNextPage}
+                                disabled={pagination.page >= pagination.pages || isSearchMode}
+                            >
+                                Suivant
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -522,8 +730,6 @@ export default function AgentsContent() {
                                 <StatusBadge status={selectedAgent.status} />
                             </div>
                         </div>
-
-                        {/* Section des tâches - Modifiée pour correspondre à la structure de données */}
                         <div className="mt-6">
                             <h3 className="font-medium mb-2">Tâches assignées</h3>
                             {isLoading ? (
@@ -548,8 +754,8 @@ export default function AgentsContent() {
                                                         ? 'bg-green-100 text-green-800'
                                                         : 'bg-yellow-100 text-yellow-800'
                                                 }`}>
-                                        {task.status === 'completed' ? 'Terminée' : 'En cours'}
-                                    </span>
+                                                    {task.status === 'completed' ? 'Terminée' : 'En cours'}
+                                                </span>
                                             </div>
                                             {task.orderDescription && (
                                                 <div className="mt-2 text-xs bg-blue-50 p-2 rounded">
@@ -565,7 +771,6 @@ export default function AgentsContent() {
                                 </div>
                             )}
                         </div>
-
                         <button
                             className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors mt-4"
                             onClick={() => toggleModal("details", false)}

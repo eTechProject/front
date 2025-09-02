@@ -21,6 +21,8 @@ const ENDPOINTS = {
     AUTH: {
         REGISTER: '/register',
         LOGIN: '/login_check',
+        LOGOUT: '/logout',
+        REFRESH_TOKEN: '/token/refresh',
     },
     ADMIN: {
         AGENTS: {
@@ -34,8 +36,22 @@ const ENDPOINTS = {
             LIST: '/admin/clients',
             DETAIL: id => `/admin/clients/${id}`,
             CREATE: '/admin/clients',
-            SEARCH: '/admin/clients-search'
-        }
+            SEARCH: '/admin/clients-search',
+        },
+        PACKS: {
+            LIST: '/public/pack',
+            DETAIL: id => `/admin/pack/${id}`,
+            PUBLIC_DETAIL: id => `/public/pack/${id}`,
+            CREATE: '/admin/pack',
+        },
+        PAYMENTS: {
+            LIST: '/admin/payments',
+            DETAIL: id => `/admin/payments/${id}`,
+            UPDATE_STATUS: id => `/admin/payment/${id}/status`,
+        },
+        PAYMENT_HISTORY: {
+            LIST: '/admin/payment-history',
+        },
     },
     ASSIGNMENT: {
         ASSIGN_AGENT: '/client/assign-agents',
@@ -44,11 +60,30 @@ const ENDPOINTS = {
     MESSAGE: {
         SEND: '/messages',
         GET: encryptedOrderId => `/messages/${encryptedOrderId}`,
+        SEND_GROUP: '/messages/multi',
         CONVERSATION: (senderId, receiverId) =>
             `/messages/conversation?sender_id=${senderId}&receiver_id=${receiverId}`,
         MERCURE_TOKEN: '/messages/mercure-token',
+    },
+    CLIENT: {
+        DASHBOARD: (clientId) => `/client/${clientId}/dashboard`,
+        PAYMENTS: {
+            LIST: (clientId) => `/client/${clientId}/payments`,
+            SEND: `/client/stripe-payment/create`,
+        },
+        CANCEL_TASK: '/public/client/task/cancel',
+    },
+    ALERT: {
+        SEND: '/alerts',
+        STOP: '/client/alerts/stop'
+    },
+    NOTIFICATION: {
+        GET: (userId) => `/users/${userId}/notifications`,
+        CONVERSATION: (userId) => `/users/${userId}/notifications`,
+        MERCURE_TOKEN: '/mercure/token',
+        MARK_READ: (id) => `/notifications/${id}/mark-read`,
+        MARK_ALL_READ: '/notifications/mark-all-read',
     }
-
 };
 
 export default ENDPOINTS;

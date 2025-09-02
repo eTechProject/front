@@ -8,6 +8,9 @@ import {
     MessageSquareMore,
     ChartNoAxesGantt,
     X,
+    LayoutDashboard,
+    PiggyBank,
+    Siren
 } from 'lucide-react';
 import NotificationsPopover from "@/components/features/shared/NotificationsPopover.jsx";
 import MapContent from "@/components/features/map/MapContent.jsx";
@@ -15,8 +18,23 @@ import ProfileContent from "@/components/features/shared/ProfileContent.jsx";
 import SettingsContent from "@/components/features/shared/SettingsContent.jsx";
 import MessagesContent from "@/components/features/dashboard/client/MessagesContent.jsx";
 import Tooltip from "@/components/common/ui/Tooltip.jsx";
+import DashboardContent from "@/components/features/dashboard/client/DashboardContent.jsx";
+import PaymentContent from "@/components/features/dashboard/client/PaymentContent.jsx";
+import PanicButton from "@/components/features/shared/PanicButton.jsx";
 
+const PanicModal = ({ isOpen, onClose, userId }) => {
+    if (!isOpen) return null;
 
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+                <div className="flex justify-center">
+                    <PanicButton userId={userId} onClose={onClose} />
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default function SidebarClient({ user, logout }) {
     const [activeItem, setActiveItem] = useState(() => {
@@ -24,13 +42,50 @@ export default function SidebarClient({ user, logout }) {
     });
     const [indicatorStyle, setIndicatorStyle] = useState({});
     const [isFabOpen, setIsFabOpen] = useState(false);
+    const [isPanicModalOpen, setIsPanicModalOpen] = useState(false);
+    const [clickedButton, setClickedButton] = useState(null); // Pour l'effet de clic
     const itemsRef = useRef({});
 
     const menuItems = [
+        { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+        { id: 'payments', label: 'Paiements', icon: PiggyBank },
         { id: 'map', label: 'Map', icon: Map },
         { id: 'messages', label: 'Messages', icon: MessageSquareMore },
         { id: 'settings', label: 'Paramètres', icon: Settings },
+        { id: 'alerts', label: 'Alertes', icon: Siren },
     ];
+
+    // Fonction pour simuler le clic visuel sur un bouton
+    const simulateButtonClick = (buttonId) => {
+        console.log(`🎯 Simulation du clic sur le bouton: ${buttonId}`);
+        setClickedButton(buttonId);
+
+        // Déclencher l'effet visuel
+        const buttonElement = itemsRef.current[buttonId]?.querySelector('button');
+        if (buttonElement) {
+            // Ajouter les classes d'animation
+            buttonElement.classList.add('animate-pulse', 'scale-95', 'ring-2', 'ring-orange-300');
+
+            setTimeout(() => {
+                // Retirer les classes d'animation
+                buttonElement.classList.remove('animate-pulse', 'scale-95', 'ring-2', 'ring-orange-300');
+                setClickedButton(null);
+            }, 500);
+        }
+    };
+
+    // Fonction pour gérer la navigation automatique vers Map
+    const handleNotificationNavigation = () => {
+        console.log('🗺️ Navigation automatique vers Map déclenchée par notification');
+
+        // Simuler le clic visuel sur le bouton Map
+        simulateButtonClick('map');
+
+        // Puis naviguer vers Map après un délai pour l'effet visuel
+        setTimeout(() => {
+            handleItemClick('map');
+        }, 250);
+    };
 
     useEffect(() => {
         const element = itemsRef.current[activeItem];
@@ -45,32 +100,44 @@ export default function SidebarClient({ user, logout }) {
     }, [activeItem]);
 
     const handleItemClick = (itemId) => {
+        console.log(`🎯 Navigation vers: ${itemId}`);
         setActiveItem(itemId);
         localStorage.setItem('activeSidebarItem', itemId);
         setIsFabOpen(false);
+        if (itemId === 'alerts') {
+            setIsPanicModalOpen(true);
+        } else {
+            setIsPanicModalOpen(false);
+        }
     };
 
     const MenuItem = ({ item }) => {
         const Icon = item.icon;
         const isActive = activeItem === item.id;
+        const isClicked = clickedButton === item.id;
+
         return (
             <div className="relative" ref={(el) => (itemsRef.current[item.id] = el)}>
                 <Tooltip text={item.label}>
                     <button
                         onClick={() => handleItemClick(item.id)}
                         className={`
-              w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
-              ${
-                            isActive
-                                ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/25 scale-105'
-                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50 hover:scale-105'
+                            w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
+                            ${isActive
+                            ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/25 scale-105'
+                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50 hover:scale-105'
                         }
-            `}
+                            ${isClicked ? 'ring-2 ring-orange-300 animate-pulse' : ''}
+                        `}
                     >
                         <Icon
                             size={20}
                             className="transition-transform duration-300 group-hover:scale-110"
                         />
+                        {/* Indicateur de notification pour Map */}
+                        {item.id === 'map' && isClicked && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
+                        )}
                     </button>
                 </Tooltip>
             </div>
@@ -79,8 +146,12 @@ export default function SidebarClient({ user, logout }) {
 
     const renderContent = () => {
         switch (activeItem) {
+            case 'dashboard':
+                return <DashboardContent />;
             case 'map':
                 return <MapContent />;
+            case 'payments':
+                return <PaymentContent />;
             case 'messages':
                 return <MessagesContent />;
             case 'settings':
@@ -94,9 +165,10 @@ export default function SidebarClient({ user, logout }) {
 
     return (
         <div className="flex h-screen bg-gray-50">
-
             {/* Desktop Sidebar */}
-            <div className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30">
+            <div
+                className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30"
+            >
                 <div
                     className="absolute -left-4 w-1 h-10 bg-gradient-to-b from-orange-400 to-orange-500 rounded-r-full"
                     style={{
@@ -153,15 +225,16 @@ export default function SidebarClient({ user, logout }) {
                             <button
                                 onClick={() => handleItemClick('profile')}
                                 className={`
-                  w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative overflow-hidden
-                  ${
-                                    activeItem === 'profile'
-                                        ? 'ring-2 ring-orange-500 ring-offset-2 scale-105'
-                                        : 'hover:ring-2 hover:ring-gray-200 hover:ring-offset-2 hover:scale-105'
+                                    w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative overflow-hidden
+                                    ${activeItem === 'profile'
+                                    ? 'ring-2 ring-orange-500 ring-offset-2 scale-105'
+                                    : 'hover:ring-2 hover:ring-gray-200 hover:ring-offset-2 hover:scale-105'
                                 }
-                `}
+                                `}
                             >
-                                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-inner transition-transform duration-300 hover:scale-105">
+                                <div
+                                    className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-inner transition-transform duration-300 hover:scale-105"
+                                >
                                     {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </div>
                             </button>
@@ -171,32 +244,29 @@ export default function SidebarClient({ user, logout }) {
             </div>
 
             {/* Main content */}
-            <div className="flex-1 p-4 lg:p-8">
-                <div className="bg-white rounded-2xl shadow-sm h-full p-4 lg:p-8 relative overflow-auto content-transition">
-                    {renderContent()}
-                </div>
+            <div
+                className="bg-white w-screen h-full relative overflow-auto content-transition"
+            >
+                {renderContent()}
             </div>
 
             {/* Mobile FAB */}
-            <div className="lg:hidden fixed bottom-6 left-6 z-50">
-                {/* Menu Items */}
+            <div className="lg:hidden fixed bottom-3 left-3 z-50">
                 <div
                     className={`
-            absolute bottom-16 right-1 space-y-3 transition-all duration-300 origin-bottom-right
-            ${isFabOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}
-          `}
+                        absolute bottom-16 right-1 space-y-3 transition-all duration-300 origin-bottom-right
+                        ${isFabOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}
+                    `}
                 >
-                    {/* Profile */}
                     <button
                         onClick={() => handleItemClick('profile')}
                         className={`
-              w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
-              ${
-                            activeItem === 'profile'
-                                ? 'ring-2 ring-orange-500 ring-offset-2 scale-110'
-                                : 'bg-white hover:bg-gray-50 hover:scale-110'
+                            w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
+                            ${activeItem === 'profile'
+                            ? 'ring-2 ring-orange-500 ring-offset-2 scale-110'
+                            : 'bg-white hover:bg-gray-50 hover:scale-110'
                         }
-            `}
+                        `}
                         style={{
                             animationName: isFabOpen ? 'slideUp' : undefined,
                             animationDuration: '0.3s',
@@ -205,27 +275,29 @@ export default function SidebarClient({ user, logout }) {
                             animationFillMode: 'both',
                         }}
                     >
-                        <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-transform duration-300 hover:scale-110">
+                        <div
+                            className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-transform duration-300 hover:scale-110"
+                        >
                             {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>
                     </button>
 
-                    {/* Menu Items */}
                     {menuItems.map((item, index) => {
                         const Icon = item.icon;
                         const isActive = activeItem === item.id;
+                        const isClicked = clickedButton === item.id;
                         return (
                             <button
                                 key={item.id}
                                 onClick={() => handleItemClick(item.id)}
                                 className={`
-                  w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
-                  ${
-                                    isActive
-                                        ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white scale-110'
-                                        : 'bg-white text-gray-600 hover:bg-gray-50 hover:scale-110'
+                                    w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center relative
+                                    ${isActive
+                                    ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white scale-110'
+                                    : 'bg-white text-gray-600 hover:bg-gray-50 hover:scale-110'
                                 }
-                `}
+                                    ${isClicked ? 'ring-2 ring-orange-300 animate-pulse' : ''}
+                                `}
                                 style={{
                                     animationName: isFabOpen ? 'slideUp' : undefined,
                                     animationDuration: '0.3s',
@@ -238,11 +310,14 @@ export default function SidebarClient({ user, logout }) {
                                     size={18}
                                     className="transition-transform duration-300 hover:scale-125"
                                 />
+                                {/* Indicateur de notification pour Map mobile */}
+                                {item.id === 'map' && isClicked && (
+                                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
+                                )}
                             </button>
                         );
                     })}
 
-                    {/* Logout */}
                     <button
                         onClick={logout}
                         className="w-10 h-10 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all duration-300 flex items-center justify-center hover:scale-110"
@@ -265,20 +340,19 @@ export default function SidebarClient({ user, logout }) {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
-                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3-3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                             />
                         </svg>
                     </button>
                 </div>
 
-                {/* Main FAB */}
                 <button
                     onClick={() => setIsFabOpen(!isFabOpen)}
                     className={`
-            w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-xl 
-            flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95
-            ${isFabOpen ? 'rotate-90 bg-gradient-to-br from-orange-600 to-orange-700' : 'rotate-0'}
-          `}
+                        w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-xl 
+                        flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95
+                        ${isFabOpen ? 'rotate-90 bg-gradient-to-br from-orange-600 to-orange-700' : 'rotate-0'}
+                    `}
                 >
                     {isFabOpen ? (
                         <X size={24} className="transition-transform duration-300" />
@@ -291,7 +365,13 @@ export default function SidebarClient({ user, logout }) {
                 </button>
             </div>
 
-            <NotificationsPopover />
+            {/* NotificationsPopover avec la fonction de navigation */}
+            <NotificationsPopover onNotificationReceived={handleNotificationNavigation} />
+            <PanicModal
+                isOpen={isPanicModalOpen}
+                onClose={() => setIsPanicModalOpen(false)}
+                userId={user?.userId}
+            />
         </div>
     );
 }

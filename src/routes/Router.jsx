@@ -10,6 +10,8 @@ import DashboardClientPage from "@/pages/dashboard/DashboardClientPage.jsx";
 import DashboardAgentPage from "@/pages/dashboard/DashboardAgentPage.jsx";
 import DashboardAdminPage from "@/pages/dashboard/DashboardAdminPage.jsx";
 import NotFound from "@/pages/errors/NotFound.jsx";
+import PaymentPage from "@/pages/payment/PaymentPage.jsx";
+import ContactPage from "@/pages/contact/ContactPage.jsx";
 
 
 const RouterConfig = () => {
@@ -23,6 +25,8 @@ const RouterConfig = () => {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
             <Route path="/unauthorised" element={<Unauthorized />} />
+            <Route path="/payment" element={<PaymentPage/>} />
+            <Route path="/contact" element={<ContactPage />} />
 
             {/* Routes protégées par rôle */}
             <Route

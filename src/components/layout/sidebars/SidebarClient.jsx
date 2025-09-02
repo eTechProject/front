@@ -22,7 +22,6 @@ import DashboardContent from "@/components/features/dashboard/client/DashboardCo
 import PaymentContent from "@/components/features/dashboard/client/PaymentContent.jsx";
 import PanicButton from "@/components/features/shared/PanicButton.jsx";
 
-
 const PanicModal = ({ isOpen, onClose, userId }) => {
     if (!isOpen) return null;
 
@@ -44,6 +43,7 @@ export default function SidebarClient({ user, logout }) {
     const [indicatorStyle, setIndicatorStyle] = useState({});
     const [isFabOpen, setIsFabOpen] = useState(false);
     const [isPanicModalOpen, setIsPanicModalOpen] = useState(false);
+    const [clickedButton, setClickedButton] = useState(null); // Pour l'effet de clic
     const itemsRef = useRef({});
 
     const menuItems = [
@@ -54,6 +54,38 @@ export default function SidebarClient({ user, logout }) {
         { id: 'settings', label: 'Paramètres', icon: Settings },
         { id: 'alerts', label: 'Alertes', icon: Siren },
     ];
+
+    // Fonction pour simuler le clic visuel sur un bouton
+    const simulateButtonClick = (buttonId) => {
+        console.log(`🎯 Simulation du clic sur le bouton: ${buttonId}`);
+        setClickedButton(buttonId);
+
+        // Déclencher l'effet visuel
+        const buttonElement = itemsRef.current[buttonId]?.querySelector('button');
+        if (buttonElement) {
+            // Ajouter les classes d'animation
+            buttonElement.classList.add('animate-pulse', 'scale-95', 'ring-2', 'ring-orange-300');
+
+            setTimeout(() => {
+                // Retirer les classes d'animation
+                buttonElement.classList.remove('animate-pulse', 'scale-95', 'ring-2', 'ring-orange-300');
+                setClickedButton(null);
+            }, 500);
+        }
+    };
+
+    // Fonction pour gérer la navigation automatique vers Map
+    const handleNotificationNavigation = () => {
+        console.log('🗺️ Navigation automatique vers Map déclenchée par notification');
+
+        // Simuler le clic visuel sur le bouton Map
+        simulateButtonClick('map');
+
+        // Puis naviguer vers Map après un délai pour l'effet visuel
+        setTimeout(() => {
+            handleItemClick('map');
+        }, 250);
+    };
 
     useEffect(() => {
         const element = itemsRef.current[activeItem];
@@ -68,6 +100,7 @@ export default function SidebarClient({ user, logout }) {
     }, [activeItem]);
 
     const handleItemClick = (itemId) => {
+        console.log(`🎯 Navigation vers: ${itemId}`);
         setActiveItem(itemId);
         localStorage.setItem('activeSidebarItem', itemId);
         setIsFabOpen(false);
@@ -81,6 +114,8 @@ export default function SidebarClient({ user, logout }) {
     const MenuItem = ({ item }) => {
         const Icon = item.icon;
         const isActive = activeItem === item.id;
+        const isClicked = clickedButton === item.id;
+
         return (
             <div className="relative" ref={(el) => (itemsRef.current[item.id] = el)}>
                 <Tooltip text={item.label}>
@@ -88,17 +123,21 @@ export default function SidebarClient({ user, logout }) {
                         onClick={() => handleItemClick(item.id)}
                         className={`
                             w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
-                            ${
-                            isActive
-                                ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/25 scale-105'
-                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50 hover:scale-105'
+                            ${isActive
+                            ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-500/25 scale-105'
+                            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50 hover:scale-105'
                         }
+                            ${isClicked ? 'ring-2 ring-orange-300 animate-pulse' : ''}
                         `}
                     >
                         <Icon
                             size={20}
                             className="transition-transform duration-300 group-hover:scale-110"
                         />
+                        {/* Indicateur de notification pour Map */}
+                        {item.id === 'map' && isClicked && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
+                        )}
                     </button>
                 </Tooltip>
             </div>
@@ -187,10 +226,9 @@ export default function SidebarClient({ user, logout }) {
                                 onClick={() => handleItemClick('profile')}
                                 className={`
                                     w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative overflow-hidden
-                                    ${
-                                    activeItem === 'profile'
-                                        ? 'ring-2 ring-orange-500 ring-offset-2 scale-105'
-                                        : 'hover:ring-2 hover:ring-gray-200 hover:ring-offset-2 hover:scale-105'
+                                    ${activeItem === 'profile'
+                                    ? 'ring-2 ring-orange-500 ring-offset-2 scale-105'
+                                    : 'hover:ring-2 hover:ring-gray-200 hover:ring-offset-2 hover:scale-105'
                                 }
                                 `}
                             >
@@ -224,10 +262,9 @@ export default function SidebarClient({ user, logout }) {
                         onClick={() => handleItemClick('profile')}
                         className={`
                             w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
-                            ${
-                            activeItem === 'profile'
-                                ? 'ring-2 ring-orange-500 ring-offset-2 scale-110'
-                                : 'bg-white hover:bg-gray-50 hover:scale-110'
+                            ${activeItem === 'profile'
+                            ? 'ring-2 ring-orange-500 ring-offset-2 scale-110'
+                            : 'bg-white hover:bg-gray-50 hover:scale-110'
                         }
                         `}
                         style={{
@@ -248,17 +285,18 @@ export default function SidebarClient({ user, logout }) {
                     {menuItems.map((item, index) => {
                         const Icon = item.icon;
                         const isActive = activeItem === item.id;
+                        const isClicked = clickedButton === item.id;
                         return (
                             <button
                                 key={item.id}
                                 onClick={() => handleItemClick(item.id)}
                                 className={`
-                                    w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center
-                                    ${
-                                    isActive
-                                        ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white scale-110'
-                                        : 'bg-white text-gray-600 hover:bg-gray-50 hover:scale-110'
+                                    w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center relative
+                                    ${isActive
+                                    ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white scale-110'
+                                    : 'bg-white text-gray-600 hover:bg-gray-50 hover:scale-110'
                                 }
+                                    ${isClicked ? 'ring-2 ring-orange-300 animate-pulse' : ''}
                                 `}
                                 style={{
                                     animationName: isFabOpen ? 'slideUp' : undefined,
@@ -272,6 +310,10 @@ export default function SidebarClient({ user, logout }) {
                                     size={18}
                                     className="transition-transform duration-300 hover:scale-125"
                                 />
+                                {/* Indicateur de notification pour Map mobile */}
+                                {item.id === 'map' && isClicked && (
+                                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
+                                )}
                             </button>
                         );
                     })}
@@ -298,7 +340,7 @@ export default function SidebarClient({ user, logout }) {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
-                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3-3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                             />
                         </svg>
                     </button>
@@ -323,7 +365,8 @@ export default function SidebarClient({ user, logout }) {
                 </button>
             </div>
 
-            <NotificationsPopover />
+            {/* NotificationsPopover avec la fonction de navigation */}
+            <NotificationsPopover onNotificationReceived={handleNotificationNavigation} />
             <PanicModal
                 isOpen={isPanicModalOpen}
                 onClose={() => setIsPanicModalOpen(false)}

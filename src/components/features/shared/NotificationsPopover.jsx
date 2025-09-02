@@ -12,7 +12,7 @@ const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.
 const TOKEN_REFRESH_BUFFER = 60;
 const NOTIF_LIMIT = 20;
 
-export default function DraggableNotificationsPopover() {
+export default function DraggableNotificationsPopover({ onNotificationReceived }) {
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ x: window.innerWidth - 88, y: window.innerHeight - 88 });
     const [isDragging, setIsDragging] = useState(false);
@@ -106,7 +106,7 @@ export default function DraggableNotificationsPopover() {
     }, [notificationTopic, mercureToken]);
 
     const handleNotification = useCallback((data) => {
-        console.log(data.data.type);
+        console.log('🗺️ Notification reçue, préparation navigation vers Map:', data.data.type);
         if (!data.data.type || !addMercureNotificationRef.current) return;
 
         if (data.data.type === "alert_start" ) {
@@ -119,11 +119,17 @@ export default function DraggableNotificationsPopover() {
         addMercureNotificationRef.current(notificationWithUserInfo);
     }, [setIsAlertActive]);
 
+    const handleNavigationToMap = useCallback(() => {
+        console.log('🗺️ Déclenchement navigation vers Map');
+        onNotificationReceived?.();
+    }, [onNotificationReceived]);
+
     useMercureSubscription({
         topic: notificationTopic,
         mercureUrl: MERCURE_URL,
         token: mercureToken,
-        onNotification: handleNotification
+        onNotification: handleNotification,
+        onNotificationReceived: handleNavigationToMap
     });
 
     const handleMarkRead = async (notificationId) => {

@@ -7,17 +7,20 @@ import { AuthProvider } from "@/context/AuthContext.jsx";
 
 import {Toaster} from "react-hot-toast";
 import {GeolocationProvider} from "@/context/GeolocationContext.jsx";
+import {NotificationProvider} from "@/context/NotificationContext.jsx";
 
 function App() {
     return (
         <AuthProvider>
-            <GeolocationProvider>
-            <Router>
-                <Toaster position="top" reverseOrder={false} />
-                <SmoothScroll />
-                <RouterConfig />
-            </Router>
-            </GeolocationProvider>
+            <NotificationProvider>
+                <GeolocationProvider>
+                <Router>
+                    <Toaster position="top" reverseOrder={false} />
+                    <SmoothScroll />
+                    <RouterConfig />
+                </Router>
+                </GeolocationProvider>
+            </NotificationProvider>
         </AuthProvider>
     );
 }

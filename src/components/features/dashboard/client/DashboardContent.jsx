@@ -45,11 +45,14 @@ export default function DashboardContent() {
     const [dateRange, setDateRange] = useState([null, null]);
     const [startDate, endDate] = dateRange;
 
+    // Mise à jour des options de filtre pour correspondre à la logique PHP
     const filterOptions = [
         { label: "Aujourd'hui", value: "today" },
+        { label: "7 derniers jours", value: "last7days" },
         { label: "Cette semaine", value: "week" },
-        { label: "Ce mois", value: "month" },
-        { label: "Cette année", value: "year" },
+        { label: "Ce mois", value: "thisMonth" },
+        { label: "30 derniers jours", value: "last30days" },
+        { label: "Cette année", value: "thisYear" },
         { label: "Personnalisé", value: "custom" },
     ];
 
@@ -59,9 +62,11 @@ export default function DashboardContent() {
 
         switch (filter) {
             case "today":
+            case "last7days":
             case "week":
-            case "month":
-            case "year":
+            case "thisMonth":
+            case "last30days":
+            case "thisYear":
                 params = { choice: filter };
                 break;
             case "custom":
@@ -84,9 +89,11 @@ export default function DashboardContent() {
 
             switch (selectedFilter) {
                 case "today":
+                case "last7days":
                 case "week":
-                case "month":
-                case "year":
+                case "thisMonth":
+                case "last30days":
+                case "thisYear":
                     params = { choice: selectedFilter };
                     break;
                 case "custom":

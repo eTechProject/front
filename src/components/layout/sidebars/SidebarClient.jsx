@@ -19,7 +19,7 @@ import SettingsContent from "@/components/features/shared/SettingsContent.jsx";
 import MessagesContent from "@/components/features/dashboard/client/MessagesContent.jsx";
 import Tooltip from "@/components/common/ui/Tooltip.jsx";
 import DashboardContent from "@/components/features/dashboard/client/DashboardContent.jsx";
-import PaymentContent from "@/components/features/dashboard/client/PaymentContent.jsx";
+import SubscriptionContent from "@/components/features/dashboard/client/SubscriptionContent.jsx";
 import PanicButton from "@/components/features/shared/PanicButton.jsx";
 
 const PanicModal = ({ isOpen, onClose, userId }) => {
@@ -43,12 +43,12 @@ export default function SidebarClient({ user, logout }) {
     const [indicatorStyle, setIndicatorStyle] = useState({});
     const [isFabOpen, setIsFabOpen] = useState(false);
     const [isPanicModalOpen, setIsPanicModalOpen] = useState(false);
-    const [clickedButton, setClickedButton] = useState(null); // Pour l'effet de clic
+    const [clickedButton, setClickedButton] = useState(null);
     const itemsRef = useRef({});
 
     const menuItems = [
         { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-        { id: 'payments', label: 'Paiements', icon: PiggyBank },
+        { id: 'abonnements', label: 'Portefeuille', icon: PiggyBank },
         { id: 'map', label: 'Map', icon: Map },
         { id: 'messages', label: 'Messages', icon: MessageSquareMore },
         { id: 'settings', label: 'Paramètres', icon: Settings },
@@ -150,8 +150,8 @@ export default function SidebarClient({ user, logout }) {
                 return <DashboardContent />;
             case 'map':
                 return <MapContent />;
-            case 'payments':
-                return <PaymentContent />;
+            case 'abonnements':
+                return <SubscriptionContent />;
             case 'messages':
                 return <MessagesContent />;
             case 'settings':

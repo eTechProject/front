@@ -21,6 +21,7 @@ import Tooltip from "@/components/common/ui/Tooltip.jsx";
 import DashboardContent from "@/components/features/dashboard/client/DashboardContent.jsx";
 import PaymentContent from "@/components/features/dashboard/client/PaymentContent.jsx";
 import PanicButton from "@/components/features/shared/PanicButton.jsx";
+import { useNotifications } from "@/context/NotificationContext.jsx";
 
 const PanicModal = ({ isOpen, onClose, userId }) => {
     if (!isOpen) return null;
@@ -37,55 +38,70 @@ const PanicModal = ({ isOpen, onClose, userId }) => {
 };
 
 export default function SidebarClient({ user, logout }) {
+    const { unreadMessages, markMessagesAsRead } = useNotifications();
+
     const [activeItem, setActiveItem] = useState(() => {
         return localStorage.getItem('activeSidebarItem') || 'map';
     });
     const [indicatorStyle, setIndicatorStyle] = useState({});
     const [isFabOpen, setIsFabOpen] = useState(false);
     const [isPanicModalOpen, setIsPanicModalOpen] = useState(false);
-    const [clickedButton, setClickedButton] = useState(null); // Pour l'effet de clic
+    const [clickedButton, setClickedButton] = useState(null);
     const itemsRef = useRef({});
 
     const menuItems = [
         { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
         { id: 'payments', label: 'Paiements', icon: PiggyBank },
         { id: 'map', label: 'Map', icon: Map },
-        { id: 'messages', label: 'Messages', icon: MessageSquareMore },
+        {
+            id: 'messages',
+            label: 'Messages',
+            icon: MessageSquareMore,
+            hasNotification: unreadMessages > 0,
+            notificationCount: unreadMessages
+        },
         { id: 'settings', label: 'Paramètres', icon: Settings },
         { id: 'alerts', label: 'Alertes', icon: Siren },
     ];
 
-    // Fonction pour simuler le clic visuel sur un bouton
     const simulateButtonClick = (buttonId) => {
-        console.log(`🎯 Simulation du clic sur le bouton: ${buttonId}`);
         setClickedButton(buttonId);
-
-        // Déclencher l'effet visuel
         const buttonElement = itemsRef.current[buttonId]?.querySelector('button');
         if (buttonElement) {
-            // Ajouter les classes d'animation
             buttonElement.classList.add('animate-pulse', 'scale-95', 'ring-2', 'ring-orange-300');
-
             setTimeout(() => {
-                // Retirer les classes d'animation
                 buttonElement.classList.remove('animate-pulse', 'scale-95', 'ring-2', 'ring-orange-300');
                 setClickedButton(null);
             }, 500);
         }
     };
 
-    // Fonction pour gérer la navigation automatique vers Map
     const handleNotificationNavigation = () => {
-        console.log('🗺️ Navigation automatique vers Map déclenchée par notification');
-
-        // Simuler le clic visuel sur le bouton Map
         simulateButtonClick('map');
-
-        // Puis naviguer vers Map après un délai pour l'effet visuel
         setTimeout(() => {
             handleItemClick('map');
         }, 250);
     };
+
+    const handleMessageNavigation = () => {
+        simulateButtonClick('messages');
+        setTimeout(() => {
+            handleItemClick('messages');
+        }, 250);
+    };
+
+    // Écouter l'événement de navigation depuis les notifications du navigateur
+    useEffect(() => {
+        const handleNavigateToMessages = () => {
+            handleItemClick('messages');
+        };
+
+        window.addEventListener('navigateToMessages', handleNavigateToMessages);
+
+        return () => {
+            window.removeEventListener('navigateToMessages', handleNavigateToMessages);
+        };
+    }, []);
 
     useEffect(() => {
         const element = itemsRef.current[activeItem];
@@ -100,10 +116,14 @@ export default function SidebarClient({ user, logout }) {
     }, [activeItem]);
 
     const handleItemClick = (itemId) => {
-        console.log(`🎯 Navigation vers: ${itemId}`);
         setActiveItem(itemId);
         localStorage.setItem('activeSidebarItem', itemId);
         setIsFabOpen(false);
+
+        if (itemId === 'messages') {
+            markMessagesAsRead();
+        }
+
         if (itemId === 'alerts') {
             setIsPanicModalOpen(true);
         } else {
@@ -115,12 +135,20 @@ export default function SidebarClient({ user, logout }) {
         const Icon = item.icon;
         const isActive = activeItem === item.id;
         const isClicked = clickedButton === item.id;
+        const hasNotification = item.hasNotification;
+        const notificationCount = item.notificationCount;
 
         return (
             <div className="relative" ref={(el) => (itemsRef.current[item.id] = el)}>
                 <Tooltip text={item.label}>
                     <button
-                        onClick={() => handleItemClick(item.id)}
+                        onClick={() => {
+                            if (item.id === 'messages' && hasNotification) {
+                                handleMessageNavigation();
+                            } else {
+                                handleItemClick(item.id);
+                            }
+                        }}
                         className={`
                             w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
                             ${isActive
@@ -134,7 +162,16 @@ export default function SidebarClient({ user, logout }) {
                             size={20}
                             className="transition-transform duration-300 group-hover:scale-110"
                         />
-                        {/* Indicateur de notification pour Map */}
+
+                        {hasNotification && (
+                            <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs font-bold leading-none">
+                                    {notificationCount > 99 ? '99+' : notificationCount}
+                                </span>
+                                <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                            </div>
+                        )}
+
                         {item.id === 'map' && isClicked && (
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
                         )}
@@ -166,9 +203,7 @@ export default function SidebarClient({ user, logout }) {
     return (
         <div className="flex h-screen bg-gray-50">
             {/* Desktop Sidebar */}
-            <div
-                className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30"
-            >
+            <div className="hidden lg:flex w-20 bg-white shadow-sm border-r border-gray-100 flex-col items-center py-6 relative z-30">
                 <div
                     className="absolute -left-4 w-1 h-10 bg-gradient-to-b from-orange-400 to-orange-500 rounded-r-full"
                     style={{
@@ -232,9 +267,7 @@ export default function SidebarClient({ user, logout }) {
                                 }
                                 `}
                             >
-                                <div
-                                    className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-inner transition-transform duration-300 hover:scale-105"
-                                >
+                                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm shadow-inner transition-transform duration-300 hover:scale-105">
                                     {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                                 </div>
                             </button>
@@ -244,9 +277,7 @@ export default function SidebarClient({ user, logout }) {
             </div>
 
             {/* Main content */}
-            <div
-                className="bg-white w-screen h-full relative overflow-auto content-transition"
-            >
+            <div className="bg-white w-screen h-full relative overflow-auto content-transition">
                 {renderContent()}
             </div>
 
@@ -275,9 +306,7 @@ export default function SidebarClient({ user, logout }) {
                             animationFillMode: 'both',
                         }}
                     >
-                        <div
-                            className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-transform duration-300 hover:scale-110"
-                        >
+                        <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm transition-transform duration-300 hover:scale-110">
                             {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
                         </div>
                     </button>
@@ -286,10 +315,19 @@ export default function SidebarClient({ user, logout }) {
                         const Icon = item.icon;
                         const isActive = activeItem === item.id;
                         const isClicked = clickedButton === item.id;
+                        const hasNotification = item.hasNotification;
+                        const notificationCount = item.notificationCount;
+
                         return (
                             <button
                                 key={item.id}
-                                onClick={() => handleItemClick(item.id)}
+                                onClick={() => {
+                                    if (item.id === 'messages' && hasNotification) {
+                                        handleMessageNavigation();
+                                    } else {
+                                        handleItemClick(item.id);
+                                    }
+                                }}
                                 className={`
                                     w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center relative
                                     ${isActive
@@ -310,7 +348,16 @@ export default function SidebarClient({ user, logout }) {
                                     size={18}
                                     className="transition-transform duration-300 hover:scale-125"
                                 />
-                                {/* Indicateur de notification pour Map mobile */}
+
+                                {hasNotification && (
+                                    <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-red-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold leading-none">
+                                            {notificationCount > 9 ? '9+' : notificationCount}
+                                        </span>
+                                        <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                                    </div>
+                                )}
+
                                 {item.id === 'map' && isClicked && (
                                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
                                 )}
@@ -350,10 +397,19 @@ export default function SidebarClient({ user, logout }) {
                     onClick={() => setIsFabOpen(!isFabOpen)}
                     className={`
                         w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-xl 
-                        flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95
+                        flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 relative
                         ${isFabOpen ? 'rotate-90 bg-gradient-to-br from-orange-600 to-orange-700' : 'rotate-0'}
                     `}
                 >
+                    {unreadMessages > 0 && !isFabOpen && (
+                        <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-red-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold leading-none">
+                                {unreadMessages > 9 ? '9+' : unreadMessages}
+                            </span>
+                            <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                        </div>
+                    )}
+
                     {isFabOpen ? (
                         <X size={24} className="transition-transform duration-300" />
                     ) : (
@@ -365,7 +421,6 @@ export default function SidebarClient({ user, logout }) {
                 </button>
             </div>
 
-            {/* NotificationsPopover avec la fonction de navigation */}
             <NotificationsPopover onNotificationReceived={handleNotificationNavigation} />
             <PanicModal
                 isOpen={isPanicModalOpen}

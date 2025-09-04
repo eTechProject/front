@@ -12,55 +12,70 @@ import './sidebar.css';
 import Tooltip from "@/components/common/ui/Tooltip.jsx";
 import GPSTracker from "@/components/features/dashboard/agent/GPSTracker.jsx";
 import {GeolocationContext} from "@/context/GeolocationContext.jsx";
+import { useNotifications } from "@/context/NotificationContext.jsx";
 
 export default function SidebarAgent({ user, logout }) {
+    const { unreadMessages, markMessagesAsRead } = useNotifications();
     const [activeItem, setActiveItem] = useState(() => {
         return localStorage.getItem('activeSidebarItem') || 'map';
     });
     const {isActive} = useContext(GeolocationContext);
     const [indicatorStyle, setIndicatorStyle] = useState({});
     const [isFabOpen, setIsFabOpen] = useState(false);
-    const [clickedButton, setClickedButton] = useState(null); // Pour l'effet de clic
+    const [clickedButton, setClickedButton] = useState(null);
     const itemsRef = useRef({});
 
     const menuItems = [
         { id: 'map', label: 'Map', icon: Map },
         { id: 'locations', label: 'Me localiser', icon: MapPinned },
-        { id: 'messages', label: 'Messages', icon: MessageSquareMore },
+        {
+            id: 'messages',
+            label: 'Messages',
+            icon: MessageSquareMore,
+            hasNotification: unreadMessages > 0,
+            notificationCount: unreadMessages
+        },
         { id: 'settings', label: 'Paramètres', icon: Settings },
     ];
 
-    // Fonction pour simuler le clic visuel sur un bouton
     const simulateButtonClick = (buttonId) => {
-        console.log(`🎯 Simulation du clic sur le bouton: ${buttonId}`);
         setClickedButton(buttonId);
-
-        // Déclencher l'effet visuel
         const buttonElement = itemsRef.current[buttonId]?.querySelector('button');
         if (buttonElement) {
-            // Ajouter les classes d'animation
             buttonElement.classList.add('animate-pulse', 'scale-95', 'ring-2', 'ring-orange-300');
-
             setTimeout(() => {
-                // Retirer les classes d'animation
                 buttonElement.classList.remove('animate-pulse', 'scale-95', 'ring-2', 'ring-orange-300');
                 setClickedButton(null);
             }, 500);
         }
     };
 
-    // Fonction pour gérer la navigation automatique vers Map
     const handleNotificationNavigation = () => {
-        console.log('🗺️ Navigation automatique vers Map déclenchée par notification');
-
-        // Simuler le clic visuel sur le bouton Map
         simulateButtonClick('map');
-
-        // Puis naviguer vers Map après un délai pour l'effet visuel
         setTimeout(() => {
             handleItemClick('map');
         }, 250);
     };
+
+    const handleMessageNavigation = () => {
+        simulateButtonClick('messages');
+        setTimeout(() => {
+            handleItemClick('messages');
+        }, 250);
+    };
+
+    // Écouter l'événement de navigation depuis les notifications du navigateur
+    useEffect(() => {
+        const handleNavigateToMessages = () => {
+            handleItemClick('messages');
+        };
+
+        window.addEventListener('navigateToMessages', handleNavigateToMessages);
+
+        return () => {
+            window.removeEventListener('navigateToMessages', handleNavigateToMessages);
+        };
+    }, []);
 
     useEffect(() => {
         const element = itemsRef.current[activeItem];
@@ -69,28 +84,39 @@ export default function SidebarAgent({ user, logout }) {
             setIndicatorStyle({
                 top: `${offsetTop + offsetHeight / 2 - 16}px`,
                 opacity: 1,
-                transition: 'all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+                transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
             });
         }
     }, [activeItem]);
 
     const handleItemClick = (itemId) => {
-        console.log(`🎯 Navigation vers: ${itemId}`);
         setActiveItem(itemId);
         localStorage.setItem('activeSidebarItem', itemId);
         setIsFabOpen(false);
+
+        if (itemId === 'messages') {
+            markMessagesAsRead();
+        }
     };
 
     const MenuItem = ({ item }) => {
         const Icon = item.icon;
         const isActive = activeItem === item.id;
         const isClicked = clickedButton === item.id;
+        const hasNotification = item.hasNotification;
+        const notificationCount = item.notificationCount;
 
         return (
             <div className="relative" ref={(el) => (itemsRef.current[item.id] = el)}>
                 <Tooltip text={item.label}>
                     <button
-                        onClick={() => handleItemClick(item.id)}
+                        onClick={() => {
+                            if (item.id === 'messages' && hasNotification) {
+                                handleMessageNavigation();
+                            } else {
+                                handleItemClick(item.id);
+                            }
+                        }}
                         className={`
                             w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-300 relative
                             ${isActive
@@ -101,7 +127,16 @@ export default function SidebarAgent({ user, logout }) {
                         `}
                     >
                         <Icon size={20} className="transition-transform duration-300 group-hover:scale-110" />
-                        {/* Indicateur de notification pour Map */}
+
+                        {hasNotification && (
+                            <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs font-bold leading-none">
+                                    {notificationCount > 99 ? '99+' : notificationCount}
+                                </span>
+                                <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                            </div>
+                        )}
+
                         {item.id === 'map' && isClicked && (
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
                         )}
@@ -249,10 +284,19 @@ export default function SidebarAgent({ user, logout }) {
                         const Icon = item.icon;
                         const isActive = activeItem === item.id;
                         const isClicked = clickedButton === item.id;
+                        const hasNotification = item.hasNotification;
+                        const notificationCount = item.notificationCount;
+
                         return (
                             <button
                                 key={item.id}
-                                onClick={() => handleItemClick(item.id)}
+                                onClick={() => {
+                                    if (item.id === 'messages' && hasNotification) {
+                                        handleMessageNavigation();
+                                    } else {
+                                        handleItemClick(item.id);
+                                    }
+                                }}
                                 className={`
                                     w-10 h-10 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center relative
                                     ${isActive
@@ -273,7 +317,16 @@ export default function SidebarAgent({ user, logout }) {
                                     size={18}
                                     className="transition-transform duration-300 hover:scale-125"
                                 />
-                                {/* Indicateur de notification pour Map mobile */}
+
+                                {hasNotification && (
+                                    <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-red-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold leading-none">
+                                            {notificationCount > 9 ? '9+' : notificationCount}
+                                        </span>
+                                        <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                                    </div>
+                                )}
+
                                 {item.id === 'map' && isClicked && (
                                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
                                 )}
@@ -303,7 +356,7 @@ export default function SidebarAgent({ user, logout }) {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
-                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3-3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                             />
                         </svg>
                     </button>
@@ -313,22 +366,27 @@ export default function SidebarAgent({ user, logout }) {
                     onClick={() => setIsFabOpen(!isFabOpen)}
                     className={`
                         w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-full shadow-xl 
-                        flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95
+                        flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 relative
                         ${isFabOpen ? 'rotate-90 bg-gradient-to-br from-orange-600 to-orange-700' : 'rotate-0'}
                     `}
                 >
+                    {unreadMessages > 0 && !isFabOpen && (
+                        <div className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-red-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold leading-none">
+                                {unreadMessages > 9 ? '9+' : unreadMessages}
+                            </span>
+                            <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                        </div>
+                    )}
+
                     {isFabOpen ? (
-                        <X size={24} className="transition-transform duration-300" />
+                        <X size={20} className="transition-transform duration-300" />
                     ) : (
-                        <ChartNoAxesGantt
-                            size={24}
-                            className="transition-transform duration-300"
-                        />
+                        <ChartNoAxesGantt size={20} className="transition-transform duration-300" />
                     )}
                 </button>
             </div>
 
-            {/* NotificationsPopover avec la fonction de navigation */}
             <NotificationsPopover onNotificationReceived={handleNotificationNavigation} />
         </div>
     );

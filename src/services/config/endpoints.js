@@ -8,6 +8,7 @@ const ENDPOINTS = {
     AGENT: {
         GET_TASKS_MESSAGE: (agentId) => `/agent/${agentId}/assigned-tasks`,
         LOCATIONS: (agentId) => `/agent/${agentId}/locations`,
+        TASKS_HISTORY: '/agent/tasks-history',
     },
     ZONE: {
         SEND: '/client/service-orders',

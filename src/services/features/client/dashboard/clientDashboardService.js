@@ -21,6 +21,7 @@ export const clientDashboardService = {
             }
 
             const response = await apiClient.get(`${ENDPOINTS.CLIENT.DASHBOARD(clientId)}${query}`);
+            console.log(response)
             return {
                 success: true,
                 data: response.data,

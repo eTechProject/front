@@ -55,11 +55,9 @@ export const useClientDashboard = () => {
                     tasksHistory: result.data?.tasksHistory || []
                 });
 
-                setPagination({
-                    total: result.data?.total || 0,
-                    page: result.data?.page || 1,
-                    pages: result.data?.pages || 1
-                });
+                if (result.pagination) {
+                    setPagination(result.pagination);
+                }
 
                 setError(null);
             } else {

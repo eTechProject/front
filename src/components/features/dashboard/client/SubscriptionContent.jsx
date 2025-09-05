@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { CreditCard, Clock, AlertCircle, Euro, User, Eye, Search, Download, Receipt, Filter } from 'lucide-react';
-import {useAuth} from "@/context/AuthContext.jsx";
-import {useSubscriptions} from "@/hooks/features/client/dashboard/useClientSubscription.js";
-import {usePaymentHistory} from "@/hooks/features/client/dashboard/usePaymentHistory.js";
+import { useAuth } from "@/context/AuthContext.jsx";
+import { useSubscriptions } from "@/hooks/features/client/dashboard/useClientSubscription.js";
+import { usePaymentHistory } from "@/hooks/features/client/dashboard/usePaymentHistory.js";
 import Loader from "@/components/common/ui/Loader.jsx";
 
 const StatusBadge = ({ status }) => {
@@ -19,15 +19,15 @@ const StatusBadge = ({ status }) => {
 
     return (
         <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${config.color}`}>
-      {config.label}
-    </span>
+            {config.label}
+        </span>
     );
 };
 
 const TabButton = ({ active, onClick, children, count }) => (
     <button
         onClick={onClick}
-        className={`px-4 py-2 text-sm font-medium transition-colors ${
+        className={`px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors ${
             active
                 ? 'text-orange-600 border-b-2 border-orange-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -44,8 +44,8 @@ const PaymentRow = ({ payment, type = 'payment', onView, onViewHistory }) => {
     };
 
     return (
-        <tr className="hover:bg-gray-50">
-            <td className="px-6 py-4">
+        <tr className="hover:bg-gray-50 flex flex-col sm:table-row">
+            <td className="px-4 sm:px-6 py-4 sm:table-cell">
                 <div className="flex items-center">
                     <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center mr-3">
                         <CreditCard className="h-4 w-4 text-gray-600" />
@@ -61,7 +61,7 @@ const PaymentRow = ({ payment, type = 'payment', onView, onViewHistory }) => {
                 </div>
             </td>
 
-            <td className="px-6 py-4">
+            <td className="px-4 sm:px-6 py-4 sm:table-cell">
                 <div className="text-sm text-gray-900">
                     {payment.pack?.description || 'N/A'}
                 </div>
@@ -72,19 +72,19 @@ const PaymentRow = ({ payment, type = 'payment', onView, onViewHistory }) => {
                 )}
             </td>
 
-            <td className="px-6 py-4">
+            <td className="px-4 sm:px-6 py-4 sm:table-cell">
                 <StatusBadge status={payment.status} />
             </td>
 
-            <td className="px-6 py-4 text-sm text-gray-900">
+            <td className="px-4 sm:px-6 py-4 text-sm text-gray-900 sm:table-cell">
                 {formatDate(payment.startDate || payment.createdAt)}
             </td>
 
-            <td className="px-6 py-4 text-sm font-medium text-gray-900">
+            <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900 sm:table-cell">
                 {payment.pack?.price ? `${payment.pack.price} €` : (payment.amount ? `${payment.amount} €` : 'N/A')}
             </td>
 
-            <td className="px-6 py-4 text-right">
+            <td className="px-4 sm:px-6 py-4 text-right sm:table-cell">
                 <div className="flex justify-end space-x-2">
                     <button
                         onClick={() => onView(payment)}
@@ -119,8 +119,8 @@ const PaymentHistoryRow = ({ payment, onView, onDownloadInvoice }) => {
     };
 
     return (
-        <tr className="hover:bg-gray-50">
-            <td className="px-6 py-4">
+        <tr className="hover:bg-gray-50 flex flex-col sm:table-row">
+            <td className="px-4 sm:px-6 py-4 sm:table-cell">
                 <div className="flex items-center">
                     <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center mr-3">
                         <Receipt className="h-4 w-4 text-blue-600" />
@@ -136,7 +136,7 @@ const PaymentHistoryRow = ({ payment, onView, onDownloadInvoice }) => {
                 </div>
             </td>
 
-            <td className="px-6 py-4">
+            <td className="px-4 sm:px-6 py-4 sm:table-cell">
                 <div className="text-sm text-gray-900">
                     {payment.pack_info?.name || 'N/A'}
                 </div>
@@ -147,25 +147,25 @@ const PaymentHistoryRow = ({ payment, onView, onDownloadInvoice }) => {
                 )}
             </td>
 
-            <td className="px-6 py-4">
+            <td className="px-4 sm:px-6 py-4 sm:table-cell">
                 <StatusBadge status={payment.status} />
             </td>
 
-            <td className="px-6 py-4 text-sm text-gray-900">
+            <td className="px-4 sm:px-6 py-4 text-sm text-gray-900 sm:table-cell">
                 {formatDate(payment.date)}
             </td>
 
-            <td className="px-6 py-4 text-sm font-medium text-gray-900">
+            <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900 sm:table-cell">
                 {payment.amount} {payment.currency}
             </td>
 
-            <td className="px-6 py-4">
+            <td className="px-4 sm:px-6 py-4 sm:table-cell">
                 <div className="text-sm text-gray-900 capitalize">
                     {payment.provider}
                 </div>
             </td>
 
-            <td className="px-6 py-4 text-right">
+            <td className="px-4 sm:px-6 py-4 text-right sm:table-cell">
                 <div className="flex justify-end space-x-2">
                     <button
                         onClick={() => onView(payment)}
@@ -195,35 +195,35 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
     const isHistoryPayment = type === 'history';
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="p-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-semibold text-gray-900">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-white rounded-lg w-full max-w-md sm:max-w-2xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
+                <div className="p-4 sm:p-6">
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                             {isHistoryPayment ? 'Détails du paiement' : 'Détails de l\'abonnement'}
                         </h3>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 text-xl"
+                            className="text-gray-400 hover:text-gray-600 text-lg sm:text-xl"
                         >
                             ×
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         <div className="space-y-4">
                             <div>
-                                <label className="text-sm font-medium text-gray-500">ID</label>
-                                <p className="text-sm font-mono bg-gray-50 p-2 rounded mt-1">
+                                <label className="text-xs sm:text-sm font-medium text-gray-500">ID</label>
+                                <p className="text-xs sm:text-sm font-mono bg-gray-50 p-2 rounded mt-1 break-all">
                                     {payment.id}
                                 </p>
                             </div>
 
                             <div>
-                                <label className="text-sm font-medium text-gray-500">
+                                <label className="text-xs sm:text-sm font-medium text-gray-500">
                                     {isHistoryPayment ? 'Description' : 'Pack'}
                                 </label>
-                                <p className="text-sm text-gray-900 mt-1">
+                                <p className="text-xs sm:text-sm text-gray-900 mt-1">
                                     {isHistoryPayment
                                         ? payment.description
                                         : (payment.pack?.description || payment.pack?.name || 'N/A')
@@ -232,7 +232,7 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
                             </div>
 
                             <div>
-                                <label className="text-sm font-medium text-gray-500">Statut</label>
+                                <label className="text-xs sm:text-sm font-medium text-gray-500">Statut</label>
                                 <div className="mt-2">
                                     <StatusBadge status={payment.status} />
                                 </div>
@@ -240,16 +240,16 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
 
                             {isHistoryPayment && payment.provider && (
                                 <div>
-                                    <label className="text-sm font-medium text-gray-500">Fournisseur</label>
-                                    <p className="text-sm text-gray-900 mt-1 capitalize">{payment.provider}</p>
+                                    <label className="text-xs sm:text-sm font-medium text-gray-500">Fournisseur</label>
+                                    <p className="text-xs sm:text-sm text-gray-900 mt-1 capitalize">{payment.provider}</p>
                                 </div>
                             )}
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="text-sm font-medium text-gray-500">Montant</label>
-                                <p className="text-lg font-semibold text-gray-900 mt-1">
+                                <label className="text-xs sm:text-sm font-medium text-gray-500">Montant</label>
+                                <p className="text-base sm:text-lg font-semibold text-gray-900 mt-1">
                                     {isHistoryPayment
                                         ? `${payment.amount} ${payment.currency}`
                                         : (payment.pack?.price ? `${payment.pack.price} €` : (payment.amount ? `${payment.amount} €` : 'N/A'))
@@ -258,16 +258,16 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
                             </div>
 
                             <div>
-                                <label className="text-sm font-medium text-gray-500">Date de création</label>
-                                <p className="text-sm text-gray-900 mt-1">
+                                <label className="text-xs sm:text-sm font-medium text-gray-500">Date de création</label>
+                                <p className="text-xs sm:text-sm text-gray-900 mt-1">
                                     {new Date(isHistoryPayment ? payment.date : payment.createdAt).toLocaleString('fr-FR')}
                                 </p>
                             </div>
 
                             {(payment.pack?.nbAgents || payment.pack_info?.nb_agents) && (
                                 <div>
-                                    <label className="text-sm font-medium text-gray-500">Nombre d'agents</label>
-                                    <p className="text-sm text-gray-900 mt-1">
+                                    <label className="text-xs sm:text-sm font-medium text-gray-500">Nombre d'agents</label>
+                                    <p className="text-xs sm:text-sm text-gray-900 mt-1">
                                         {payment.pack?.nbAgents || payment.pack_info?.nb_agents}
                                     </p>
                                 </div>
@@ -275,8 +275,8 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
 
                             {payment.startDate && (
                                 <div>
-                                    <label className="text-sm font-medium text-gray-500">Date de début</label>
-                                    <p className="text-sm text-gray-900 mt-1">
+                                    <label className="text-xs sm:text-sm font-medium text-gray-500">Date de début</label>
+                                    <p className="text-xs sm:text-sm text-gray-900 mt-1">
                                         {new Date(payment.startDate).toLocaleString('fr-FR')}
                                     </p>
                                 </div>
@@ -284,8 +284,8 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
 
                             {payment.endDate && (
                                 <div>
-                                    <label className="text-sm font-medium text-gray-500">Date de fin</label>
-                                    <p className="text-sm text-gray-900 mt-1">
+                                    <label className="text-xs sm:text-sm font-medium text-gray-500">Date de fin</label>
+                                    <p className="text-xs sm:text-sm text-gray-900 mt-1">
                                         {new Date(payment.endDate).toLocaleString('fr-FR')}
                                     </p>
                                 </div>
@@ -293,39 +293,38 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
                         </div>
                     </div>
 
-                    {/* Invoice section for payment history */}
                     {isHistoryPayment && payment.invoice && (
-                        <div className="mt-6 pt-6 border-t">
-                            <h4 className="text-lg font-semibold text-gray-900 mb-4">Facture</h4>
-                            <div className="grid grid-cols-2 gap-6">
+                        <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t">
+                            <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Facture</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="text-sm font-medium text-gray-500">Numéro de facture</label>
-                                        <p className="text-sm text-gray-900 mt-1">{payment.invoice.invoice_number}</p>
+                                        <label className="text-xs sm:text-sm font-medium text-gray-500">Numéro de facture</label>
+                                        <p className="text-xs sm:text-sm text-gray-900 mt-1">{payment.invoice.invoice_number}</p>
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium text-gray-500">Client</label>
-                                        <p className="text-sm text-gray-900 mt-1">
+                                        <label className="text-xs sm:text-sm font-medium text-gray-500">Client</label>
+                                        <p className="text-xs sm:text-sm text-gray-900 mt-1">
                                             {payment.invoice.customer.name} ({payment.invoice.customer.email})
                                         </p>
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium text-gray-500">Méthode de paiement</label>
-                                        <p className="text-sm text-gray-900 mt-1">{payment.invoice.payment_method}</p>
+                                        <label className="text-xs sm:text-sm font-medium text-gray-500">Méthode de paiement</label>
+                                        <p className="text-xs sm:text-sm text-gray-900 mt-1">{payment.invoice.payment_method}</p>
                                     </div>
                                 </div>
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="text-sm font-medium text-gray-500">Sous-total</label>
-                                        <p className="text-sm text-gray-900 mt-1">{payment.invoice.subtotal} {payment.currency}</p>
+                                        <label className="text-xs sm:text-sm font-medium text-gray-500">Sous-total</label>
+                                        <p className="text-xs sm:text-sm text-gray-900 mt-1">{payment.invoice.subtotal} {payment.currency}</p>
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium text-gray-500">TVA ({(payment.invoice.tax_rate * 100).toFixed(0)}%)</label>
-                                        <p className="text-sm text-gray-900 mt-1">{payment.invoice.tax_amount.toFixed(2)} {payment.currency}</p>
+                                        <label className="text-xs sm:text-sm font-medium text-gray-500">TVA ({(payment.invoice.tax_rate * 100).toFixed(0)}%)</label>
+                                        <p className="text-xs sm:text-sm text-gray-900 mt-1">{payment.invoice.tax_amount.toFixed(2)} {payment.currency}</p>
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium text-gray-500">Total</label>
-                                        <p className="text-lg font-semibold text-gray-900 mt-1">{payment.invoice.total.toFixed(2)} {payment.currency}</p>
+                                        <label className="text-xs sm:text-sm font-medium text-gray-500">Total</label>
+                                        <p className="text-base sm:text-lg font-semibold text-gray-900 mt-1">{payment.invoice.total.toFixed(2)} {payment.currency}</p>
                                     </div>
                                 </div>
                             </div>
@@ -335,7 +334,7 @@ const DetailModal = ({ payment, isOpen, onClose, type = 'payment' }) => {
                                         href={payment.invoice.receipt_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                        className="inline-flex items-center px-3 sm:px-4 py-2 bg-blue-600 text-white text-xs sm:text-sm rounded hover:bg-blue-700"
                                     >
                                         <Download className="h-4 w-4 mr-2" />
                                         Télécharger le reçu
@@ -382,8 +381,8 @@ export default function SubscriptionContent() {
 
     useEffect(() => {
         if (user?.userId) {
-            getPayments({ page: 1, limit: 20 });
-            getPaymentHistory({ page: 1, limit: 50 });
+            getPayments({page: 1, limit: 20}).then();
+            getPaymentHistory({page: 1, limit: 50}).then();
         }
     }, [user?.userId, getPayments, getPaymentHistory]);
 
@@ -434,7 +433,7 @@ export default function SubscriptionContent() {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <Loader/>
+                    <Loader />
                 </div>
             </div>
         );
@@ -443,9 +442,9 @@ export default function SubscriptionContent() {
     if (error) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center p-6 bg-white rounded border">
-                    <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-                    <p className="text-red-700">{error}</p>
+                <div className="text-center p-4 sm:p-6 bg-white rounded border">
+                    <AlertCircle className="h-6 sm:h-8 w-6 sm:w-8 text-red-500 mx-auto mb-4" />
+                    <p className="text-red-700 text-sm sm:text-base">{error}</p>
                 </div>
             </div>
         );
@@ -455,25 +454,25 @@ export default function SubscriptionContent() {
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
             <div className="bg-white border-b">
-                <div className="max-w-6xl mx-auto px-6 py-8">
-                    <div className="flex items-center justify-between">
+                <div className="max-w-full sm:max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Gestion de mon portefeuille</h1>
-                            <p className="mt-1 text-gray-600">Gérez vos abonnements et consultez l'historique des paiements</p>
+                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestion de mon portefeuille</h1>
+                            <p className="mt-1 text-gray-600 text-sm sm:text-base">Gérez vos abonnements et consultez l'historique des paiements</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Content */}
-            <div className="max-w-6xl mx-auto px-6 py-8">
+            <div className="max-w-full sm:max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                 {/* Subscriptions Section */}
-                <div className="mb-12">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-6">Abonnements</h2>
+                <div className="mb-8 sm:mb-12">
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Abonnements</h2>
 
                     {/* Tabs and Search */}
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex space-x-8 border-b">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
+                        <div className="flex flex-wrap gap-2 sm:gap-4 sm:space-x-8 border-b w-full sm:w-auto">
                             {tabs.map(tab => (
                                 <TabButton
                                     key={tab.id}
@@ -486,40 +485,40 @@ export default function SubscriptionContent() {
                             ))}
                         </div>
 
-                        <div className="relative">
+                        <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <input
                                 type="text"
                                 placeholder="Rechercher..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-4 py-2 border rounded focus:outline-none focus:border-orange-500"
+                                className="w-full pl-10 pr-4 py-2 border rounded focus:outline-none focus:border-orange-500 text-sm sm:text-base"
                             />
                         </div>
                     </div>
 
                     {/* Subscriptions Table */}
                     {filteredData.length > 0 ? (
-                        <div className="bg-white rounded border overflow-hidden">
-                            <table className="min-w-full">
-                                <thead className="bg-gray-50">
+                        <div className="bg-white rounded border overflow-x-auto">
+                            <table className="min-w-full w-max sm:w-full">
+                                <thead className="bg-gray-50 hidden sm:table-header-group">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Abonnement
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Description
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Statut
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Date
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Montant
                                     </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                         Actions
                                     </th>
                                 </tr>
@@ -538,12 +537,12 @@ export default function SubscriptionContent() {
                             </table>
                         </div>
                     ) : (
-                        <div className="text-center py-12 bg-white rounded border">
-                            <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        <div className="text-center py-8 sm:py-12 bg-white rounded border">
+                            <CreditCard className="h-10 sm:h-12 w-10 sm:w-12 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
                                 {searchTerm ? 'Aucun résultat' : `Aucun ${activeTabData?.label.toLowerCase()}`}
                             </h3>
-                            <p className="text-gray-500">
+                            <p className="text-gray-500 text-sm sm:text-base">
                                 {searchTerm
                                     ? 'Modifiez votre recherche'
                                     : `Pas de ${activeTabData?.label.toLowerCase()} pour le moment`
@@ -554,11 +553,11 @@ export default function SubscriptionContent() {
 
                     {/* Load More Button */}
                     {hasMorePayments && (
-                        <div className="text-center mt-6">
+                        <div className="text-center mt-4 sm:mt-6">
                             <button
                                 onClick={loadMorePayments}
                                 disabled={isLoading}
-                                className="px-6 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:bg-gray-400"
+                                className="px-4 sm:px-6 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:bg-gray-400 text-sm sm:text-base"
                             >
                                 {isLoading ? 'Chargement...' : 'Charger plus'}
                             </button>
@@ -568,9 +567,9 @@ export default function SubscriptionContent() {
 
                 {/* Payment History Section */}
                 <div>
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
                         <div>
-                            <h2 className="text-xl font-semibold text-gray-900">Historique des Paiements</h2>
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Historique des Paiements</h2>
                             {selectedSubscription && (
                                 <p className="text-sm text-gray-600 mt-1">
                                     Filtré par abonnement: {selectedSubscription.pack?.name || selectedSubscription.id.slice(-8)}
@@ -584,52 +583,52 @@ export default function SubscriptionContent() {
                             )}
                         </div>
 
-                        <div className="relative">
+                        <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <input
                                 type="text"
                                 placeholder="Rechercher dans l'historique..."
                                 value={historySearchTerm}
                                 onChange={(e) => setHistorySearchTerm(e.target.value)}
-                                className="pl-10 pr-4 py-2 border rounded focus:outline-none focus:border-orange-500"
+                                className="w-full pl-10 pr-4 py-2 border rounded focus:outline-none focus:border-orange-500 text-sm sm:text-base"
                             />
                         </div>
                     </div>
 
                     {/* Payment History Table */}
                     {isLoadingHistory ? (
-                        <div className="text-center py-12 bg-white rounded border">
-                            <Loader/>
+                        <div className="text-center py-8 sm:py-12 bg-white rounded border">
+                            <Loader />
                         </div>
                     ) : historyError ? (
-                        <div className="text-center py-12 bg-white rounded border">
-                            <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-                            <p className="text-red-700">{historyError}</p>
+                        <div className="text-center py-8 sm:py-12 bg-white rounded border">
+                            <AlertCircle className="h-6 sm:h-8 w-6 sm:w-8 text-red-500 mx-auto mb-4" />
+                            <p className="text-red-700 text-sm sm:text-base">{historyError}</p>
                         </div>
                     ) : filteredHistoryData.length > 0 ? (
-                        <div className="bg-white rounded border overflow-hidden">
-                            <table className="min-w-full">
-                                <thead className="bg-gray-50">
+                        <div className="bg-white rounded border overflow-x-auto">
+                            <table className="min-w-full w-max sm:w-full">
+                                <thead className="bg-gray-50 hidden sm:table-header-group">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Paiement
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Pack
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Statut
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Date
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Montant
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                         Fournisseur
                                     </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                                    <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                         Actions
                                     </th>
                                 </tr>
@@ -646,12 +645,12 @@ export default function SubscriptionContent() {
                             </table>
                         </div>
                     ) : (
-                        <div className="text-center py-12 bg-white rounded border">
-                            <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        <div className="text-center py-8 sm:py-12 bg-white rounded border">
+                            <Receipt className="h-10 sm:h-12 w-10 sm:w-12 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
                                 {historySearchTerm || selectedSubscription ? 'Aucun résultat' : 'Aucun historique'}
                             </h3>
-                            <p className="text-gray-500">
+                            <p className="text-gray-500 text-sm sm:text-base">
                                 {historySearchTerm || selectedSubscription
                                     ? 'Modifiez vos critères de recherche'
                                     : 'Aucun paiement dans l\'historique pour le moment'

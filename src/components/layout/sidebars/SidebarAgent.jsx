@@ -1,7 +1,7 @@
 import React, {useState, useRef, useEffect, useContext} from 'react';
 import { Link } from 'react-router-dom';
 import logo from '@/assets/logo48.png';
-import { Map, MessageSquareMore, Settings, ChartNoAxesGantt, X, MapPinned } from 'lucide-react';
+import { Map, MessageSquareMore, Settings, ChartNoAxesGantt, X, MapPinned ,LayoutDashboard} from 'lucide-react';
 
 import MapContent from "@/components/features/map/MapContent.jsx";
 import ProfileContent from "@/components/features/shared/ProfileContent.jsx";
@@ -13,6 +13,7 @@ import Tooltip from "@/components/common/ui/Tooltip.jsx";
 import GPSTracker from "@/components/features/dashboard/agent/GPSTracker.jsx";
 import {GeolocationContext} from "@/context/GeolocationContext.jsx";
 import { useNotifications } from "@/context/NotificationContext.jsx";
+import AgentDashboard from "@/components/features/dashboard/agent/DashboardAgentContent.jsx";
 
 export default function SidebarAgent({ user, logout }) {
     const { unreadMessages, markMessagesAsRead } = useNotifications();
@@ -27,6 +28,7 @@ export default function SidebarAgent({ user, logout }) {
 
     const menuItems = [
         { id: 'map', label: 'Map', icon: Map },
+        {id: 'history', label: 'Tableau de bord', icon: LayoutDashboard},
         { id: 'locations', label: 'Me localiser', icon: MapPinned },
         {
             id: 'messages',
@@ -150,6 +152,8 @@ export default function SidebarAgent({ user, logout }) {
         switch (activeItem) {
             case 'map':
                 return <MapContent />;
+            case 'history':
+                return <AgentDashboard/>;
             case 'messages':
                 return <MessagesContentAgent />;
             case 'settings':

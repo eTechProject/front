@@ -223,7 +223,7 @@ export default function DashboardContent() {
 
     const KPIBox = ({ icon: Icon, label, value, unit = '' }) => (
         <div className="bg-white p-4 rounded-lg shadow-sm flex items-center space-x-4">
-            <Icon className="h-8 w-8 text-gray-500" />
+            <Icon className="h-8 w-8 text-orange-500" />
             <div>
                 <p className="text-sm text-gray-600">{label}</p>
                 <p className="text-lg font-semibold text-gray-900">{value}{unit}</p>

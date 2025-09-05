@@ -14,6 +14,13 @@ const Skeleton = ({ className }) => (
     <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>
 );
 
+const createGradient = (ctx, chartArea) => {
+    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+    gradient.addColorStop(0, 'rgba(54, 162, 235, 0.8)'); // Start color (light blue)
+    gradient.addColorStop(1, 'rgba(75, 192, 192, 0.6)'); // End color (teal)
+    return gradient;
+};
+
 const KPISkeleton = () => (
     <div className="bg-white p-4 rounded-lg shadow-sm flex items-center space-x-4">
         <Skeleton className="h-8 w-8 rounded-full" />
@@ -232,13 +239,15 @@ export default function AgentDashboard() {
                 },
             },
         };
+        const ctx = document.createElement('canvas').getContext('2d');
+        const chartArea = { top: 0, bottom: 200 }; // Approximate chart area for gradient
 
         if (type === 'doughnut') {
             const statusColors = {
-                pending: '#FbbF24',
-                in_progress: '#3B82F6',
-                completed: '#10B981',
-                cancelled: '#EF4444'
+                pending: '#FFCE56',
+                in_progress: '#36A2EB',
+                completed: '#4BC0C0',
+                cancelled: '#FF6384'
             };
 
             const data = {
@@ -290,10 +299,11 @@ export default function AgentDashboard() {
                 datasets: [{
                     label: title,
                     data: chartData.data || [],
-                    backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                    backgroundColor: createGradient(ctx, chartArea),
                     borderColor: 'rgba(75, 192, 192, 1)',
                     borderWidth: 1,
-                    borderRadius: 4,
+                    borderRadius: 5,
+                    barThickness: 40,
                     hoverBackgroundColor: 'rgba(59, 130, 246, 0.8)',
                 }],
             };

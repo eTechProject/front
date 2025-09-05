@@ -240,14 +240,17 @@ const TaskMapModal = ({
                     </div>
                     <div className="flex items-center space-x-2">
                         {/* Bouton de rapport */}
-                        <button
-                            onClick={handleGenerateReport}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                            title="Générer un rapport"
-                        >
-                            <FileBarChart className="h-4 w-4 mr-2" />
-                            Rapport
-                        </button>
+                        {
+                            (source === 'client-dashboard')&&<button
+                                onClick={handleGenerateReport}
+                                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                                title="Générer un rapport"
+                            >
+                                <FileBarChart className="h-4 w-4 mr-2" />
+                                Rapport
+                            </button>
+                        }
+
                         <button
                             onClick={onClose}
                             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -268,7 +271,7 @@ const TaskMapModal = ({
                                     <div className="flex justify-between">
                                         <span className="text-sm text-gray-600">Source:</span>
                                         <span className="text-xs text-blue-600 font-medium">
-                                            {source === 'client-dashboard' ? '👔 Client' : source === 'agent-dashboard' ? '👤 Agent' : '❓ Inconnue'}
+                                            {source === 'client-dashboard' ? 'Client' : source === 'agent-dashboard' ? 'Agent' : '❓ Inconnue'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
@@ -335,15 +338,18 @@ const TaskMapModal = ({
                             )}
 
                             {/* Info sur le rapport */}
-                            <div className="bg-blue-50 p-3 rounded-lg">
-                                <h4 className="font-medium text-blue-900 mb-1 text-sm flex items-center">
-                                    <FileBarChart className="h-4 w-4 mr-1" />
-                                    Rapport disponible
-                                </h4>
-                                <p className="text-xs text-blue-700">
-                                    Cliquez sur "Rapport" pour générer un rapport de cette consultation.
-                                </p>
-                            </div>
+                            {
+                                (source === 'client-dashboard')&&<div className="bg-blue-50 p-3 rounded-lg">
+                                    <h4 className="font-medium text-blue-900 mb-1 text-sm flex items-center">
+                                        <FileBarChart className="h-4 w-4 mr-1" />
+                                        Rapport disponible
+                                    </h4>
+                                    <p className="text-xs text-blue-700">
+                                        Cliquez sur "Rapport" pour générer un rapport de cette consultation.
+                                    </p>
+                                </div>
+                            }
+
                         </div>
                     </div>
 

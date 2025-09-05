@@ -27,8 +27,8 @@ export default function SidebarAgent({ user, logout }) {
     const itemsRef = useRef({});
 
     const menuItems = [
-        { id: 'map', label: 'Map', icon: Map },
         {id: 'history', label: 'Tableau de bord', icon: LayoutDashboard},
+        { id: 'map', label: 'Map', icon: Map },
         { id: 'locations', label: 'Me localiser', icon: MapPinned },
         {
             id: 'messages',

@@ -1,7 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { X, FileBarChart } from 'lucide-react';
 
-const TaskMapModal = ({ task, isOpen, onClose }) => {
+const TaskMapModal = ({
+                          task,
+                          isOpen,
+                          onClose,
+                          source = 'unknown' // 'client-dashboard' ou 'agent-dashboard'
+                      }) => {
     const modalRef = useRef(null);
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
@@ -211,6 +216,10 @@ const TaskMapModal = ({ task, isOpen, onClose }) => {
         }
     };
 
+    const handleGenerateReport = () => {
+        alert(`Rapport généré!\n\nSource: ${source}\nTâche: ${task.taskId?.substring(0, 8)}\nStatut: ${task.status}`);
+    };
+
     const coordinates = getTaskCoordinates();
 
     return (
@@ -221,20 +230,31 @@ const TaskMapModal = ({ task, isOpen, onClose }) => {
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900">
+                    <div className="flex-1">
+                        <h2 className="text-xl font-semibold text-gray-900 mb-1">
                             Localisation de la tâche
                         </h2>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-gray-600">
                             {task.description || 'Aucune description'}
                         </p>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                        <X className="h-6 w-6" />
-                    </button>
+                    <div className="flex items-center space-x-2">
+                        {/* Bouton de rapport */}
+                        <button
+                            onClick={handleGenerateReport}
+                            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                            title="Générer un rapport"
+                        >
+                            <FileBarChart className="h-4 w-4 mr-2" />
+                            Rapport
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <X className="h-6 w-6" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Content */}
@@ -245,6 +265,12 @@ const TaskMapModal = ({ task, isOpen, onClose }) => {
                             <div>
                                 <h3 className="font-medium text-gray-900 mb-2">Informations de la tâche</h3>
                                 <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                        <span className="text-sm text-gray-600">Source:</span>
+                                        <span className="text-xs text-blue-600 font-medium">
+                                            {source === 'client-dashboard' ? '👔 Client' : source === 'agent-dashboard' ? '👤 Agent' : '❓ Inconnue'}
+                                        </span>
+                                    </div>
                                     <div className="flex justify-between">
                                         <span className="text-sm text-gray-600">ID Tâche:</span>
                                         <span className="text-xs text-gray-500 font-mono">
@@ -307,6 +333,17 @@ const TaskMapModal = ({ task, isOpen, onClose }) => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Info sur le rapport */}
+                            <div className="bg-blue-50 p-3 rounded-lg">
+                                <h4 className="font-medium text-blue-900 mb-1 text-sm flex items-center">
+                                    <FileBarChart className="h-4 w-4 mr-1" />
+                                    Rapport disponible
+                                </h4>
+                                <p className="text-xs text-blue-700">
+                                    Cliquez sur "Rapport" pour générer un rapport de cette consultation.
+                                </p>
+                            </div>
                         </div>
                     </div>
 
@@ -328,7 +365,6 @@ const TaskMapModal = ({ task, isOpen, onClose }) => {
                         )}
                     </div>
                 </div>
-
             </div>
         </div>
     );

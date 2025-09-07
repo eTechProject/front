@@ -1,5 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, FileBarChart } from 'lucide-react';
+import { reportService } from '@/services/features/client/reportService.js';
+import toast from "react-hot-toast";
 
 const TaskMapModal = ({
                           task,
@@ -11,6 +13,7 @@ const TaskMapModal = ({
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const markerRef = useRef(null);
+    const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
     useEffect(() => {
         const handleEscape = (event) => {
@@ -216,8 +219,39 @@ const TaskMapModal = ({
         }
     };
 
-    const handleGenerateReport = () => {
-        alert(`Rapport généré!\n\nSource: ${source}\nTâche: ${task.taskId?.substring(0, 8)}\nStatut: ${task.status}`);
+    const handleGenerateReport = async () => {
+        if (!task?.taskId) {
+            toast.error('Impossible de générer le rapport: ID de tâche manquant');
+            return;
+        }
+
+        setIsGeneratingReport(true);
+        
+        try {
+            const result = await reportService.generateTaskReport(task.taskId);
+            
+            if (result.success) {
+                // Generate filename with task info
+                const filename = `rapport-tache-${task.taskId.substring(0, 8)}-${new Date().toISOString().split('T')[0]}`;
+                
+                // Download the PDF
+                const downloadSuccess = reportService.downloadPDF(result.data, filename);
+                
+                if (downloadSuccess) {
+                    // Show success message
+                    toast.success(`Rapport généré avec succès! Tâche: ${task.taskId.substring(0, 8)} - Statut: ${task.status}`);
+                } else {
+                    toast.error('Erreur lors du téléchargement du rapport.');
+                }
+            } else {
+                toast.error(`Erreur lors de la génération du rapport: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('Error generating report:', error);
+            toast.error('Une erreur inattendue s\'est produite lors de la génération du rapport.');
+        } finally {
+            setIsGeneratingReport(false);
+        }
     };
 
     const coordinates = getTaskCoordinates();
@@ -243,11 +277,16 @@ const TaskMapModal = ({
                         {
                             (source === 'client-dashboard')&&<button
                                 onClick={handleGenerateReport}
-                                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                                title="Générer un rapport"
+                                disabled={isGeneratingReport}
+                                className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
+                                    isGeneratingReport 
+                                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed' 
+                                        : 'text-gray-700 bg-white hover:bg-gray-50'
+                                }`}
+                                title={isGeneratingReport ? "Génération en cours..." : "Générer un rapport"}
                             >
-                                <FileBarChart className="h-4 w-4 mr-2" />
-                                Rapport
+                                <FileBarChart className={`h-4 w-4 mr-2 ${isGeneratingReport ? 'animate-pulse' : ''}`} />
+                                {isGeneratingReport ? 'Génération...' : 'Rapport'}
                             </button>
                         }
 
@@ -342,10 +381,10 @@ const TaskMapModal = ({
                                 (source === 'client-dashboard')&&<div className="bg-blue-50 p-3 rounded-lg">
                                     <h4 className="font-medium text-blue-900 mb-1 text-sm flex items-center">
                                         <FileBarChart className="h-4 w-4 mr-1" />
-                                        Rapport disponible
+                                        Rapport PDF disponible
                                     </h4>
                                     <p className="text-xs text-blue-700">
-                                        Cliquez sur "Rapport" pour générer un rapport de cette consultation.
+                                        Cliquez sur "Rapport" pour télécharger un rapport PDF détaillé de cette tâche.
                                     </p>
                                 </div>
                             }

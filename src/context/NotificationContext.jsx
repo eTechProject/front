@@ -7,7 +7,6 @@ const TOKEN_REFRESH_BUFFER = 60;
 
 const NotificationContext = createContext({});
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useNotifications = () => {
     const context = useContext(NotificationContext);
     if (!context) {
@@ -21,17 +20,17 @@ export function NotificationProvider({ children }) {
     const [permission, setPermission] = useState(Notification.permission);
     const [mercureToken, setMercureToken] = useState(null);
     const [isEnabled, setIsEnabled] = useState(true);
+    const [unreadMessages, setUnreadMessages] = useState(0);
+    const [latestMessage, setLatestMessage] = useState(null);
+    const [notifications, setNotifications] = useState([]);
 
-    // Référence pour éviter les re-rendus lors des callbacks Mercure
     const userRef = useRef(user);
     useEffect(() => {
         userRef.current = user;
     }, [user]);
 
-    // Topic global pour l'utilisateur
     const globalTopic = user?.userId ? `chat/${user.userId}` : null;
 
-    // Vérifier si l'onglet est visible
     const isTabVisible = useCallback(() => {
         return !document.hidden && document.visibilityState === 'visible';
     }, []);
@@ -65,7 +64,6 @@ export function NotificationProvider({ children }) {
         }
     }, [user?.userId, user?.token]);
 
-    // Gestion du token Mercure
     useEffect(() => {
         if (!globalTopic || mercureToken) return;
 
@@ -86,9 +84,7 @@ export function NotificationProvider({ children }) {
         fetchToken().then();
     }, [globalTopic, mercureToken, getMercureToken]);
 
-    // Gestionnaire des messages Mercure globaux - VERSION SIMPLE
     const handleGlobalMercureMessage = useCallback((data) => {
-
         const currentUser = userRef.current;
         if (!data || !currentUser) return;
 
@@ -96,32 +92,40 @@ export function NotificationProvider({ children }) {
             const isFromCurrentUser = String(data.sender_id) === String(currentUser.userId);
             if (isFromCurrentUser) return;
 
-            // Ne pas afficher si pas de permission, désactivé ou onglet visible
-            if (permission !== 'granted' || !isEnabled || isTabVisible()) {
-                return;
-            }
-
-            // Notification simple
-            const senderName = data.sender_name || 'Quelqu\'un';
-            const title = `Nouveau message de ${senderName}`;
-            const body = data.content.length > 100 ? `${data.content.substring(0, 100)}...` : data.content;
-
-            const notification = new Notification(title, {
-                body,
-                icon: '/favicon.ico',
-                tag: `message-${data.id}`,
-                silent: false
-            });
-
-            // Clic sur la notification = focus sur la fenêtre et aller à la messagerie
-            notification.onclick = () => {
-                window.focus();
-                notification.close();
-                window.location.hash = '#/messages';
+            const newNotification = {
+                id: data.id || Date.now(),
+                type: 'message',
+                timestamp: new Date(),
+                data: data,
+                senderName: data.sender_name || 'Quelqu\'un',
+                read: false
             };
 
-            // Auto-fermeture après 5 secondes
-            setTimeout(() => notification.close(), 5000);
+            setNotifications(prev => [newNotification, ...prev.slice(0, 9)]);
+            setUnreadMessages(prev => prev + 1);
+            setLatestMessage(newNotification);
+
+            if (permission === 'granted' && isEnabled && !isTabVisible()) {
+                const senderName = data.sender_name || 'Quelqu\'un';
+                const title = `Nouveau message de ${senderName}`;
+                const body = data.content.length > 100 ? `${data.content.substring(0, 100)}...` : data.content;
+
+                const notification = new Notification(title, {
+                    body,
+                    icon: '/favicon.ico',
+                    tag: `message-${data.id}`,
+                    silent: false
+                });
+
+                notification.onclick = () => {
+                    window.focus();
+                    // Déclencher l'événement pour ouvrir la section Messages
+                    window.dispatchEvent(new CustomEvent('navigateToMessages'));
+                    notification.close();
+                };
+
+                setTimeout(() => notification.close(), 5000);
+            }
         }
     }, [permission, isEnabled, isTabVisible]);
 
@@ -140,12 +144,29 @@ export function NotificationProvider({ children }) {
         setIsEnabled(prev => !prev);
     }, []);
 
+    const markMessagesAsRead = useCallback(() => {
+        setUnreadMessages(0);
+        setLatestMessage(null);
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }, []);
+
+    const clearNotifications = useCallback(() => {
+        setNotifications([]);
+        setUnreadMessages(0);
+        setLatestMessage(null);
+    }, []);
+
     const contextValue = {
         permission,
         isEnabled,
         isTabVisible,
         requestPermission,
-        toggleNotifications
+        toggleNotifications,
+        unreadMessages,
+        latestMessage,
+        notifications,
+        markMessagesAsRead,
+        clearNotifications
     };
 
     return (

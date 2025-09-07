@@ -7,7 +7,7 @@ export default function DashboardAgentPage() {
     const { user, isAuthenticated, isLoading, logout } = useAuth();
 
     if (isLoading) {
-        return <div className="flex items-center justify-center h-screen">
+        return <div className="flex items-center justify-center h-screen min-h-screen bg-gradient-to-br from-orange-50 to-orange-100">
             <Loader/>
         </div>;
     }

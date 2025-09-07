@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import BackButtonHome from "@/components/common/navigation/BackHomeButton.jsx";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { usePack } from "@/hooks/features/admin/usePack.js";
-import { paymentService } from "@/services/features/client/dashboard/clientPaymentService.js";
+import {subscriptionService} from "@/services/features/client/dashboard/clientSubscriptionService.js";
 
 const PaymentSkeleton = () => {
     return (
@@ -194,7 +194,7 @@ const PaymentPage = () => {
             
             console.log("Sending payment data:", paymentPayload);
             
-            const result = await paymentService.sendPayment(paymentPayload);
+            const result = await subscriptionService.sendPayment(paymentPayload);
             
             if (result.success) {
                 setPaymentResponse(result.data);

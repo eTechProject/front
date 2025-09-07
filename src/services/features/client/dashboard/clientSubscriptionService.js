@@ -1,7 +1,7 @@
 import ENDPOINTS from '@/services/config/endpoints.js';
 import apiClient from '@/services/config/api.js';
 
-export const paymentService = {
+export const subscriptionService = {
     getPayments: async (clientId, params = {}) => {
         try {
             const response = await apiClient.get(ENDPOINTS.CLIENT.PAYMENTS.LIST(clientId), { params });

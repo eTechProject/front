@@ -8,6 +8,7 @@ const ENDPOINTS = {
     AGENT: {
         GET_TASKS_MESSAGE: (agentId) => `/agent/${agentId}/assigned-tasks`,
         LOCATIONS: (agentId) => `/agent/${agentId}/locations`,
+        TASKS_HISTORY: '/agent/tasks-history',
     },
     ZONE: {
         SEND: '/client/service-orders',
@@ -67,9 +68,14 @@ const ENDPOINTS = {
     },
     CLIENT: {
         DASHBOARD: (clientId) => `/client/${clientId}/dashboard`,
+        REPORT: (taskId) => `/client/task/${taskId}/generate-report`,
         PAYMENTS: {
+            //SUBSCRIPTIONS
             LIST: (clientId) => `/client/${clientId}/payments`,
             SEND: `/client/stripe-payment/create`,
+            //PAYEMENTS
+            HISTORY: (clientId) => `/client/${clientId}/payment-history`,
+            HISTORY_BY_ID: (clientId, paymentId) => `/client/${clientId}/payment-history/${paymentId}`
         },
         CANCEL_TASK: '/public/client/task/cancel',
     },

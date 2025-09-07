@@ -7,14 +7,25 @@ export const clientDashboardService = {
             let query = '';
             if (params.choice) {
                 query = `?choice=${params.choice}`;
+                if (params.page) query += `&page=${params.page}`;
+                if (params.limit) query += `&limit=${params.limit}`;
             } else if (params.dateStart && params.dateEnd) {
                 query = `?dateStart=${params.dateStart}&dateEnd=${params.dateEnd}`;
+                if (params.page) query += `&page=${params.page}`;
+                if (params.limit) query += `&limit=${params.limit}`;
+            } else {
+                query = '?';
+                if (params.page) query += `page=${params.page}&`;
+                if (params.limit) query += `limit=${params.limit}&`;
+                query = query.replace(/[&?]$/, '');
             }
 
             const response = await apiClient.get(`${ENDPOINTS.CLIENT.DASHBOARD(clientId)}${query}`);
+            console.log(response)
             return {
                 success: true,
                 data: response.data,
+                pagination: response.pagination,
             };
         } catch (error) {
             return {

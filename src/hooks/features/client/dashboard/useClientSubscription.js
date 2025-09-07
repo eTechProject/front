@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import {paymentService} from "@/services/features/client/dashboard/clientPaymentService.js";
+import {subscriptionService} from "@/services/features/client/dashboard/clientSubscriptionService.js";
 
-export const usePayments = (clientId) => {
+export const useSubscriptions = (clientId) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
@@ -50,7 +50,7 @@ export const usePayments = (clientId) => {
         setError(null);
         setSuccess(false);
 
-        const result = await paymentService.getPayments(clientId, params);
+        const result = await subscriptionService.getPayments(clientId, params);
 
         setIsLoading(false);
         setSuccess(result.success);
@@ -82,7 +82,7 @@ export const usePayments = (clientId) => {
 
         setIsLoadingMore(true);
         const nextPage = currentPage + 1;
-        const result = await paymentService.getPayments(clientId, { page: nextPage, limit: 20 });
+        const result = await subscriptionService.getPayments(clientId, { page: nextPage, limit: 20 });
 
         setIsLoadingMore(false);
 

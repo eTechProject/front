@@ -86,6 +86,7 @@ export const agentService = {
             };
         }
     },
+
     // Récupère les tâches assignées à un agent (clients à contacter)
     getAssignedTasks: async (agentId) => {
         try {
@@ -98,6 +99,24 @@ export const agentService = {
             return {
                 success: false,
                 error: error.response?.data?.message || 'Erreur lors du chargement des tâches assignées',
+                details: error.response?.data?.errors || {}
+            };
+        }
+    },
+
+    // Récupère l'historique des tâches avec filtres
+    getTasksHistory: async (params = {}) => {
+        try {
+            const response = await apiClient.get(ENDPOINTS.AGENT.TASKS_HISTORY, { params });
+            return {
+                success: true,
+                data: response.data,
+                pagination: response.pagination
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Erreur lors du chargement de l\'historique des tâches',
                 details: error.response?.data?.errors || {}
             };
         }

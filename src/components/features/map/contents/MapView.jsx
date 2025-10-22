@@ -55,6 +55,7 @@ const MapView = React.forwardRef(({
     const [userLocation, setUserLocation] = useState(null);
     const [geolocationError, setGeolocationError] = useState(null);
     const [isAlertActive, setIsAlertActive] = useLocalStorageState('isAlertActive', false);
+    const [alertType, setAlertType] = useState(null);
 
     const { user } = useAuth();
     const { sendZone, isLoading, error, success } = useZone();
@@ -88,29 +89,36 @@ const MapView = React.forwardRef(({
 
     // Add animation styles for markers and zones
     useEffect(() => {
-        if (!document.getElementById('map-animations')) {
-            const style = document.createElement('style');
-            style.id = 'map-animations';
-            style.textContent = `
-                @keyframes pulse {
-                    0% { transform: scale(1); }
-                    50% { transform: scale(1.15); }
-                    100% { transform: scale(1); }
-                }
-                .marker-updating {
-                    animation: pulse 1s ease-in-out;
-                }
-                @keyframes blink-zone {
-                    0%, 100% { fill: #ef4444; fill-opacity: 0.4; }
-                    50% { fill: #ef4444; fill-opacity: 0.1; }
-                }
-                .zone-alert {
-                    animation: blink-zone 2s ease-in-out infinite;
-                }
-            `;
-            document.head.appendChild(style);
+        const alertColor = getAlertColorHex(alertType);
+        
+        // Remove existing style if it exists
+        const existingStyle = document.getElementById('map-animations');
+        if (existingStyle) {
+            existingStyle.remove();
         }
-    }, []);
+
+        // Create new style with dynamic color
+        const style = document.createElement('style');
+        style.id = 'map-animations';
+        style.textContent = `
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.15); }
+                100% { transform: scale(1); }
+            }
+            .marker-updating {
+                animation: pulse 1s ease-in-out;
+            }
+            @keyframes blink-zone {
+                0%, 100% { fill: ${alertColor}; fill-opacity: 0.4; }
+                50% { fill: ${alertColor}; fill-opacity: 0.1; }
+            }
+            .zone-alert {
+                animation: blink-zone 2s ease-in-out infinite;
+            }
+        `;
+        document.head.appendChild(style);
+    }, [alertType, isAlertActive]);
 
     // Zone form state
     const [zoneFormData, setZoneFormData] = useState({
@@ -135,6 +143,16 @@ const MapView = React.forwardRef(({
             pending: '#eab308',
         };
         return statusMap[status?.toLowerCase()] || '#eab308';
+    };
+
+    // Map alert type to colors
+    const getAlertColorHex = (alertType) => {
+        const alertColors = {
+            danger: '#ef4444',     // red
+            incident: '#f97316',   // orange
+            urgence: '#a855f7',    // purple
+        };
+        return alertColors[alertType] || '#ef4444'; // default to red
     };
 
     // Handle geolocation
@@ -219,6 +237,7 @@ const MapView = React.forwardRef(({
                 if (response.success) {
                     setIsAlertActive(false);
                     localStorage.removeItem("alertId");
+                    localStorage.removeItem("alertType");
                 }
             } catch (err) {
                 console.error('[handleDisableAlert] Error cancelling alert:', err);
@@ -316,7 +335,7 @@ const MapView = React.forwardRef(({
                     allowIntersection: false,
                     showArea: true,
                     shapeOptions: {
-                        color: isAlertActive ? '#ef4444' : '#3388ff',
+                        color: isAlertActive ? getAlertColorHex(alertType) : '#3388ff',
                         fillOpacity: isAlertActive ? 0.4 : 0.2,
                     },
                 },
@@ -431,7 +450,7 @@ const MapView = React.forwardRef(({
             const layer = window.L.polygon(
                 coordinates.map(coord => [coord[0], coord[1]]),
                 {
-                    color: isAlertActive ? '#ef4444' : '#3388ff',
+                    color: isAlertActive ? getAlertColorHex(alertType) : '#3388ff',
                     fillOpacity: isAlertActive ? 0.4 : 0.2,
                 }
             );
@@ -898,6 +917,47 @@ const MapView = React.forwardRef(({
         };
     }, []);
 
+    // Watch for alert type changes in localStorage
+    useEffect(() => {
+        const storedAlertType = localStorage.getItem("alertType");
+        if (storedAlertType !== alertType) {
+            setAlertType(storedAlertType);
+        }
+    }, [isAlertActive]);
+
+    // Initialize alert type on component mount
+    useEffect(() => {
+        const storedAlertType = localStorage.getItem("alertType");
+        if (storedAlertType) {
+            setAlertType(storedAlertType);
+        }
+    }, []);
+
+    // Update existing zone colors when alert state changes
+    useEffect(() => {
+        if (!mapInstanceRef.current || !drawnItemsRef.current) return;
+
+        const alertColor = getAlertColorHex(alertType);
+
+        drawnItemsRef.current.eachLayer((layer) => {
+            if (layer.setStyle) {
+                layer.setStyle({
+                    color: isAlertActive ? alertColor : '#3388ff',
+                    fillOpacity: isAlertActive ? 0.4 : 0.2,
+                });
+            }
+
+            // Update zone animation class
+            if (layer.getElement) {
+                const element = layer.getElement();
+                element.classList.remove('zone-alert');
+                if (isAlertActive) {
+                    element.classList.add('zone-alert');
+                }
+            }
+        });
+    }, [isAlertActive, alertType]);
+
     useEffect(() => {
         if (mapInstanceRef.current) {
             setTimeout(() => mapInstanceRef.current.invalidateSize(), 300);
@@ -957,14 +1017,14 @@ const MapView = React.forwardRef(({
                 }
 
                 currentLayer.setStyle({
-                    color: isAlertActive ? '#ef4444' : '#3388ff',
+                    color: isAlertActive ? getAlertColorHex(alertType) : '#3388ff',
                     fillOpacity: isAlertActive ? 0.4 : 0.2,
                 });
             } catch (error) {
                 console.error('Error updating zone style:', error);
             }
         }
-    }, [isAlertActive, drawnZones, currentLayer]);
+    }, [isAlertActive, drawnZones, currentLayer, alertType]);
 
     return (
         <div

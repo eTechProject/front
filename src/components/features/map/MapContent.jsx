@@ -33,6 +33,18 @@ const MapContent = () => {
     const [showPendingAssignments, setShowPendingAssignments] = useState(false);
     const [draggingEmployee, setDraggingEmployee] = useState(null);
 
+    // Assignment form modal states
+    const [showAssignmentForm, setShowAssignmentForm] = useState(false);
+    const [assignmentFormData, setAssignmentFormData] = useState({
+        employee: null,
+        position: null,
+        zoneInfo: null,
+        startDate: '',
+        endDate: '',
+        type: 'patrouille',
+        description: '',
+    });
+
     // Touch drag states for mobile
     const [touchDragState, setTouchDragState] = useState({
         isDragging: false,
@@ -476,30 +488,21 @@ const MapContent = () => {
             return;
         }
 
-        const startDate = formatDateForBackend(new Date());
-        const endDate = formatDateForBackend(new Date(Date.now() + 2 * 60 * 60 * 1000));
-        const assignmentType = 'patrouille';
+        // Prepare default form data and show assignment form modal
+        const now = new Date();
+        const defaultEndTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
 
-        const newAssignment = {
-            id: Date.now(),
-            employeeId: employee.id,
-            employeeName: employee.name,
-            employeeAvatar: employee.avatar,
-            employeeColor: employee.routeColor,
-            coordinates: { lat: position.lat, lng: position.lng },
-            timestamp: new Date().toISOString(),
+        setAssignmentFormData({
+            employee,
+            position,
             zoneInfo: zoneInfoToUse,
-            isNewAssignment: !employee.position,
-            previousPosition: employee.position,
-            startDate,
-            endDate,
-            type: assignmentType,
-            description: null,
-        };
+            startDate: formatDateForBackend(now).slice(0, 16), // Format for datetime-local input
+            endDate: formatDateForBackend(defaultEndTime).slice(0, 16),
+            type: 'patrouille',
+            description: '',
+        });
 
-        setPendingAssignments((prev) => [...prev, newAssignment]);
-        setShowPendingAssignments(true);
-        setUnassignedEmployees((prev) => prev.filter((emp) => emp.id !== employee.id));
+        setShowAssignmentForm(true);
         setDraggingEmployee(null);
     };
 
@@ -510,6 +513,74 @@ const MapContent = () => {
                 assignment.id === id ? { ...assignment, ...updatedData } : assignment
             )
         );
+    };
+
+    // Handle assignment form submission
+    const handleAssignmentFormSubmit = () => {
+        const { employee, position, zoneInfo, startDate, endDate, type, description } = assignmentFormData;
+
+        const newAssignment = {
+            id: Date.now(),
+            employeeId: employee.id,
+            employeeName: employee.name,
+            employeeAvatar: employee.avatar,
+            employeeColor: employee.routeColor,
+            coordinates: { lat: position.lat, lng: position.lng },
+            timestamp: new Date().toISOString(),
+            zoneInfo,
+            isNewAssignment: !employee.position,
+            previousPosition: employee.position,
+            startDate: formatDateForBackend(new Date(startDate)),
+            endDate: formatDateForBackend(new Date(endDate)),
+            type,
+            description: description || null,
+        };
+
+        setPendingAssignments((prev) => [...prev, newAssignment]);
+        setShowPendingAssignments(true);
+        setUnassignedEmployees((prev) => prev.filter((emp) => emp.id !== employee.id));
+        setShowAssignmentForm(false);
+
+        // Reset form data
+        setAssignmentFormData({
+            employee: null,
+            position: null,
+            zoneInfo: null,
+            startDate: '',
+            endDate: '',
+            type: 'patrouille',
+            description: '',
+        });
+    };
+
+    // Handle assignment form cancellation
+    const handleAssignmentFormCancel = () => {
+        const { employee } = assignmentFormData;
+        
+        // If it was an unassigned employee, add it back to the unassigned list
+        if (employee && !employee.position) {
+            setUnassignedEmployees((prev) => {
+                const exists = prev.some((emp) => emp.id === employee.id);
+                if (!exists) {
+                    return [...prev, employee];
+                }
+                return prev;
+            });
+        }
+
+        setShowAssignmentForm(false);
+        setDraggingEmployee(null);
+
+        // Reset form data
+        setAssignmentFormData({
+            employee: null,
+            position: null,
+            zoneInfo: null,
+            startDate: '',
+            endDate: '',
+            type: 'patrouille',
+            description: '',
+        });
     };
 
     // Confirm all pending assignments (client only)
@@ -966,6 +1037,128 @@ const MapContent = () => {
                         style={{ backgroundColor: touchDragState.employee?.routeColor || '#9CA3AF' }}
                     >
                         {touchDragState.employee?.avatar}
+                    </div>
+                </div>
+            )}
+
+            {/* Assignment Form Modal */}
+            {showAssignmentForm && assignmentFormData.employee && (
+                <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black bg-opacity-50">
+                    <div className={`bg-white rounded-lg shadow-xl ${isMobile ? 'mx-4 w-full max-w-sm' : 'w-full max-w-md'} max-h-[90vh] flex flex-col relative`}>
+                        {/* Fixed Header */}
+                        <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white rounded-t-lg">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                Affecter {assignmentFormData.employee.name}
+                            </h3>
+                            <button
+                                onClick={handleAssignmentFormCancel}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Scrollable Content */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {/* Employee Info */}
+                            <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                                <div
+                                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                                    style={{ backgroundColor: assignmentFormData.employee.routeColor }}
+                                >
+                                    {assignmentFormData.employee.avatar}
+                                </div>
+                                <div>
+                                    <p className="font-medium text-gray-900">{assignmentFormData.employee.name}</p>
+                                    <p className="text-sm text-gray-500">{assignmentFormData.employee.role || 'Agent de terrain'}</p>
+                                </div>
+                            </div>
+
+                            {/* Position Info */}
+                            <div className="p-3 bg-blue-50 rounded-lg">
+                                <p className="text-sm font-medium text-blue-900 mb-1">Position d'affectation</p>
+                                <p className="text-xs text-blue-700">
+                                    Lat: {assignmentFormData.position?.lat.toFixed(6)}, 
+                                    Lng: {assignmentFormData.position?.lng.toFixed(6)}
+                                </p>
+                                <p className="text-xs text-blue-600 mt-1">
+                                    Zone: {assignmentFormData.zoneInfo?.zoneName || 'Non spécifiée'}
+                                </p>
+                            </div>
+
+                            {/* Assignment Type */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Type de mission
+                                </label>
+                                <select
+                                    value={assignmentFormData.type}
+                                    onChange={(e) => setAssignmentFormData(prev => ({ ...prev, type: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                >
+                                    <option value="patrouille">Patrouille</option>
+                                    <option value="intervention">Intervention</option>
+                                    <option value="surveillance">Surveillance</option>
+                                    <option value="autre">Autre</option>
+                                </select>
+                            </div>
+
+                            {/* Start Date */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Date et heure de début
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={assignmentFormData.startDate}
+                                    onChange={(e) => setAssignmentFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
+
+                            {/* End Date */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Date et heure de fin
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    value={assignmentFormData.endDate}
+                                    onChange={(e) => setAssignmentFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Description (optionnelle)
+                                </label>
+                                <textarea
+                                    value={assignmentFormData.description}
+                                    onChange={(e) => setAssignmentFormData(prev => ({ ...prev, description: e.target.value }))}
+                                    placeholder="Décrivez la mission, les objectifs particuliers..."
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Fixed Footer */}
+                        <div className="flex justify-end space-x-3 p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+                            <button
+                                onClick={handleAssignmentFormCancel}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleAssignmentFormSubmit}
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                                Affecter l'agent
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

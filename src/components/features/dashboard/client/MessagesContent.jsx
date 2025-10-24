@@ -7,12 +7,14 @@ import generateConversationTopic from "@/utils/generateConversationTopic.js";
 import useMercureSubscription from "@/hooks/features/messaging/useMercureSubscription.js";
 import toast from "react-hot-toast";
 import {useInfiniteScroll} from "@/hooks/features/messaging/useInfiniteScroll.js";
+import { FileAttachmentInput, MessageAttachments } from './FileAttachment.jsx';
+import { ImagePreviewModal } from './ImagePreviewModal.jsx';
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
 const MESSAGES_LIMIT = 20;
 const TOKEN_REFRESH_BUFFER = 60;
 
-// Composant GroupComposer (inchangé)
+// Composant GroupComposer (with file attachments)
 const GroupComposer = React.memo(({
                                       selectedAgents,
                                       agentUsers,
@@ -20,7 +22,9 @@ const GroupComposer = React.memo(({
                                       setNewMessage,
                                       sendingMessage,
                                       onSendMessage,
-                                      onClose
+                                      onClose,
+                                      selectedFiles,
+                                      onFilesChange
                                   }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden">
@@ -50,7 +54,13 @@ const GroupComposer = React.memo(({
                 </div>
             </div>
 
-            <form onSubmit={onSendMessage} className="p-4 border-t border-gray-100">
+            <form onSubmit={onSendMessage} className="p-4 border-t border-gray-100 space-y-3">
+                {/* File Attachment Input for group messages */}
+                <FileAttachmentInput
+                    onFilesChange={onFilesChange}
+                    disabled={sendingMessage}
+                />
+                
                 <textarea
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
@@ -60,7 +70,7 @@ const GroupComposer = React.memo(({
                     disabled={sendingMessage}
                     autoFocus
                 />
-                <div className="flex justify-end gap-2 mt-3">
+                <div className="flex justify-end gap-2">
                     <button
                         type="button"
                         onClick={onClose}
@@ -117,6 +127,12 @@ export default function MessagesContent() {
     const [isGroupMode, setIsGroupMode] = useState(false);
     const [selectedAgents, setSelectedAgents] = useState([]);
     const [showGroupComposer, setShowGroupComposer] = useState(false);
+
+    // États pour les fichiers attachés
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [groupSelectedFiles, setGroupSelectedFiles] = useState([]);
+    const [imagePreview, setImagePreview] = useState({ isOpen: false, attachment: null });
+    const [fileInputKey, setFileInputKey] = useState(0); // Key to force FileAttachmentInput reset
 
     // Hooks
     const { user } = useAuth();
@@ -221,7 +237,12 @@ export default function MessagesContent() {
             { page: 1, limit: MESSAGES_LIMIT }
         ).then((result) => {
             if (result.success) {
-                setTimeout(() => scrollToBottom('auto'), 100);
+                    setTimeout(() => {
+                    scrollToBottom('auto');
+                    // Double-check scroll after DOM updates
+                    setTimeout(() => scrollToBottom('auto'), 50);
+                    setTimeout(() => scrollToBottom('auto'), 200);
+                }, 100);
             }
         });
     }, [selectedUser, user?.userId]);
@@ -271,18 +292,28 @@ export default function MessagesContent() {
     });
 
     // Auto-scroll pour les nouveaux messages
+    // Enhanced auto-scroll for new messages
     useEffect(() => {
         if (sortedMessages.length > 0) {
-            // Vérifier si l'utilisateur est proche du bas avant de scroller
             const container = containerRef.current;
             if (container) {
-                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-                if (isNearBottom) {
-                    scrollToBottom('smooth');
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+                
+                // Get the latest message
+                const latestMessage = sortedMessages[sortedMessages.length - 1];
+                
+                // Always scroll to bottom if:
+                // 1. User is near bottom (within 150px)
+                // 2. The latest message is from current user (message they just sent)
+                if (isNearBottom || latestMessage?.sender_id === user?.userId) {
+                    // Use requestAnimationFrame for smoother scrolling
+                    requestAnimationFrame(() => {
+                        scrollToBottom('smooth');
+                    });
                 }
             }
         }
-    }, [sortedMessages]);
+    }, [sortedMessages, user?.userId, scrollToBottom]);
 
     // Handlers pour les messages groupés (stabilisés avec useCallback)
     const handleToggleGroupMode = useCallback(() => {
@@ -322,7 +353,11 @@ export default function MessagesContent() {
         if (!newMessage.trim() || selectedAgents.length === 0 || sendingMessage) return;
 
         const messageContent = newMessage;
+        const filesToSend = [...groupSelectedFiles];
+        
+        // Clear the UI immediately when send attempt starts
         setNewMessage('');
+        setGroupSelectedFiles([]);
         setSendingMessage(true);
 
         try {
@@ -331,38 +366,70 @@ export default function MessagesContent() {
                 sender_id: user.userId,
                 receiver_ids: selectedAgents,
                 content: messageContent
-            });
+            }, filesToSend);
 
             if (result.success) {
+                // Success: Files already cleared, close modal and reset state
                 setShowGroupComposer(false);
                 setSelectedAgents([]);
                 setIsGroupMode(false);
+                const fileText = filesToSend.length > 0 ? ` avec ${filesToSend.length} fichier(s)` : '';
+                toast.success(`Message groupé envoyé avec succès${fileText}`);
             } else {
+                // Error occurred, restore message and files
                 setNewMessage(messageContent);
+                setGroupSelectedFiles(filesToSend);
                 toast.error(result.error || 'Erreur lors de l\'envoi du message groupé');
             }
 
         } catch (err) {
             console.error('Erreur lors de l\'envoi du message groupé:', err);
+            // Error occurred, restore message and files
             setNewMessage(messageContent);
+            setGroupSelectedFiles(filesToSend);
             toast.error('Erreur lors de l\'envoi du message groupé');
         } finally {
             setSendingMessage(false);
         }
-    }, [newMessage, selectedAgents, sendingMessage, serviceOrder, user, sendGroupMessage]);
+    }, [newMessage, selectedAgents, sendingMessage, serviceOrder, user, sendGroupMessage, groupSelectedFiles]);
 
     const handleCloseGroupComposer = useCallback(() => {
         setShowGroupComposer(false);
         setNewMessage('');
+        setGroupSelectedFiles([]);
     }, []);
+
+    // Handlers pour les pièces jointes
+    const handleFilesChange = useCallback((files) => {
+        console.log('🔄 handleFilesChange called with:', files.length, 'files');
+        setSelectedFiles(files);
+    }, []);
+
+
+
+    const handleImagePreview = useCallback((attachment) => {
+        setImagePreview({ isOpen: true, attachment });
+    }, []);
+
+    const handleCloseImagePreview = useCallback(() => {
+        setImagePreview({ isOpen: false, attachment: null });
+    }, []);
+
+    const handleGroupFilesChange = useCallback((files) => {
+        setGroupSelectedFiles(files);
+    }, []);
+
+
 
     // Handlers existants (stabilisés)
     const handleSelectUser = useCallback((userData) => {
         setSelectedUser(userData);
+        setSelectedFiles([]);  // Clear files when switching conversations
     }, []);
 
     const handleBackToList = useCallback(() => {
         setSelectedUser(null);
+        setSelectedFiles([]);  // Clear files when going back to list
         resetConversation();
     }, []);
 
@@ -371,25 +438,51 @@ export default function MessagesContent() {
         if (!newMessage.trim() || !selectedUser || sendingMessage) return;
 
         const messageContent = newMessage;
+        const filesToSend = [...selectedFiles];
+        
+        // Clear the UI immediately when send attempt starts
         setNewMessage('');
+        setSelectedFiles([]);
+        setFileInputKey(prev => prev + 1); // Force FileAttachmentInput to reset
+        console.log('🔄 Cleared selectedFiles, new length:', 0);
         setSendingMessage(true);
 
         try {
-            await sendMessage({
+            const result = await sendMessage({
                 order_id: serviceOrder?.id,
                 sender_id: user.userId,
                 receiver_id: selectedUser.user.agentData.agent.user.userId,
                 content: messageContent
-            }, false);
+            }, false, filesToSend);
 
-            setTimeout(() => scrollToBottom('smooth'), 100);
+            if (result.success) {
+                // Success: Files already cleared, scroll immediately and show success
+                // Use multiple approaches for reliable scrolling after message send
+                scrollToBottom('auto'); // Immediate scroll
+                setTimeout(() => scrollToBottom('smooth'), 50); // Follow-up smooth scroll
+                setTimeout(() => scrollToBottom('smooth'), 200); // Final scroll to ensure message is visible
+                
+                if (filesToSend.length > 0) {
+                    toast.success(`Message envoyé avec ${filesToSend.length} fichier(s)`);
+                }
+            } else {
+                // Error occurred, restore message and files
+                setNewMessage(messageContent);
+                setSelectedFiles(filesToSend);
+                setFileInputKey(prev => prev + 1); // Reset FileAttachmentInput to show restored files
+                toast.error(result.error || 'Erreur lors de l\'envoi du message');
+            }
         } catch (err) {
             console.error('Erreur lors de l\'envoi du message:', err);
+            // Error occurred, restore message and files
             setNewMessage(messageContent);
+            setSelectedFiles(filesToSend);
+            setFileInputKey(prev => prev + 1); // Reset FileAttachmentInput to show restored files
+            toast.error('Erreur lors de l\'envoi du message');
         } finally {
             setSendingMessage(false);
         }
-    }, [newMessage, selectedUser, sendingMessage, serviceOrder, user, sendMessage, scrollToBottom]);
+    }, [newMessage, selectedUser, sendingMessage, serviceOrder, user, sendMessage, scrollToBottom, selectedFiles]);
 
     const AgentListSkeleton = () => (
         <div className="space-y-2 p-4">
@@ -430,9 +523,20 @@ export default function MessagesContent() {
                 ? 'bg-gray-900 text-white'
                 : 'bg-white text-gray-800 border border-gray-100'
             }`}>
-                <div className="break-words whitespace-pre-wrap text-sm">
-                    {message.content}
-                </div>
+                {message.content && (
+                    <div className="break-words whitespace-pre-wrap text-sm">
+                        {message.content}
+                    </div>
+                )}
+                
+                {/* Attachments */}
+                {message.attachments && message.attachments.length > 0 && (
+                    <MessageAttachments 
+                        attachments={message.attachments}
+                        onImageClick={handleImagePreview}
+                    />
+                )}
+                
                 {message.is_group_message && (
                     <div className="text-xs mt-1 opacity-60 flex items-center gap-1">
                         <Users className="w-3 h-3" />
@@ -665,8 +769,13 @@ export default function MessagesContent() {
                         </div>
 
                         {/* Input message */}
-                        <div className="bg-white border-t flex justify-end border-gray-100 px-4 lg:px-6 py-3 lg:py-4">
-                            <form onSubmit={handleSendMessage} className="flex w-[87%] lg:w-full gap-2 lg:gap-3">
+                        <div className="bg-white border-t border-gray-100 px-4 lg:px-6 py-3 lg:py-4 space-y-3">
+            {/* File Attachment Input */}
+            <FileAttachmentInput
+                key={fileInputKey}
+                onFilesChange={handleFilesChange}
+                disabled={sendingMessage}
+            />                            <form onSubmit={handleSendMessage} className="flex w-full gap-2 lg:gap-3">
                                 <input
                                     type="text"
                                     value={newMessage}
@@ -704,8 +813,17 @@ export default function MessagesContent() {
                     sendingMessage={sendingMessage}
                     onSendMessage={handleSendGroupMessage}
                     onClose={handleCloseGroupComposer}
+                    selectedFiles={groupSelectedFiles}
+                    onFilesChange={handleGroupFilesChange}
                 />
             )}
+
+            {/* Modal de prévisualisation d'image */}
+            <ImagePreviewModal
+                attachment={imagePreview.attachment}
+                isOpen={imagePreview.isOpen}
+                onClose={handleCloseImagePreview}
+            />
         </div>
     );
 }

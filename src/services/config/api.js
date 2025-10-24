@@ -18,6 +18,28 @@ apiClient.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        
+        // If sending FormData, remove Content-Type header to let browser set it with boundary
+        if (config.data instanceof FormData) {
+            console.log('🔧 API: Detected FormData, removing Content-Type header');
+            delete config.headers['Content-Type'];
+            
+            // Debug FormData being sent
+            console.log('🚀 API: Sending FormData with entries:');
+            for (let [key, value] of config.data.entries()) {
+                if (value instanceof File) {
+                    console.log(`  ${key}: File(${value.name}, ${value.size}B, ${value.type})`);
+                } else {
+                    console.log(`  ${key}: ${value}`);
+                }
+            }
+        } else {
+            console.log('🚀 API: Sending JSON data:', config.data);
+        }
+        
+        console.log('🎯 API: Request to:', config.method?.toUpperCase(), config.url);
+        console.log('📋 API: Headers:', config.headers);
+        
         return config;
     },
     (error) => {

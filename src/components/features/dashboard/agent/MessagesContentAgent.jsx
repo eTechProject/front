@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { MessageSquareText, ArrowLeft, Search, Send, Loader } from "lucide-react";
+import { MessageSquareText, ArrowLeft, Search, Send, Loader, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { useMessages } from "@/hooks/features/messaging/useMessage.js";
 import { useAgentTasks } from "@/hooks/features/agent/useAgentTasks.js";
 import useMercureSubscription from "@/hooks/features/messaging/useMercureSubscription.js";
 import generateConversationTopic from "@/utils/generateConversationTopic.js";
 import { useInfiniteScroll } from "@/hooks/features/messaging/useInfiniteScroll.js";
+import { FileAttachmentInput, MessageAttachments } from '../client/FileAttachment.jsx';
+import { ImagePreviewModal } from '../client/ImagePreviewModal.jsx';
 import toast from "react-hot-toast";
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
@@ -34,6 +36,11 @@ export default function MessagesContentAgent() {
     const [newMessage, setNewMessage] = useState('');
     const [sendingMessage, setSendingMessage] = useState(false);
     const [mercureToken, setMercureToken] = useState(null);
+    
+    // File attachment states
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [fileInputKey, setFileInputKey] = useState(0);
+    const [imagePreview, setImagePreview] = useState({ isOpen: false, attachment: null });
 
     // Hooks
     const { user } = useAuth();
@@ -117,7 +124,12 @@ export default function MessagesContentAgent() {
             limit: MESSAGES_LIMIT
         }).then((result) => {
             if (result.success) {
-                setTimeout(() => scrollToBottom('auto'), 100);
+                    setTimeout(() => {
+                    scrollToBottom('auto');
+                    // Double-check scroll after DOM updates
+                    setTimeout(() => scrollToBottom('auto'), 50);
+                    setTimeout(() => scrollToBottom('auto'), 200);
+                }, 100);
             }
         });
     }, [selectedClient, agentId]);
@@ -165,19 +177,28 @@ export default function MessagesContentAgent() {
         onMessage: handleMercureMessage
     });
 
-    // Auto-scroll pour les nouveaux messages
+    // Enhanced auto-scroll pour les nouveaux messages
     useEffect(() => {
         if (sortedMessages.length > 0) {
-            // Vérifier si l'utilisateur est proche du bas avant de scroller
             const container = containerRef.current;
             if (container) {
-                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-                if (isNearBottom) {
-                    scrollToBottom('smooth');
+                const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+                
+                // Get the latest message
+                const latestMessage = sortedMessages[sortedMessages.length - 1];
+                
+                // Always scroll to bottom if:
+                // 1. User is near bottom (within 150px)
+                // 2. The latest message is from current user (message they just sent)
+                if (isNearBottom || latestMessage?.sender_id === agentId) {
+                    // Use requestAnimationFrame for smoother scrolling
+                    requestAnimationFrame(() => {
+                        scrollToBottom('smooth');
+                    });
                 }
             }
         }
-    }, [sortedMessages]);
+    }, [sortedMessages, agentId, scrollToBottom]);
 
     // Handlers
     const handleSelectClient = useCallback((userData) => {
@@ -191,10 +212,15 @@ export default function MessagesContentAgent() {
 
     const handleSendMessage = useCallback(async (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !selectedClient || sendingMessage) return;
+        if ((!newMessage.trim() && selectedFiles.length === 0) || !selectedClient || sendingMessage) return;
 
         const messageContent = newMessage;
+        const filesToSend = [...selectedFiles];
+        
+        // Clear UI immediately for better UX
         setNewMessage('');
+        setSelectedFiles([]);
+        setFileInputKey(prev => prev + 1); // Reset FileAttachmentInput
         setSendingMessage(true);
 
         try {
@@ -203,17 +229,32 @@ export default function MessagesContentAgent() {
                 sender_id: agentId,
                 receiver_id: selectedClient.user.id,
                 content: messageContent
-            }, false);
+            }, filesToSend);
 
-            setTimeout(() => scrollToBottom('smooth'), 100);
+            // Enhanced scroll after sending - use multiple approaches for reliability
+            scrollToBottom('auto'); // Immediate scroll
+            setTimeout(() => scrollToBottom('smooth'), 50); // Follow-up smooth scroll
+            setTimeout(() => scrollToBottom('smooth'), 200); // Final scroll to ensure message is visible
         } catch (error) {
             console.error('Erreur lors de l\'envoi du message:', error);
+            // Error occurred, restore message and files
             setNewMessage(messageContent);
+            setSelectedFiles(filesToSend);
+            setFileInputKey(prev => prev + 1); // Reset FileAttachmentInput to show restored files
             toast.error('Erreur lors de l\'envoi du message');
         } finally {
             setSendingMessage(false);
         }
-    }, [newMessage, selectedClient, sendingMessage, agentId, sendMessage, scrollToBottom]);
+    }, [newMessage, selectedFiles, selectedClient, sendingMessage, agentId, sendMessage, scrollToBottom]);
+
+    // Image preview handlers
+    const handleImagePreview = useCallback((attachment) => {
+        setImagePreview({ isOpen: true, attachment });
+    }, []);
+
+    const handleCloseImagePreview = useCallback(() => {
+        setImagePreview({ isOpen: false, attachment: null });
+    }, []);
 
     // Composants utilitaires
     const ClientListSkeleton = () => (
@@ -255,9 +296,26 @@ export default function MessagesContentAgent() {
                 ? 'bg-gray-900 text-white'
                 : 'bg-white text-gray-800 border border-gray-100'
             }`}>
-                <div className="break-words whitespace-pre-wrap text-sm">
-                    {message.content}
-                </div>
+                {message.content && (
+                    <div className="break-words whitespace-pre-wrap text-sm">
+                        {message.content}
+                    </div>
+                )}
+                
+                {/* Attachments */}
+                {message.attachments && message.attachments.length > 0 && (
+                    <MessageAttachments 
+                        attachments={message.attachments}
+                        onImageClick={handleImagePreview}
+                    />
+                )}
+                
+                {message.is_group_message && (
+                    <div className="text-xs mt-1 opacity-60 flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        Message groupé
+                    </div>
+                )}
                 <div className="text-xs mt-1 text-right opacity-70">
                     {message.sent_at && new Date(message.sent_at).toLocaleTimeString('fr-FR', {
                         hour: '2-digit',
@@ -426,34 +484,68 @@ export default function MessagesContentAgent() {
                         </div>
 
                         {/* Input message */}
-                        <div className="bg-white border-t flex justify-end border-gray-100 px-4 lg:px-6 py-3 lg:py-4">
-                            <form onSubmit={handleSendMessage} className="flex w-[87%] lg:w-full gap-2 lg:gap-3">
-                                <input
-                                    type="text"
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    placeholder="Tapez votre message..."
-                                    className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 lg:px-4 py-2 lg:py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm bg-gray-50"
-                                    autoComplete="off"
-                                    disabled={sendingMessage}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={!newMessage.trim() || sendingMessage}
-                                    className="bg-gray-900 text-white rounded-lg px-3 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-zinc-200 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
-                                >
-                                    <span className="hidden sm:inline">
-                                        {sendingMessage ? 'Envoi...' : 'Envoyer'}
-                                    </span>
-                                    <span className="sm:hidden">
-                                        {sendingMessage ? '...' : <Send className="w-4 h-4"/>}
-                                    </span>
-                                </button>
-                            </form>
+                        <div className="bg-white border-t border-gray-100">
+                            {/* File attachment area */}
+                            {selectedFiles.length > 0 && (
+                                <div className="px-4 lg:px-6 py-2 border-b border-gray-100">
+                                    <FileAttachmentInput
+                                        key={fileInputKey}
+                                        selectedFiles={selectedFiles}
+                                        onFilesChange={setSelectedFiles}
+                                        disabled={sendingMessage}
+                                    />
+                                </div>
+                            )}
+                            
+                            <div className="flex items-end gap-2 lg:gap-3 px-4 lg:px-6 py-3 lg:py-4">
+                                <div className="flex-1 flex flex-col gap-2">
+                                    {/* File attachment input */}
+                                    {selectedFiles.length === 0 && (
+                                        <FileAttachmentInput
+                                            key={fileInputKey}
+                                            selectedFiles={selectedFiles}
+                                            onFilesChange={setSelectedFiles}
+                                            disabled={sendingMessage}
+                                        />
+                                    )}
+                                    
+                                    {/* Message input */}
+                                    <form onSubmit={handleSendMessage} className="flex gap-2 lg:gap-3">
+                                        <input
+                                            type="text"
+                                            value={newMessage}
+                                            onChange={(e) => setNewMessage(e.target.value)}
+                                            placeholder="Tapez votre message..."
+                                            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 lg:px-4 py-2 lg:py-2.5 focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm bg-gray-50"
+                                            autoComplete="off"
+                                            disabled={sendingMessage}
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={(!newMessage.trim() && selectedFiles.length === 0) || sendingMessage}
+                                            className="bg-gray-900 text-white rounded-lg px-3 lg:px-6 py-2 lg:py-2.5 font-medium shadow hover:bg-gray-800 transition disabled:bg-zinc-200 disabled:text-gray-400 text-sm lg:text-base flex-shrink-0"
+                                        >
+                                            <span className="hidden sm:inline">
+                                                {sendingMessage ? 'Envoi...' : 'Envoyer'}
+                                            </span>
+                                            <span className="sm:hidden">
+                                                {sendingMessage ? '...' : <Send className="w-4 h-4"/>}
+                                            </span>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
                     </>
                 )}
             </div>
+
+            {/* Image Preview Modal */}
+            <ImagePreviewModal
+                attachment={imagePreview.attachment}
+                isOpen={imagePreview.isOpen}
+                onClose={handleCloseImagePreview}
+            />
         </div>
     );
 }

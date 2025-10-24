@@ -12,11 +12,11 @@ export const useMessages = () => {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [conversationParams, setConversationParams] = useState(null);
 
-    const sendMessage = async (messageData, addToLocalState = false) => {
+    const sendMessage = async (messageData, addToLocalState = false, files = []) => {
         setIsLoading(true);
         setError(null);
         setSuccess(false);
-        const result = await messageService.sendMessage(messageData);
+        const result = await messageService.sendMessage(messageData, files);
         setIsLoading(false);
         setSuccess(result.success);
         if (result.success && addToLocalState) {
@@ -31,11 +31,11 @@ export const useMessages = () => {
         return result;
     };
 
-    const sendGroupMessage = async (messageData) => {
+    const sendGroupMessage = async (messageData, files = []) => {
         setIsLoading(true);
         setError(null);
         setSuccess(false);
-        const result = await messageService.sendGroupMessage(messageData);
+        const result = await messageService.sendGroupMessage(messageData, files);
         setIsLoading(false);
         setSuccess(result.success);
         if (!result.success) {

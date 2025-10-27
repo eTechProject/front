@@ -8,6 +8,7 @@ import { isPointInPolygon } from "@/utils/geoUtils.js";
 import { useLocalStorageState } from "@/hooks/listener/useLocalStorageState.js";
 import {mapReloadService} from "@/services/map/mapReloadService.js";
 import {useAlert} from "@/hooks/features/alert/useAlert.js";
+import { agentColorCache } from "@/utils/agentColorUtils.js";
 
 /**
  * Main map component.
@@ -522,7 +523,7 @@ const MapView = React.forwardRef(({
 
             const agentId = agent.id || agent.tempId;
             const position = [agent.position.lat, agent.position.lng];
-            const agentColor = agent.routeColor || `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+            const agentColor = agent.routeColor || agentColorCache.getColor(agentId);
 
             const existingMarkerData = existingMarkers.get(agentId);
 

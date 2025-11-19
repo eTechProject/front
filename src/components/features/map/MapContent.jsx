@@ -1182,6 +1182,52 @@ const MobileEmployeeList = ({
                             }) => {
     const [showUnassigned, setShowUnassigned] = useState(false);
 
+    // Helper functions for task status (same as EmployeeList)
+    const getTaskStatusColor = (status) => {
+        switch (status) {
+            case 'pending':
+                return 'bg-red-500'; // Red for pending
+            case 'in_progress':
+                return 'bg-green-500'; // Green for in progress
+            case 'completed':
+                return 'bg-blue-500'; // Blue for completed
+            case 'cancelled':
+                return 'bg-gray-500'; // Gray for cancelled
+            default:
+                return 'bg-green-500'; // Default green for "En mission"
+        }
+    };
+
+    const getTaskStatusText = (status) => {
+        switch (status) {
+            case 'pending':
+                return 'En attente';
+            case 'in_progress':
+                return 'En cours';
+            case 'completed':
+                return 'Terminée';
+            case 'cancelled':
+                return 'Annulée';
+            default:
+                return 'En mission';
+        }
+    };
+
+    const getTaskStatusTextColor = (status) => {
+        switch (status) {
+            case 'pending':
+                return 'bg-red-100 text-red-600'; // Red background for pending
+            case 'in_progress':
+                return 'bg-green-100 text-green-600'; // Green background for in progress
+            case 'completed':
+                return 'bg-blue-100 text-blue-600'; // Blue background for completed
+            case 'cancelled':
+                return 'bg-gray-100 text-gray-600'; // Gray background for cancelled
+            default:
+                return 'bg-blue-100 text-blue-600'; // Default blue for "En mission"
+        }
+    };
+
     const filteredEmployees = employees.filter((emp) =>
         emp.name.toLowerCase().includes(filterText.toLowerCase())
     );
@@ -1277,7 +1323,7 @@ const MobileEmployeeList = ({
                                     {employee.avatar}
                                 </div>
                                 <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center shadow-sm ${
-                                    showUnassigned ? 'bg-blue-500' : 'bg-green-500'
+                                    showUnassigned ? 'bg-blue-500' : getTaskStatusColor(employee.task?.status)
                                 }`}>
                                     {showUnassigned ? (
                                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1297,9 +1343,9 @@ const MobileEmployeeList = ({
                             </div>
                             <div className="ml-2">
                                 <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    showUnassigned ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
+                                    showUnassigned ? 'bg-blue-100 text-blue-600' : getTaskStatusTextColor(employee.task?.status)
                                 }`}>
-                                    {showUnassigned ? 'Disponible' : 'En mission'}
+                                    {showUnassigned ? 'Disponible' : getTaskStatusText(employee.task?.status)}
                                 </div>
                             </div>
                         </div>

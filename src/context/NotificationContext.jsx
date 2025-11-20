@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useCallback, useEffect, useState, useRef } from 'react';
 import useMercureSubscription from '@/hooks/features/messaging/useMercureSubscription.js';
 import { useAuth } from '@/context/AuthContext.jsx';
+import { playNotificationSound } from '@/utils/notificationSound.js';
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
 const TOKEN_REFRESH_BUFFER = 60;
@@ -23,6 +24,7 @@ export function NotificationProvider({ children }) {
     const [unreadMessages, setUnreadMessages] = useState(0);
     const [latestMessage, setLatestMessage] = useState(null);
     const [notifications, setNotifications] = useState([]);
+    const [toasts, setToasts] = useState([]);
 
     const userRef = useRef(user);
     useEffect(() => {
@@ -84,6 +86,27 @@ export function NotificationProvider({ children }) {
         fetchToken().then();
     }, [globalTopic, mercureToken, getMercureToken]);
 
+    const showToast = useCallback((notification) => {
+        const toastId = notification.id || Date.now();
+        const toast = {
+            id: toastId,
+            type: notification.type || 'info',
+            title: notification.title,
+            message: notification.message,
+            timestamp: new Date(),
+            duration: notification.duration || 10000
+        };
+
+        setToasts(prev => [...prev, toast]);
+
+        // Play notification sound
+        playNotificationSound();
+    }, []);
+
+    const removeToast = useCallback((toastId) => {
+        setToasts(prev => prev.filter(t => t.id !== toastId));
+    }, []);
+
     const handleGlobalMercureMessage = useCallback((data) => {
         const currentUser = userRef.current;
         if (!data || !currentUser) return;
@@ -105,6 +128,16 @@ export function NotificationProvider({ children }) {
             setUnreadMessages(prev => prev + 1);
             setLatestMessage(newNotification);
 
+            // Show toast notification
+            showToast({
+                id: newNotification.id,
+                type: 'message',
+                title: `Nouveau message de ${data.sender_name || 'Quelqu\'un'}`,
+                message: data.content.length > 100 ? `${data.content.substring(0, 100)}...` : data.content,
+                duration: 10000
+            });
+
+            // Show browser notification only if tab is not visible
             if (permission === 'granted' && isEnabled && !isTabVisible()) {
                 const senderName = data.sender_name || 'Quelqu\'un';
                 const title = `Nouveau message de ${senderName}`;
@@ -119,7 +152,6 @@ export function NotificationProvider({ children }) {
 
                 notification.onclick = () => {
                     window.focus();
-                    // Déclencher l'événement pour ouvrir la section Messages
                     window.dispatchEvent(new CustomEvent('navigateToMessages'));
                     notification.close();
                 };
@@ -127,7 +159,7 @@ export function NotificationProvider({ children }) {
                 setTimeout(() => notification.close(), 5000);
             }
         }
-    }, [permission, isEnabled, isTabVisible]);
+    }, [permission, isEnabled, isTabVisible, showToast]);
 
     useMercureSubscription({
         topic: globalTopic,
@@ -156,6 +188,30 @@ export function NotificationProvider({ children }) {
         setLatestMessage(null);
     }, []);
 
+    const addNotification = useCallback((notification) => {
+        const newNotif = {
+            id: notification.id || Date.now(),
+            type: notification.type || 'info',
+            timestamp: new Date(),
+            data: notification.data,
+            title: notification.title,
+            message: notification.message,
+            read: false
+        };
+
+        setNotifications(prev => [newNotif, ...prev.slice(0, 49)]);
+        setUnreadMessages(prev => prev + 1);
+
+        // Show toast
+        showToast({
+            id: newNotif.id,
+            type: newNotif.type,
+            title: newNotif.title,
+            message: newNotif.message,
+            duration: notification.duration || 10000
+        });
+    }, [showToast]);
+
     const contextValue = {
         permission,
         isEnabled,
@@ -165,8 +221,12 @@ export function NotificationProvider({ children }) {
         unreadMessages,
         latestMessage,
         notifications,
+        toasts,
         markMessagesAsRead,
-        clearNotifications
+        clearNotifications,
+        addNotification,
+        showToast,
+        removeToast
     };
 
     return (

@@ -3,6 +3,7 @@ import { Bell, X, Move } from "lucide-react";
 import { useAuth } from "@/context/AuthContext.jsx";
 import { useInfiniteScroll } from "@/hooks/features/messaging/useInfiniteScroll.js";
 import { useNotifications } from "@/hooks/features/notification/useNotification.js";
+import { useNotifications as useNotificationContext } from "@/context/NotificationContext.jsx";
 import generateNotifTopic from "@/utils/generateNotifTopic.js";
 import useMercureSubscription from "@/hooks/features/notification/useMercureNotificationSubscription.js";
 import { useLocalStorageState } from "@/hooks/listener/useLocalStorageState.js";
@@ -51,6 +52,9 @@ export default function DraggableNotificationsPopover({ onNotificationReceived }
         markNotificationRead,
         markAllNotificationsRead,
     } = useNotifications();
+    
+    // Get notification context for toasts and browser notifications
+    const { showToast, permission, isEnabled, isTabVisible } = useNotificationContext();
 
     const { containerRef, scrollToBottom } = useInfiniteScroll(
         loadMoreNotifications,
@@ -130,7 +134,38 @@ export default function DraggableNotificationsPopover({ onNotificationReceived }
 
         const notificationWithUserInfo = { ...data };
         addMercureNotificationRef.current(notificationWithUserInfo);
-    }, [setIsAlertActive]);
+        
+        // Show toast notification with content
+        const notificationType = data.data.type === 'alert_start' ? 'alert' : 
+                                data.data.type === 'alert_stop' ? 'info' : 
+                                data.data.type === 'task_assignment' ? 'info' : 'info';
+        
+        showToast({
+            id: data.data.id || Date.now(),
+            type: notificationType,
+            title: data.data.title || 'Nouvelle notification',
+            message: data.data.message || data.data.description || 'Vous avez une nouvelle notification',
+            duration: 10000
+        });
+        
+        // Show browser notification if tab not visible
+        if (permission === 'granted' && isEnabled && !isTabVisible()) {
+            const browserNotif = new Notification(data.data.title || 'Nouvelle notification', {
+                body: data.data.message || data.data.description || 'Vous avez une nouvelle notification',
+                icon: '/favicon.ico',
+                tag: `notification-${data.data.id}`,
+                silent: false
+            });
+            
+            browserNotif.onclick = () => {
+                window.focus();
+                setOpen(true);
+                browserNotif.close();
+            };
+            
+            setTimeout(() => browserNotif.close(), 5000);
+        }
+    }, [setIsAlertActive, showToast, permission, isEnabled, isTabVisible]);
 
     const handleNavigationToMap = useCallback(() => {
         console.log('🗺️ Déclenchement navigation vers Map');

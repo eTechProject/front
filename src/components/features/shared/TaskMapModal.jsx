@@ -331,6 +331,14 @@ const TaskMapModal = ({
                                             {task.type}
                                         </span>
                                     </div>
+                                    {task.agentName && (
+                                        <div className="flex justify-between">
+                                            <span className="text-sm text-gray-600">Agent:</span>
+                                            <span className="text-sm text-gray-900 font-medium">
+                                                {task.agentName}
+                                            </span>
+                                        </div>
+                                    )}
                                     {task.startDate && (
                                         <div className="flex justify-between">
                                             <span className="text-sm text-gray-600">Début:</span>

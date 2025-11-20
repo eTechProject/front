@@ -10,6 +10,12 @@ export const useDashboardLogic = (fetchFunction, userId = null) => {
     const [selectedTask, setSelectedTask] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // Task history filters
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("");
+    const [typeFilter, setTypeFilter] = useState("");
+    const [agentFilter, setAgentFilter] = useState("");
+
     const limit = 10;
 
     const filterOptions = [
@@ -35,6 +41,13 @@ export const useDashboardLogic = (fetchFunction, userId = null) => {
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setSelectedTask(null);
+    };
+
+    const handleClearFilters = () => {
+        setSearchTerm("");
+        setStatusFilter("");
+        setTypeFilter("");
+        setAgentFilter("");
     };
 
     useEffect(() => {
@@ -98,5 +111,14 @@ export const useDashboardLogic = (fetchFunction, userId = null) => {
         handleFilterChange,
         handleOpenMap,
         handleCloseModal,
+        searchTerm,
+        setSearchTerm,
+        statusFilter,
+        setStatusFilter,
+        typeFilter,
+        setTypeFilter,
+        agentFilter,
+        setAgentFilter,
+        handleClearFilters,
     };
 };

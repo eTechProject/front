@@ -19,6 +19,7 @@ import KPIBox from "@/components/features/shared/KPIBox.jsx";
 import ChartRenderer from "@/components/features/shared/ChartRenderer.jsx";
 import TaskCard from "@/components/features/shared/TaskCard.jsx";
 import Pagination from "@/components/features/shared/Pagination.jsx";
+import TaskHistoryFilters from "@/components/features/shared/TaskHistoryFilters.jsx";
 
 
 // Enregistrer les composants Chart.js
@@ -47,9 +48,33 @@ export default function AgentDashboard() {
         handleFilterChange,
         handleOpenMap,
         handleCloseModal,
+        searchTerm,
+        setSearchTerm,
+        statusFilter,
+        setStatusFilter,
+        typeFilter,
+        setTypeFilter,
+        handleClearFilters,
     } = useDashboardLogic(fetchDashboard);
 
     const { kpis, charts, tasks } = dashboardData;
+
+    // Filter tasks based on search term (name/description), status, and type
+    const filteredTasks = React.useMemo(() => {
+        if (!tasks) return [];
+        
+        return tasks.filter(task => {
+            const matchesSearch = !searchTerm || 
+                task.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                task.orderDescription?.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            const matchesStatus = !statusFilter || task.status === statusFilter;
+            const matchesType = !typeFilter || task.type === typeFilter;
+            
+            return matchesSearch && matchesStatus && matchesType;
+        });
+    }, [tasks, searchTerm, statusFilter, typeFilter]);
 
     return (
         <div className="w-full h-full p-4 sm:p-6 lg:p-8 overflow-auto">
@@ -132,22 +157,39 @@ export default function AgentDashboard() {
                                         </h2>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                                        {tasks.map((task) => (
-                                            <TaskCard
-                                                key={task.taskId}
-                                                task={task}
-                                                onOpenMap={handleOpenMap}
-                                            />
-                                        ))}
-                                    </div>
-
-                                    <Pagination
-                                        pagination={pagination}
-                                        currentPage={currentPage}
-                                        setCurrentPage={setCurrentPage}
-                                        itemsLength={tasks.length}
+                                    <TaskHistoryFilters
+                                        searchTerm={searchTerm}
+                                        onSearchChange={setSearchTerm}
+                                        statusFilter={statusFilter}
+                                        onStatusChange={setStatusFilter}
+                                        typeFilter={typeFilter}
+                                        onTypeChange={setTypeFilter}
+                                        onClearFilters={handleClearFilters}
                                     />
+
+                                    {filteredTasks.length > 0 ? (
+                                        <>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                                                {filteredTasks.map((task) => (
+                                                    <TaskCard
+                                                        key={task.taskId}
+                                                        task={task}
+                                                        onOpenMap={handleOpenMap}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <Pagination
+                                                pagination={pagination}
+                                                currentPage={currentPage}
+                                                setCurrentPage={setCurrentPage}
+                                                itemsLength={filteredTasks.length}
+                                            />
+                                        </>
+                                    ) : (
+                                        <div className="bg-gray-50 p-8 rounded-lg text-center">
+                                            <p className="text-gray-600">Aucune tâche ne correspond aux critères de recherche.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

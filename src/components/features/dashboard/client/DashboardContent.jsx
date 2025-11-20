@@ -20,6 +20,7 @@ import ChartRenderer from "@/components/features/shared/ChartRenderer.jsx";
 import TaskCard from "@/components/features/shared/TaskCard.jsx";
 import Pagination from "@/components/features/shared/Pagination.jsx";
 import TaskMapModal from "@/components/features/shared/TaskMapModal.jsx";
+import TaskHistoryFilters from "@/components/features/shared/TaskHistoryFilters.jsx";
 
 // Enregistrer les composants Chart.js
 ChartJS.register(
@@ -48,9 +49,48 @@ export default function DashboardContent() {
         handleFilterChange,
         handleOpenMap,
         handleCloseModal,
+        searchTerm,
+        setSearchTerm,
+        statusFilter,
+        setStatusFilter,
+        typeFilter,
+        setTypeFilter,
+        agentFilter,
+        setAgentFilter,
+        handleClearFilters,
     } = useDashboardLogic(fetchDashboard, user.userId);
 
     const { kpis, charts, tasksHistory } = dashboardData;
+
+    // Extract unique agents from tasks
+    const agents = React.useMemo(() => {
+        if (!tasksHistory || tasksHistory.length === 0) return [];
+        const agentMap = new Map();
+        tasksHistory.forEach(task => {
+            if (task.agentId && task.agentName) {
+                agentMap.set(task.agentId, { id: task.agentId, name: task.agentName });
+            }
+        });
+        return Array.from(agentMap.values());
+    }, [tasksHistory]);
+
+    // Filter tasks based on search term (name/description), status, type, and agent
+    const filteredTasks = React.useMemo(() => {
+        if (!tasksHistory) return [];
+        
+        return tasksHistory.filter(task => {
+            const matchesSearch = !searchTerm || 
+                task.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                task.orderDescription?.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            const matchesStatus = !statusFilter || task.status === statusFilter;
+            const matchesType = !typeFilter || task.type === typeFilter;
+            const matchesAgent = !agentFilter || task.agentId === agentFilter;
+            
+            return matchesSearch && matchesStatus && matchesType && matchesAgent;
+        });
+    }, [tasksHistory, searchTerm, statusFilter, typeFilter, agentFilter]);
 
     return (
         <div className="w-full h-full p-4 sm:p-6 lg:p-8 overflow-auto">
@@ -154,22 +194,42 @@ export default function DashboardContent() {
                                         </h2>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                                        {tasksHistory.map((task) => (
-                                            <TaskCard
-                                                key={task.taskId}
-                                                task={task}
-                                                onOpenMap={handleOpenMap}
-                                            />
-                                        ))}
-                                    </div>
-
-                                    <Pagination
-                                        pagination={pagination}
-                                        currentPage={currentPage}
-                                        setCurrentPage={setCurrentPage}
-                                        itemsLength={tasksHistory.length}
+                                    <TaskHistoryFilters
+                                        searchTerm={searchTerm}
+                                        onSearchChange={setSearchTerm}
+                                        statusFilter={statusFilter}
+                                        onStatusChange={setStatusFilter}
+                                        typeFilter={typeFilter}
+                                        onTypeChange={setTypeFilter}
+                                        agentFilter={agentFilter}
+                                        onAgentChange={setAgentFilter}
+                                        agents={agents}
+                                        onClearFilters={handleClearFilters}
                                     />
+
+                                    {filteredTasks.length > 0 ? (
+                                        <>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                                                {filteredTasks.map((task) => (
+                                                    <TaskCard
+                                                        key={task.taskId}
+                                                        task={task}
+                                                        onOpenMap={handleOpenMap}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <Pagination
+                                                pagination={pagination}
+                                                currentPage={currentPage}
+                                                setCurrentPage={setCurrentPage}
+                                                itemsLength={filteredTasks.length}
+                                            />
+                                        </>
+                                    ) : (
+                                        <div className="bg-gray-50 p-8 rounded-lg text-center">
+                                            <p className="text-gray-600">Aucune tâche ne correspond aux critères de recherche.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

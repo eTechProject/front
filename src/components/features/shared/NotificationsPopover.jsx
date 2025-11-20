@@ -6,6 +6,7 @@ import { useNotifications } from "@/hooks/features/notification/useNotification.
 import generateNotifTopic from "@/utils/generateNotifTopic.js";
 import useMercureSubscription from "@/hooks/features/notification/useMercureNotificationSubscription.js";
 import { useLocalStorageState } from "@/hooks/listener/useLocalStorageState.js";
+import { mapReloadService } from "@/services/map/mapReloadService.js";
 import "./notificationsPopover.css"
 
 const MERCURE_URL = import.meta.env.VITE_MERCURE_URL || 'http://localhost:8000/.well-known/mercure';
@@ -107,12 +108,24 @@ export default function DraggableNotificationsPopover({ onNotificationReceived }
 
     const handleNotification = useCallback((data) => {
         console.log('🗺️ Notification reçue, préparation navigation vers Map:', data.data.type);
+        console.log('🔔 Full notification data:', data);
         if (!data.data.type || !addMercureNotificationRef.current) return;
 
         if (data.data.type === "alert_start" ) {
             setIsAlertActive(true);
         } else if (data.data.type === "alert_stop") {
             setIsAlertActive(false);
+        }
+
+        // Check if map reload is requested
+        if (data.data.reloadMap === true) {
+            console.log('🔄 Map reload requested in NotificationsPopover! Triggering reload...');
+            try {
+                mapReloadService.triggerReload('notificationMapReload');
+                console.log('✅ Map reload triggered successfully from NotificationsPopover');
+            } catch (err) {
+                console.error('❌ Failed to trigger map reload:', err);
+            }
         }
 
         const notificationWithUserInfo = { ...data };

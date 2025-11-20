@@ -173,7 +173,8 @@ const MapContent = () => {
             let agentUpdated = false;
 
             setAssignedEmployees((prevEmployees) => {
-                return prevEmployees.map((employee) => {
+                // Filter out completed tasks and move them to unassigned
+                const updatedEmployees = prevEmployees.map((employee) => {
                     if (employee.id === agent_id) {
                         const newPosition = {
                             lat: parseFloat(latitude),
@@ -209,10 +210,34 @@ const MapContent = () => {
                     }
                     return employee;
                 });
+                
+                // Filter out employees with completed tasks and move them to unassigned
+                const completedEmployees = updatedEmployees.filter(emp => emp.task?.status === 'completed');
+                const activeEmployees = updatedEmployees.filter(emp => emp.task?.status !== 'completed');
+                
+                // Move completed employees to unassigned list
+                if (completedEmployees.length > 0) {
+                    completedEmployees.forEach(completedEmp => {
+                        console.log(`🔄 Moving agent ${completedEmp.name} to unassigned list (task completed)`);
+                        setUnassignedEmployees(prev => {
+                            // Check if employee is not already in unassigned list
+                            if (!prev.some(emp => emp.id === completedEmp.id)) {
+                                return [...prev, { 
+                                    ...completedEmp, 
+                                    task: null, // Clear task
+                                    status: 'disponible' 
+                                }];
+                            }
+                            return prev;
+                        });
+                    });
+                }
+                
+                return activeEmployees;
             });
 
             setZoneAssignedAgents((prevAgents) => {
-                return prevAgents.map((agent) => {
+                const updatedAgents = prevAgents.map((agent) => {
                     if (agent.id === agent_id) {
                         console.log(`Updating zone agent position for ${agent.name}`);
 
@@ -244,6 +269,30 @@ const MapContent = () => {
                     }
                     return agent;
                 });
+                
+                // Filter out agents with completed tasks and move them to unassigned
+                const completedAgents = updatedAgents.filter(agent => agent.task?.status === 'completed');
+                const activeAgents = updatedAgents.filter(agent => agent.task?.status !== 'completed');
+                
+                // Move completed agents to unassigned list
+                if (completedAgents.length > 0) {
+                    completedAgents.forEach(completedAgent => {
+                        console.log(`🔄 Moving zone agent ${completedAgent.name} to unassigned list (task completed)`);
+                        setUnassignedEmployees(prev => {
+                            // Check if agent is not already in unassigned list
+                            if (!prev.some(emp => emp.id === completedAgent.id)) {
+                                return [...prev, { 
+                                    ...completedAgent, 
+                                    task: null, // Clear task
+                                    status: 'disponible' 
+                                }];
+                            }
+                            return prev;
+                        });
+                    });
+                }
+                
+                return activeAgents;
             });
 
             if (!agentUpdated) {

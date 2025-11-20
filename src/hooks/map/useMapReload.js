@@ -2,6 +2,7 @@ import {useCallback, useEffect} from 'react';
 import {useZone} from '@/hooks/features/zone/useZone.js';
 import {useAuth} from '@/context/AuthContext.jsx';
 import {mapReloadService} from "@/services/map/mapReloadService.js";
+import { agentColorCache } from "@/utils/agentColorUtils.js";
 
 export const useMapReload = (setZoneData, setZoneAssignedAgents, setAssignedEmployees, setUnassignedEmployees, setZoneLoaded) => {
     const { user, userRole } = useAuth();
@@ -76,7 +77,7 @@ export const useMapReload = (setZoneData, setZoneAssignedAgents, setAssignedEmpl
                             avatar: initials,
                             email: userObj.email,
                             role: userObj.role,
-                            routeColor: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+                            routeColor: agentColorCache.getColor(agent.agentId),
                             position: position,
                             task: assignedAgent.task,
                             phone: userObj.phone || 'Non renseigné',
@@ -108,7 +109,7 @@ export const useMapReload = (setZoneData, setZoneAssignedAgents, setAssignedEmpl
                     avatar: agent.user.name.split(' ').map(n => n[0]).join(''),
                     email: agent.user.email,
                     role: agent.user.role,
-                    routeColor: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+                    routeColor: agentColorCache.getColor(agent.agentId),
                     position: agent.currentPosition,
                     phone: agent.user.phone || 'Non renseigné',
                     task: null,

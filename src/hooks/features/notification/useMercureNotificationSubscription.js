@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { mapReloadService } from '@/services/map/mapReloadService.js';
 
 /**
  * Hook pour s'abonner aux notifications Mercure
@@ -28,6 +29,18 @@ export default function useMercureNotificationSubscription({
         try {
             const data = JSON.parse(event.data);
             console.log('🔔 Données notification parsées:', data);
+            console.log('🔔 Checking reloadMap flag:', data.data?.reloadMap);
+
+            // Check if map reload is requested
+            if (data.data?.reloadMap === true) {
+                console.log('🔄 Map reload requested! Triggering reload...');
+                try {
+                    mapReloadService.triggerReload('notificationMapReload');
+                    console.log('✅ Map reload triggered successfully');
+                } catch (err) {
+                    console.error('❌ Failed to trigger map reload:', err);
+                }
+            }
 
             // Appeler le callback de notification existant
             onNotification?.(data);

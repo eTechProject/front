@@ -14,6 +14,9 @@ const PanicButton = ({ userId, onClose }) => {
             // Mettre à jour isAlertActive via le hook pour déclencher l'événement
             console.log('[PanicButton] Setting isAlertActive to true');
             setIsAlertActive(true);
+            
+            // Store the alert type in localStorage so map can use the correct color
+            localStorage.setItem("alertType", alertType);
 
             const response = await createAlert({
                 userId: userId,

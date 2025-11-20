@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef} from 'react';
 import { CreditCard, Clock, AlertCircle, Euro, User, Eye, Search, Download, Receipt, Filter } from 'lucide-react';
 import { useAuth } from "@/context/AuthContext.jsx";
 import { useSubscriptions } from "@/hooks/features/client/dashboard/useClientSubscription.js";
@@ -378,11 +378,13 @@ export default function SubscriptionContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [historySearchTerm, setHistorySearchTerm] = useState('');
     const [selectedSubscription, setSelectedSubscription] = useState(null);
+    const initialLoadRef = useRef(false);
 
     useEffect(() => {
-        if (user?.userId) {
+        if (user?.userId && !initialLoadRef.current) {
             getPayments({page: 1, limit: 20}).then();
-            getPaymentHistory({page: 1, limit: 50}).then();
+            getPaymentHistory({page: 1, limit: 20}).then();
+            initialLoadRef.current = true;
         }
     }, [user?.userId, getPayments, getPaymentHistory]);
 

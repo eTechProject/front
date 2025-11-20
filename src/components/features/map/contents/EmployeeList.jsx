@@ -33,6 +33,52 @@ const EmployeeList = ({
     const [showUnassigned, setShowUnassigned] = useState(false);
     const [isExpanded, setIsExpanded] = useState(true);
 
+    // Helper functions for task status
+    const getTaskStatusColor = (status) => {
+        switch (status) {
+            case 'pending':
+                return 'bg-red-500'; // Red for pending
+            case 'in_progress':
+                return 'bg-green-500'; // Green for in progress
+            case 'completed':
+                return 'bg-blue-500'; // Blue for completed
+            case 'cancelled':
+                return 'bg-gray-500'; // Gray for cancelled
+            default:
+                return 'bg-green-500'; // Default green for "En mission"
+        }
+    };
+
+    const getTaskStatusText = (status) => {
+        switch (status) {
+            case 'pending':
+                return 'En attente';
+            case 'in_progress':
+                return 'En cours';
+            case 'completed':
+                return 'Terminée';
+            case 'cancelled':
+                return 'Annulée';
+            default:
+                return 'En mission';
+        }
+    };
+
+    const getTaskStatusTextColor = (status) => {
+        switch (status) {
+            case 'pending':
+                return 'bg-red-100 text-red-600'; // Red background for pending
+            case 'in_progress':
+                return 'bg-green-100 text-green-600'; // Green background for in progress
+            case 'completed':
+                return 'bg-blue-100 text-blue-600'; // Blue background for completed
+            case 'cancelled':
+                return 'bg-gray-100 text-gray-600'; // Gray background for cancelled
+            default:
+                return 'bg-blue-100 text-blue-600'; // Default blue for "En mission"
+        }
+    };
+
     // Auto-basculement vers les agents assignés quand plus d'agents non affectés
     React.useEffect(() => {
         if (showUnassigned && filteredUnassignedEmployees().length === 0 && unassignedEmployees.length === 0) {
@@ -242,7 +288,7 @@ const EmployeeList = ({
                                     </div>
                                     <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center 
                                             justify-center shadow-sm transition-transform duration-150 hover:scale-110 ${
-                                        showUnassigned ? 'bg-blue-500' : 'bg-green-500'
+                                        showUnassigned ? 'bg-blue-500' : getTaskStatusColor(employee.task?.status)
                                     }`}>
                                         {showUnassigned ? (
                                             <GripHorizontal className="text-white" size={10}/>
@@ -258,9 +304,11 @@ const EmployeeList = ({
                                     </p>
                                 </div>
                                 {!showUnassigned && (
-                                    <div className="ml-2 px-2 py-1 bg-blue-100 text-blue-600 text-xs font-medium
-                                        rounded-md whitespace-nowrap hover:scale-105 transition-transform duration-150">
-                                        En mission
+                                    <div className={`ml-2 px-2 py-1 text-xs font-medium
+                                        rounded-md whitespace-nowrap hover:scale-105 transition-transform duration-150 ${
+                                        getTaskStatusTextColor(employee.task?.status)
+                                    }`}>
+                                        {getTaskStatusText(employee.task?.status)}
                                     </div>
                                 )}
                             </div>

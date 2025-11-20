@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, MapPin } from 'lucide-react';
+import { Clock, MapPin, User } from 'lucide-react';
 import { format } from 'date-fns';
 
 const TaskCard = ({ task, onOpenMap }) => {
@@ -74,6 +74,15 @@ const TaskCard = ({ task, onOpenMap }) => {
                         {format(new Date(task.endDate), 'dd/MM/yyyy HH:mm')}
                     </span>
                 </div>
+
+                {task.agentName && (
+                    <div className="flex items-center space-x-2">
+                        <User className="h-4 w-4 text-blue-600" />
+                        <span className="text-gray-700 font-medium">
+                            {task.agentName}
+                        </span>
+                    </div>
+                )}
 
                 {task.assignPosition && (
                     <div className="flex items-center space-x-2">

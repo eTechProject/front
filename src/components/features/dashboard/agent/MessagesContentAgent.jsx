@@ -203,10 +203,12 @@ export default function MessagesContentAgent() {
     // Handlers
     const handleSelectClient = useCallback((userData) => {
         setSelectedClient(userData);
+        setSelectedFiles([]);  // Clear files when switching conversations
     }, []);
 
     const handleBackToList = useCallback(() => {
         setSelectedClient(null);
+        setSelectedFiles([]);  // Clear files when going back to list
         resetConversation();
     }, []);
 
@@ -217,26 +219,40 @@ export default function MessagesContentAgent() {
         const messageContent = newMessage;
         const filesToSend = [...selectedFiles];
         
-        // Clear UI immediately for better UX
+        // Clear the UI immediately when send attempt starts
         setNewMessage('');
         setSelectedFiles([]);
-        setFileInputKey(prev => prev + 1); // Reset FileAttachmentInput
+        setFileInputKey(prev => prev + 1); // Force FileAttachmentInput to reset
+        console.log('🔄 Cleared selectedFiles, new length:', 0);
         setSendingMessage(true);
 
         try {
-            await sendMessage({
+            const result = await sendMessage({
                 order_id: selectedClient.user.orderId,
                 sender_id: agentId,
                 receiver_id: selectedClient.user.id,
                 content: messageContent
-            }, filesToSend);
+            }, false, filesToSend);
 
-            // Enhanced scroll after sending - use multiple approaches for reliability
-            scrollToBottom('auto'); // Immediate scroll
-            setTimeout(() => scrollToBottom('smooth'), 50); // Follow-up smooth scroll
-            setTimeout(() => scrollToBottom('smooth'), 200); // Final scroll to ensure message is visible
-        } catch (error) {
-            console.error('Erreur lors de l\'envoi du message:', error);
+            if (result.success) {
+                // Success: Files already cleared, scroll immediately and show success
+                // Use multiple approaches for reliable scrolling after message send
+                scrollToBottom('auto'); // Immediate scroll
+                setTimeout(() => scrollToBottom('smooth'), 50); // Follow-up smooth scroll
+                setTimeout(() => scrollToBottom('smooth'), 200); // Final scroll to ensure message is visible
+                
+                if (filesToSend.length > 0) {
+                    toast.success(`Message envoyé avec ${filesToSend.length} fichier(s)`);
+                }
+            } else {
+                // Error occurred, restore message and files
+                setNewMessage(messageContent);
+                setSelectedFiles(filesToSend);
+                setFileInputKey(prev => prev + 1); // Reset FileAttachmentInput to show restored files
+                toast.error(result.error || 'Erreur lors de l\'envoi du message');
+            }
+        } catch (err) {
+            console.error('Erreur lors de l\'envoi du message:', err);
             // Error occurred, restore message and files
             setNewMessage(messageContent);
             setSelectedFiles(filesToSend);
